@@ -38,8 +38,8 @@ varying vec4 vShape;
 // x: core sigma, y: halo sigma, z: spike decay length, w: spike half-width (pixels)
 varying vec4 vSize;
 
-// Linear light below this is invisible once graded.
-const float VISIBLE = 0.0015;
+// Linear light below this is invisible once graded; sprites end where the light does.
+const float VISIBLE = 0.003;
 
 float gaussianReach(float peak, float sigma) {
   return peak > VISIBLE ? sigma * sqrt(2.0 * log(peak / VISIBLE)) : 0.0;

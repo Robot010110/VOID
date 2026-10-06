@@ -17,7 +17,12 @@ const SHOTS: Shot[] = [
   { name: '0-sky-core', query: 'shot=sky&quality=high&view=core' },
   { name: '0-sky-pole', query: 'shot=sky&quality=high&view=pole' },
   { name: '0-sky-home-low', query: 'shot=sky&quality=low&view=home' },
-  { name: '0-sky-phone', query: 'shot=sky&quality=medium&view=home', viewport: { width: 390, height: 844 }, scale: 2 },
+  {
+    name: '0-sky-phone',
+    query: 'shot=sky&quality=medium&view=home',
+    viewport: { width: 390, height: 844 },
+    scale: 2,
+  },
 ]
 
 /** Resolve after the page has presented `count` more animation frames. */

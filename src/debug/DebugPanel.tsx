@@ -1,7 +1,12 @@
 import { Leva, useControls } from 'leva'
 import { useEffect, useMemo, useRef, useSyncExternalStore } from 'react'
 import { useVoid } from '../core/store.ts'
-import { getTweakFolders, subscribeTweaks, type TweakFolder, type TweakValue } from '../core/tweaks.ts'
+import {
+  getTweakFolders,
+  subscribeTweaks,
+  type TweakFolder,
+  type TweakValue,
+} from '../core/tweaks.ts'
 import { perf } from './perf.ts'
 
 const THEME = {
@@ -17,7 +22,10 @@ const THEME = {
     highlight3: '#f4ebdd',
     vivid1: '#ffb36b',
   },
-  fonts: { mono: "'Hanken Grotesk', system-ui, sans-serif", sans: "'Hanken Grotesk', system-ui, sans-serif" },
+  fonts: {
+    mono: "'Hanken Grotesk', system-ui, sans-serif",
+    sans: "'Hanken Grotesk', system-ui, sans-serif",
+  },
 }
 
 function FolderControls({ folder }: { folder: TweakFolder }) {

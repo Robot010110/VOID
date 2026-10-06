@@ -1,5 +1,6 @@
 import { Bloom, EffectComposer, SMAA, ToneMapping, Vignette } from '@react-three/postprocessing'
 import { ToneMappingMode, type BloomEffect, type VignetteEffect } from 'postprocessing'
+import { useThree } from '@react-three/fiber'
 import { useCallback, useRef } from 'react'
 import { HalfFloatType } from 'three'
 import { TONE } from '../../core/env.ts'
@@ -23,6 +24,9 @@ const TWEAKS: TweakSchema = {
   grain: { value: 0.022, min: 0, max: 0.08, step: 0.001 },
 }
 
+/** At or above this pixel ratio, edges are fine enough that SMAA costs more than it gives. */
+const SMAA_MAX_DPR = 1.75
+
 /**
  * HDR scene → SMAA → bloom → AgX tone mapping → vignette → film grade (look, floor, grain).
  * Everything merges into one full-screen pass (plus SMAA's and bloom's own small passes).
@@ -31,6 +35,7 @@ const TWEAKS: TweakSchema = {
  */
 export function PostPipeline() {
   const quality = useVoid((s) => s.quality)
+  const antialias = useThree((s) => s.viewport.dpr) < SMAA_MAX_DPR
   const bloom = useRef<BloomEffect>(null)
   const vignette = useRef<VignetteEffect>(null)
   const film = useRef<FilmEffect>(null)
@@ -51,7 +56,7 @@ export function PostPipeline() {
 
   return (
     <EffectComposer multisampling={0} frameBufferType={HalfFloatType} enableNormalPass={false}>
-      <SMAA />
+      {antialias ? <SMAA /> : <></>}
       <Bloom
         ref={bloom}
         mipmapBlur

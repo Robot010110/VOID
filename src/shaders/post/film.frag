@@ -1,8 +1,9 @@
 // Final grade, after tone mapping. AgX on its own is faithful but flat in the low mids, so a
-// gentle look (contrast and saturation in display space) comes first. Then the black point
-// is lifted to Abyss, and film grain is added in display space. The grain uses a triangular
-// distribution, so in the darks it doubles as a dither that keeps faint gradients from
-// banding in 8-bit output.
+// gentle look (contrast and saturation) comes first. Then the black point is lifted to Abyss,
+// and film grain is added. The grain uses a triangular distribution, so in the darks it
+// doubles as a dither that keeps faint gradients from banding in 8-bit output.
+// Display space is approximated with gamma 2 (sqrt and square): this pass runs on every
+// pixel at up to twice the screen's resolution, and exact sRGB curves cost a dozen pow()s.
 
 uniform vec3 uFloor;
 uniform float uContrast;
@@ -16,16 +17,8 @@ float filmHash(vec2 p) {
   return fract((p3.x + p3.y) * p3.z);
 }
 
-vec3 filmToDisplay(vec3 c) {
-  return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c));
-}
-
-vec3 filmToLinear(vec3 c) {
-  return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(0.04045, c));
-}
-
 void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
-  vec3 display = filmToDisplay(clamp(inputColor.rgb, 0.0, 1.0));
+  vec3 display = sqrt(clamp(inputColor.rgb, 0.0, 1.0));
 
   // Look: deepen the low mids, then restore a little of the colour AgX lets go of.
   display = pow(display, vec3(uContrast));
@@ -33,15 +26,15 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
   display = clamp(mix(vec3(luma), display, uSaturation), 0.0, 1.0);
 
   // Never pure black: a screen blend towards Abyss lifts the floor and leaves highlights alone.
-  vec3 colour = filmToLinear(display);
+  vec3 colour = display * display;
   colour += uFloor * (1.0 - colour);
-  display = filmToDisplay(colour);
+  display = sqrt(colour);
 
   // A constant dither everywhere, plus grain that is strongest in the mid-tones, like film.
   vec2 pixel = floor(uv * resolution);
   float noise = filmHash(pixel + uSeed * 61.7) + filmHash(pixel.yx + uSeed * 23.3 + 17.0) - 1.0;
   float grain = uGrain * smoothstep(0.02, 0.3, luma) * (1.0 - smoothstep(0.6, 1.0, luma));
-  display += noise * (0.0045 + grain);
+  display = max(display + noise * (0.0045 + grain), 0.0);
 
-  outputColor = vec4(filmToLinear(max(display, vec3(0.0))), inputColor.a);
+  outputColor = vec4(display * display, inputColor.a);
 }

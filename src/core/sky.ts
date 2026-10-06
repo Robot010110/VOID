@@ -62,6 +62,7 @@ interface LayerSpec {
 }
 
 // Far: dense, tiny, dim. Mid: the body of the sky. Near: sparse, larger, brighter.
+// prettier-ignore
 const LAYERS: readonly LayerSpec[] = [
   { kind: 'far', share: 0.74, bandShare: 0.72, bandSigma: 0.085, bulgeShare: 0.14, fluxMin: 0.025, fluxMax: 0.4, slope: 1.7 },
   { kind: 'mid', share: 0.2, bandShare: 0.38, bandSigma: 0.16, bulgeShare: 0.03, fluxMin: 0.08, fluxMax: 2.2, slope: 1.45 },
@@ -117,7 +118,7 @@ export const HOME_BAND: BandFrame = (() => {
   const along: Vec3 = [Math.cos(tilt), Math.sin(tilt), 0]
   const forward: Vec3 = [0, -0.12, -1]
   const pole = normalize(cross(along, forward))
-  const coreAngle = (36 * Math.PI) / 180
+  const coreAngle = (22 * Math.PI) / 180
   const f = normalize([forward[0], forward[1], forward[2]])
   const core: Vec3 = [
     f[0] * Math.cos(coreAngle) + along[0] * Math.sin(coreAngle),
@@ -128,7 +129,12 @@ export const HOME_BAND: BandFrame = (() => {
 })()
 
 /** Band coordinates (longitude, latitude in radians) to a world direction. */
-export function bandToWorld(frame: BandFrame, lon: number, lat: number, out: [number, number, number]) {
+export function bandToWorld(
+  frame: BandFrame,
+  lon: number,
+  lat: number,
+  out: [number, number, number],
+) {
   const cl = Math.cos(lat)
   const bx = cl * Math.sin(lon)
   const by = Math.sin(lat)
@@ -203,7 +209,11 @@ export function generateSky(seed: number, count: number, band: BandFrame = HOME_
     remaining -= layerCount
     const stars: Draft[] = []
     const clusterBudget =
-      spec.kind === 'mid' ? Math.round(clusterStars * 0.75) : spec.kind === 'near' ? clusterStars - Math.round(clusterStars * 0.75) : 0
+      spec.kind === 'mid'
+        ? Math.round(clusterStars * 0.75)
+        : spec.kind === 'near'
+          ? clusterStars - Math.round(clusterStars * 0.75)
+          : 0
     const free = Math.max(0, layerCount - clusterBudget)
 
     for (let i = 0; i < free; i++) {
@@ -231,7 +241,11 @@ export function generateSky(seed: number, count: number, band: BandFrame = HOME_
     for (let m = 0; m < cluster.members; m++) {
       const a = rng.gauss(0, cluster.radius)
       const b = rng.gauss(0, cluster.radius)
-      const dir = normalize([c[0] + u[0] * a + v[0] * b, c[1] + u[1] * a + v[1] * b, c[2] + u[2] * a + v[2] * b])
+      const dir = normalize([
+        c[0] + u[0] * a + v[0] * b,
+        c[1] + u[1] * a + v[1] * b,
+        c[2] + u[2] * a + v[2] * b,
+      ])
       const toMid = midBudget > 0
       const flux = Math.min(rng.pareto(toMid ? 0.12 : 0.3, 1.3), toMid ? 2.2 : 6)
       const temperature = Math.exp(rng.range(Math.log(7000), Math.log(22000)))

@@ -145,7 +145,19 @@ const AWKWARD = [
 ]
 
 /** The only three-consonant runs allowed; anything heavier reads as a typo. */
-const TRIPLES = new Set(['thr', 'str', 'ndr', 'nth', 'rth', 'lth', 'ntr', 'mbr', 'ldr', 'nst', 'rst'])
+const TRIPLES = new Set([
+  'thr',
+  'str',
+  'ndr',
+  'nth',
+  'rth',
+  'lth',
+  'ntr',
+  'mbr',
+  'ldr',
+  'nst',
+  'rst',
+])
 
 const VOWEL = /[aeiouy]/
 
@@ -162,7 +174,8 @@ function cleanName(raw: string, maxLength: number): string | null {
   // run longer than an allowed triple.
   const clusters = consonantClusters(raw)
   if (clusters.length > 2 || new Set(clusters).size !== clusters.length) return null
-  for (const run of clusters) if (run.length > 3 || (run.length === 3 && !TRIPLES.has(run))) return null
+  for (const run of clusters)
+    if (run.length > 3 || (run.length === 3 && !TRIPLES.has(run))) return null
   for (const banned of BANNED_SUBSTRINGS) if (raw.includes(banned)) return null
   if (BANNED_NAMES.has(raw)) return null
   return raw.charAt(0).toUpperCase() + raw.slice(1)

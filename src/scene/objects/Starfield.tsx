@@ -8,7 +8,6 @@ import {
   HalfFloatType,
   LinearFilter,
   Matrix3,
-  Matrix4,
   Mesh,
   OrthographicCamera,
   Points,
@@ -75,6 +74,47 @@ const FULLSCREEN_TRIANGLE = new BufferGeometry().setAttribute(
   new BufferAttribute(new Float32Array([-1, -1, 0, 3, -1, 0, -1, 3, 0]), 3),
 )
 
+/**
+ * A ring of sky around the band's plane, in band coordinates, carrying the baked strip's
+ * UVs per vertex. Segments are small enough (about 2 by 3 degrees) that interpolation of the
+ * UVs across a triangle is indistinguishable from the exact mapping.
+ */
+function createBandRing(latMax: number, lonSegments = 192, latSegments = 24): BufferGeometry {
+  const columns = lonSegments + 1
+  const rows = latSegments + 1
+  const positions = new Float32Array(columns * rows * 3)
+  const uvs = new Float32Array(columns * rows * 2)
+  for (let row = 0; row < rows; row++) {
+    const v = row / latSegments
+    const lat = (v - 0.5) * 2 * latMax
+    for (let column = 0; column < columns; column++) {
+      const u = column / lonSegments
+      const lon = (u - 0.5) * Math.PI * 2
+      const i = row * columns + column
+      positions[i * 3] = Math.cos(lat) * Math.sin(lon)
+      positions[i * 3 + 1] = Math.sin(lat)
+      positions[i * 3 + 2] = Math.cos(lat) * Math.cos(lon)
+      uvs[i * 2] = u
+      uvs[i * 2 + 1] = v
+    }
+  }
+  const indices: number[] = []
+  for (let row = 0; row < latSegments; row++) {
+    for (let column = 0; column < lonSegments; column++) {
+      const a = row * columns + column
+      const b = a + 1
+      const c = a + columns
+      const d = c + 1
+      indices.push(a, c, b, b, c, d)
+    }
+  }
+  const geometry = new BufferGeometry()
+  geometry.setAttribute('position', new BufferAttribute(positions, 3))
+  geometry.setAttribute('uv', new BufferAttribute(uvs, 2))
+  geometry.setIndex(indices)
+  return geometry
+}
+
 type Uniforms = Record<string, IUniform>
 
 function spikeDirection(degrees: number, out: Vector2): Vector2 {
@@ -128,7 +168,7 @@ export function Starfield() {
       uSpikeDirection: { value: spikeDirection(num(TWEAKS, 'spikeAngle'), new Vector2()) },
       uDensity: { value: QUALITY[useVoid.getState().quality].starFraction },
       uBandMap: { value: bandTarget.texture },
-      uBandFrame: { value: new Matrix3().set(...(sky.band.worldToBand as [number, number, number, number, number, number, number, number, number])) },
+      uBandFrame: { value: new Matrix3().fromArray(sky.band.worldToBand).transpose() },
       uBandLatMax: { value: BAND_LAT_MAX },
     }),
     [bandTarget, sky],
@@ -168,26 +208,26 @@ export function Starfield() {
   )
 
   const glow = useMemo(() => {
+    const geometry = createBandRing(BAND_LAT_MAX)
     const material = new ShaderMaterial({
       name: 'band-glow',
       vertexShader: glowVert,
       fragmentShader: glowFrag,
       uniforms: {
         uBandMap: shared.uBandMap!,
-        uBandFrame: shared.uBandFrame!,
-        uBandLatMax: shared.uBandLatMax!,
+        uBandToWorld: { value: (shared.uBandFrame!.value as Matrix3).clone().transpose() },
+        uRadius: { value: 1 },
         uFade: shared.uFade!,
         uIntensity: { value: num(TWEAKS, 'bandGlow') },
-        uInverseProjection: { value: new Matrix4() },
       },
       blending: AdditiveBlending,
       depthTest: false,
       depthWrite: false,
     })
-    const mesh = new Mesh(FULLSCREEN_TRIANGLE, material)
+    const mesh = new Mesh(geometry, material)
     mesh.frustumCulled = false
     mesh.renderOrder = -1001
-    return { mesh, material }
+    return { mesh, material, geometry }
   }, [shared])
 
   // Bake the band once (and again if the target is recreated), then let the sky fade in.
@@ -200,7 +240,9 @@ export function Starfield() {
       fragmentShader: bakeFrag,
       uniforms: {
         uLatMax: { value: BAND_LAT_MAX },
-        uSeedOffset: { value: new Vector3(rng.range(-40, 40), rng.range(-40, 40), rng.range(-40, 40)) },
+        uSeedOffset: {
+          value: new Vector3(rng.range(-40, 40), rng.range(-40, 40), rng.range(-40, 40)),
+        },
       },
       depthTest: false,
       depthWrite: false,
@@ -228,6 +270,7 @@ export function Starfield() {
         layer.material.dispose()
       }
       glow.material.dispose()
+      glow.geometry.dispose()
     },
     [layers, glow],
   )
@@ -247,7 +290,8 @@ export function Starfield() {
     shared.uFade!.value = fade * fade * (3 - 2 * fade)
 
     const density = shared.uDensity!.value as number
-    shared.uDensity!.value = density + (densityTarget - density) * (1 - Math.exp(-delta / DENSITY_EASE))
+    shared.uDensity!.value =
+      density + (densityTarget - density) * (1 - Math.exp(-delta / DENSITY_EASE))
 
     // Parallax from camera travel relative to its distance, so it reads the same at every
     // scale. Jumps (a level swap re-centring the camera) are ignored.
@@ -255,14 +299,19 @@ export function Starfield() {
     if (lastCamera.current === null) lastCamera.current = camera.clone()
     step.subVectors(camera, lastCamera.current)
     const distance = Math.max(camera.length(), 1e-3)
-    if (step.length() < distance * 0.5) offset.current.addScaledVector(step, parallax.current / distance)
+    if (step.length() < distance * 0.5)
+      offset.current.addScaledVector(step, parallax.current / distance)
     lastCamera.current.copy(camera)
     offset.current.multiplyScalar(Math.exp(-delta / RECENTRE)).clampLength(0, MAX_OFFSET)
     for (const layer of layers) {
-      ;(layer.material.uniforms.uOffset!.value as Vector3).copy(offset.current).multiplyScalar(layer.tuning.parallax)
+      ;(layer.material.uniforms.uOffset!.value as Vector3)
+        .copy(offset.current)
+        .multiplyScalar(layer.tuning.parallax)
     }
 
-    ;(glow.material.uniforms.uInverseProjection!.value as Matrix4).copy(state.camera.projectionMatrixInverse)
+    // Halfway to the far plane: inside the frustum at every level, and always infinitely far.
+    const camera3 = state.camera as { far?: number }
+    glow.material.uniforms.uRadius!.value = (camera3.far ?? 1000) * 0.5
   })
 
   const apply = useCallback(
@@ -272,7 +321,8 @@ export function Starfield() {
       if (key === 'spikeAngle') spikeDirection(value, shared.uSpikeDirection!.value as Vector2)
       else if (key === 'bandGlow') glow.material.uniforms.uIntensity!.value = value
       else if (key === 'parallax') parallax.current = value
-      else if (key === 'dust') for (const layer of layers) layer.material.uniforms.uDust!.value = layer.tuning.dust * value
+      else if (key === 'dust')
+        for (const layer of layers) layer.material.uniforms.uDust!.value = layer.tuning.dust * value
       else if (shared[uniformKey]) shared[uniformKey].value = value
     },
     [shared, layers, glow],

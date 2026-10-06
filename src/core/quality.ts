@@ -58,11 +58,14 @@ export function guessTier(gpu: GpuInfo, hints: DeviceHints): QualityTier {
   let tier: QualityTier = 'high'
   if (hints.touch) {
     // Recent Apple, Adreno 7xx/8xx and Mali-G7xx+/Immortalis GPUs handle medium on phones.
-    const strongMobile = /apple|adreno[^0-9]*[78]\d\d|mali-g(7[1-9]|[89]\d|\d{3})|immortalis/.test(renderer)
+    const strongMobile = /apple|adreno[^0-9]*[78]\d\d|mali-g(7[1-9]|[89]\d|\d{3})|immortalis/.test(
+      renderer,
+    )
     tier = strongMobile ? 'medium' : 'low'
   } else if (/intel/.test(renderer) && !/iris|arc|xe/.test(renderer)) {
-    // Older integrated Intel (HD, UHD) rather than Iris Xe or Arc.
-    tier = 'medium'
+    // Older integrated Intel (HD, UHD 620 and friends) is bandwidth-starved: measured at
+    // about 27 fps at a 1.5 pixel ratio, 60 fps at 1. Iris Xe and Arc start high.
+    tier = 'low'
   }
 
   if (hints.memory !== undefined && hints.memory <= 2) return 'low'
@@ -84,7 +87,8 @@ export function probeGpu(): GpuInfo {
     let renderer = String(gl.getParameter(gl.RENDERER) ?? '')
     if (/^(webkit webgl|mozilla)?$/i.test(renderer.trim())) {
       const debugInfo = gl.getExtension('WEBGL_debug_renderer_info')
-      if (debugInfo) renderer = String(gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) ?? renderer)
+      if (debugInfo)
+        renderer = String(gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) ?? renderer)
     }
     return { webgl2: true, renderer }
   } catch {

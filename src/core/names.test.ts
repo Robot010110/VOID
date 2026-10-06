@@ -43,7 +43,8 @@ describe('Language', () => {
       })
 
       it('never produces profanity or blocked real-world words', () => {
-        const blocked = /fuk|shit|cunt|dick|cock|piss|tit|cum|fag|nig|rape|slut|nazi|sex|porn|ass|poo|god|hell|kill/
+        const blocked =
+          /fuk|shit|cunt|dick|cock|piss|tit|cum|fag|nig|rape|slut|nazi|sex|porn|ass|poo|god|hell|kill/
         for (const name of names) expect(name.toLowerCase()).not.toMatch(blocked)
         const lower = new Set(names.map((n) => n.toLowerCase()))
         for (const real of ['mars', 'venus', 'luna', 'vega', 'paris', 'tokyo', 'than', 'mine']) {
@@ -58,7 +59,8 @@ describe('Language', () => {
   }
 
   it('gives families distinct sounds', () => {
-    const vowelEnding = (names: string[]) => names.filter((n) => /[aeiou]$/.test(n)).length / names.length
+    const vowelEnding = (names: string[]) =>
+      names.filter((n) => /[aeiou]$/.test(n)).length / names.length
     const oru = sample(new Language(1, 'oru'), 2, 2000)
     const keth = sample(new Language(1, 'keth'), 2, 2000)
     // Oru opens and closes on vowels; keth closes on consonants.
@@ -73,12 +75,14 @@ describe('Language', () => {
     // Total variation distance between the distributions of two-letter endings.
     const endings = (names: string[]) => {
       const counts = new Map<string, number>()
-      for (const n of names) counts.set(n.slice(-2), (counts.get(n.slice(-2)) ?? 0) + 1 / names.length)
+      for (const n of names)
+        counts.set(n.slice(-2), (counts.get(n.slice(-2)) ?? 0) + 1 / names.length)
       return counts
     }
     const distance = (x: Map<string, number>, y: Map<string, number>) => {
       let total = 0
-      for (const key of new Set([...x.keys(), ...y.keys()])) total += Math.abs((x.get(key) ?? 0) - (y.get(key) ?? 0))
+      for (const key of new Set([...x.keys(), ...y.keys()]))
+        total += Math.abs((x.get(key) ?? 0) - (y.get(key) ?? 0))
       return total / 2
     }
     const dialectA = endings(sample(new Language(10, 'lir'), 3, 3000))
@@ -90,14 +94,16 @@ describe('Language', () => {
   it('titles featured places with two words', () => {
     const language = new Language(4242, 'oru')
     const rng = new Rng(1)
-    for (let i = 0; i < 200; i++) expect(language.titled(rng)).toMatch(/^[A-Z][a-z]{3,6} [A-Z][a-z]+$/)
+    for (let i = 0; i < 200; i++)
+      expect(language.titled(rng)).toMatch(/^[A-Z][a-z]{3,6} [A-Z][a-z]+$/)
   })
 })
 
 describe('catalogueName', () => {
   it('formats minor stars as two letters and a number', () => {
     const rng = new Rng(6)
-    for (let i = 0; i < 500; i++) expect(catalogueName(rng)).toMatch(/^[B-DF-HJ-NP-TV-XZ]{2}-[1-9]\d{0,2}$/)
+    for (let i = 0; i < 500; i++)
+      expect(catalogueName(rng)).toMatch(/^[B-DF-HJ-NP-TV-XZ]{2}-[1-9]\d{0,2}$/)
   })
 
   it('is deterministic', () => {

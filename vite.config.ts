@@ -15,6 +15,8 @@ export default defineConfig({
     // three.js alone is ~700 kB minified. It gets its own long-cacheable chunk.
     chunkSizeWarningLimit: 900,
     rolldownOptions: {
+      // The plugin timing report is informational noise in every build log.
+      checks: { bundlerTimings: false },
       output: {
         codeSplitting: {
           groups: [
