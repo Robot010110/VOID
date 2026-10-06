@@ -1,5 +1,5 @@
 import { useFrame, useThree } from '@react-three/fiber'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import {
   HalfFloatType,
   Vector3,
@@ -77,8 +77,9 @@ function SystemFrame({ path, background }: { path: Path; background: boolean }) 
 /**
  * One mounted level in its own frame. The active level is drawn as is; a level leaving or
  * arriving is drawn through its anchor in the active frame, with its share of the screen.
+ * Memoised: a swap changes the store but not the levels, and must not re-render them.
  */
-function LevelFrame({ path }: { path: Path }) {
+const LevelFrame = memo(function LevelFrame({ path }: { path: Path }) {
   const runtime = levelRuntime(path)
   const gl = useThree((s) => s.gl)
   const scene = useThree((s) => s.scene)
@@ -116,7 +117,7 @@ function LevelFrame({ path }: { path: Path }) {
       </LevelContext.Provider>
     </group>
   )
-}
+})
 
 /** The levels on stage: the current one, plus the next one while a transition runs. */
 export function Levels() {

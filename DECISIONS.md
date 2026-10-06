@@ -154,3 +154,48 @@ Desktop, at a planet                          Phone, at a planet
 - Hovering a world, or focusing it with Tab, shows a thin ring around it and its name beside it. Click, tap or Enter falls into it.
 - Escape or Backspace goes up a level. On touch, the breadcrumb's ancestors are the way up, padded to at least 44 px.
 - The caption is real DOM text in a polite live region, so a screen reader announces each arrival.
+
+### Systems
+
+- **A galaxy speaks one language**, seeded from the galaxy's seed, so a star and its worlds share a sound.
+- **The home system is star 0 of galaxy 0, and featured.** It always has a sun-like star, at least six worlds, a lit temperate home world nearest the habitable zone, a banded and a ringed giant, and a belt.
+- **World kinds follow temperature zones.** Zones are measured against the habitable distance, which grows with the square root of the star's luminosity. Kinds already used are less likely, for variety. Presets vary within their tuned ranges, and giants pick from curated palettes, so every world looks as good as the showroom's.
+- **Until civilisations arrive in Phase 5, at most one temperate world per system is lit.**
+- **Sunlight doesn't fall off as 1/r².** It dims gently beyond the habitable zone (power 0.35, floor 0.55), so outer worlds stay readable. Its colour is the star's blackbody.
+- **Orbits follow Kepler's third law.** At 1x the innermost world takes about 10 minutes and the outermost about 5 hours, so the system is calm but alive.
+
+### Levels and transitions
+
+- **Each level lives in its own frame.** A child's frame is anchored in its parent's: its origin at the moving world, its unit that world's radius. During a swap the leaving level is drawn through that anchor in the arriving level's frame. Only a parent and its child are ever mounted together.
+- **One camera rig for every level.** A flight is computed in the parent's frame and re-expressed in whichever frame is active. The swap only changes units: the picture doesn't move.
+- **The arriving level mounts unseen when the approach begins.** It bakes its maps in the background and compiles its shaders in parallel (KHR_parallel_shader_compile) against a half-float target, because three keys programs by output colour space. The swap waits until it is ready and the world fills the view: 1.35x its resting distance going down, 1.5x going up.
+- **The world itself is handed over, not crossfaded.** Both levels draw it from the same baked maps, so it is identical in the swap frame. Everything else crossfades over 0.8 s.
+- **Arrival is three-quarter lit,** with the star 62 degrees to the side and off screen. The planet level's sun is smaller than the system's star would look from there, and that difference never shows.
+- **Ascents end on the star, still facing the way they started,** so the camera never swings around.
+- **Transition clocks advance with rendered frames. GSAP only provides the easing curves** (power3.inOut and friends). Driving GSAP's ticker from the render loop timed tweens inconsistently, and the screenshot run needs fixed steps.
+- **Escape turns back an approach before the swap.** Zooming falls into a world after about 140 px of wheel over it, and rises out of a level after about 260 px past the outer limit.
+- **The background bake budget is counted in tiles of the current pass.** It grows by one per frame on time, halves after a late frame, and restarts at one with each new pass, because passes differ about tenfold in cost. A byte budget with fixed cost weights overshot by hundreds of milliseconds at pass changes.
+- **Production builds skip three's shader error readback.** Its synchronous log queries stalled the swap frame. Development and the screenshot run keep it.
+- **Close-up maps keep one spare set, and moons have their own cache group.** Sharing a group evicted textures that were still on screen, which stalled the GPU for half a second.
+- **Level frames are memoised,** so a swap updates the store without re-rendering whole levels.
+- **The near plane follows the camera's distance** (1%), keeping depth precise from 200-unit orbits down to a planet's radius.
+
+### Star, flare, orbits, belt
+
+- **The star's surface pattern is baked once:** two granulation fields, the supergranular network and the spot field. The shader blends the two fields region by region over time, so the surface boils for one texture read and one noise sample per pixel.
+- **The face is tinted like an astrophotograph through a filter.** It uses 0.78x the star's temperature, with temperature swings exaggerated 2.5x, so up close it is golden or ember instead of a pale disc that AgX whitens. The light it casts uses the true temperature.
+- **The star adds light but writes depth.** Worlds behind it are hidden and worlds in front of it cover it.
+- **Prominences are arches standing on the limb,** each on its own slow cycle of minutes. Noise-crack versions read as lightning.
+- **The lens flare is a halo and six ghosts in screen space,** at 0.2-1.8% strength. It is visible only while the light is in frame and not hidden. Occlusion is a ray-sphere test against the worlds, with a smooth ramp as the limb crosses the light.
+- **Orbits are ribbons of constant width on screen.** They are brightest just behind each world, faint elsewhere, and fade as the camera nears the world being visited.
+- **The belt is a single instanced draw.** Kepler shear runs in the vertex shader. Rocks never shrink below a pixel: they are drawn at that size with their light spread, like the stars.
+- **The transition's colour fringe lives in the film pass.** It reads the scene buffer at offset coordinates and applies the shift as a difference, so it needs no extra full-screen pass.
+
+### Review and performance
+
+- **The default page opens on the home system.** `?world=<index>` opens close up on one of its worlds. `?view=` takes home, top, edge, wide or star at the system level, and home, night, terminator, day, pole or close at a world. `?planet=<kind>` is still the Phase 1 showroom.
+- **Measured on an Intel UHD 620 at 1600x900, DPR 1, production build:**
+  - System view: 60 fps on Low and High.
+  - Star close-up: about 56 fps.
+  - Descents and ascents on Low (where this GPU starts): p95 frame time 16.7-33 ms.
+  - On High the crossfade frames run 50-100 ms on this GPU, because both levels draw at full detail. Iris Xe is roughly 2.5-3x faster.

@@ -3,7 +3,7 @@ import { lazy, Suspense, useRef } from 'react'
 import type { WebGLRendererParameters } from 'three'
 import { DEBUG, LEVEL, PLANET } from '../core/env.ts'
 import { isPlanetKind } from '../core/planets.ts'
-import { QUALITY, type QualityTier } from '../core/quality.ts'
+import { QUALITY } from '../core/quality.ts'
 import { useVoid } from '../core/store.ts'
 import { CameraRig } from './camera/CameraRig.tsx'
 import { Levels } from './levels/Levels.tsx'
@@ -12,7 +12,7 @@ import { SkyLevel } from './levels/SkyLevel.tsx'
 import { Starfield } from './objects/Starfield.tsx'
 import { PostPipeline } from './post/PostPipeline.tsx'
 import { QualityGovernor } from './QualityGovernor.tsx'
-import { runBakeQueue } from './shared/bake.ts'
+import { bakesPending, currentBake, runBakeQueue } from './shared/bake.ts'
 import { advanceWorldClock } from './shared/clock.ts'
 import { levelRuntime, marker, pointer } from './stage.ts'
 import { installTestHooks } from './testHooks.ts'
@@ -35,14 +35,20 @@ const GL: WebGLRendererParameters = {
 const CAMERA = { fov: 50, near: 0.05, far: 4000, position: [0, 0, 6] as [number, number, number] }
 
 /**
- * Cost-weighted texels baked per frame in the background. Measured so a full-size world's
- * maps finish in well under a second during a 2.2 s approach, without dropping frames.
+ * Tiles baked per frame in the background follow the frame rate: one more for every frame on
+ * time, half as many after a late one, and back to one whenever a new pass begins (passes
+ * differ in cost by an order of magnitude). A strong GPU bakes a world in a few dozen
+ * frames; a weak one overshoots by at most a tile. One tile is always baked, so a bake
+ * always ends.
  */
-const BAKE_BUDGET: Record<QualityTier, number> = { high: 1_600_000, medium: 1_000_000, low: 500_000 }
+const BAKE_MAX_TILES = 48
 
 function onCreated({ gl }: RootState) {
   // The film grade lifts black to Abyss after tone mapping, so the clear colour is true black.
   gl.setClearColor(0x000000, 1)
+  // Reading back compile logs stalls the pipeline on a program's first use. Production
+  // builds skip it; shader errors are caught in development and by the screenshot run.
+  gl.debug.checkShaderErrors = import.meta.env.DEV
 }
 
 /** Advances world time before anything else reads it this frame. */
@@ -51,10 +57,24 @@ function WorldClock() {
   return null
 }
 
-/** Spends each frame's background-bake budget. */
+/** Spends each frame's background-bake budget, adapting it to the frame rate. */
 function BakeDriver() {
   const gl = useThree((s) => s.gl)
-  useFrame(() => runBakeQueue(gl, BAKE_BUDGET[useVoid.getState().quality]), -80)
+  const tiles = useRef(1)
+  const pass = useRef<object | null>(null)
+  useFrame((_, delta) => {
+    if (!bakesPending()) {
+      pass.current = null
+      return
+    }
+    const current = currentBake()
+    if (current !== pass.current) {
+      pass.current = current
+      tiles.current = 1
+    } else if (delta > 1 / 45) tiles.current = Math.max(1, Math.floor(tiles.current / 2))
+    else if (delta < 1 / 55) tiles.current = Math.min(BAKE_MAX_TILES, tiles.current + 1)
+    runBakeQueue(gl, tiles.current)
+  }, -80)
   return null
 }
 

@@ -12,7 +12,7 @@ import { icosphere, sphereDetail } from '../shared/gpu.ts'
 import { useLevel } from '../levels/context.ts'
 import { pixelRadius, SOLID, toObjectSpace, worldRadius, type Sunlight } from './body.ts'
 import { surfaceUniforms, TERRAIN_STYLE } from './surface.ts'
-import { keepPolicy, moonFace, moonKey, MoonWorld, type Detail } from './worlds.ts'
+import { moonFace, moonKey, moonPolicy, MoonWorld, type Detail } from './worlds.ts'
 
 interface MoonProps {
   spec: MoonSpec
@@ -37,7 +37,7 @@ export function Moon({ spec, seed, sun, fade, detail }: MoonProps) {
   const [tier] = useState(() => useVoid.getState().quality)
   const face = moonFace(detail, tier)
   const closeKey = moonKey(spec, seed, moonFace('close', tier))
-  const world = useShared(moonKey(spec, seed, face), () => new MoonWorld(spec, seed, face), keepPolicy(detail))
+  const world = useShared(moonKey(spec, seed, face), () => new MoonWorld(spec, seed, face), moonPolicy(detail))
   const body = MOON_SURFACES[spec.kind]
   const mesh = useRef<Mesh>(null)
   const bound = useRef<MoonWorld | null>(null)

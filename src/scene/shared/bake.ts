@@ -2,7 +2,8 @@
  * Baking procedural cube maps, either all at once (when a scene first loads, hidden by its
  * fade-in) or a few tiles per frame within a budget (while the camera is flying, where a
  * long bake would freeze the motion). Tiles are scissored rectangles of one face, so the
- * bake shaders, which work from gl_FragCoord, need no changes.
+ * bake shaders, which work from gl_FragCoord, need no changes. Passes differ in cost by an
+ * order of magnitude, so the background budget is counted in tiles of the pass being baked.
  */
 import type { ShaderMaterial, WebGLCubeRenderTarget, WebGLRenderer } from 'three'
 import { bakeCubeTile } from './gpu.ts'
@@ -10,8 +11,6 @@ import { bakeCubeTile } from './gpu.ts'
 export interface BakePass {
   readonly target: WebGLCubeRenderTarget
   readonly material: ShaderMaterial
-  /** Relative cost per texel: noise-heavy passes cost more than a few texture reads. */
-  readonly cost: number
 }
 
 /** Largest tile side baked in one go. */
@@ -38,6 +37,11 @@ export class BakeJob {
     while (!this.ready) this.step(gl, Infinity)
   }
 
+  /** Which pass is baking now, so a scheduler can tell when the cost per tile changes. */
+  get passIndex(): number {
+    return this.pass
+  }
+
   /** Start over, e.g. after a debug parameter changed. The old maps stay usable meanwhile. */
   restart() {
     this.pass = 0
@@ -52,16 +56,20 @@ export class BakeJob {
     return () => this.listeners.delete(listener)
   }
 
-  /** Bake tiles until about `budget` cost-weighted texels are spent. Returns what was spent. */
-  step(gl: WebGLRenderer, budget: number): number {
+  /**
+   * Bake up to `tiles` tiles, never past the end of the current pass, so a scheduler can
+   * size the next frame's work for the next pass. Returns the tiles baked.
+   */
+  step(gl: WebGLRenderer, tiles: number): number {
     if (this.ready) return 0
     if (!this.started) {
       this.prepare(gl)
       this.started = true
     }
-    let spent = 0
-    while (this.pass < this.passes.length && spent < budget) {
-      const { target, material, cost } = this.passes[this.pass]!
+    let baked = 0
+    const pass = this.pass
+    while (this.pass === pass && baked < tiles) {
+      const { target, material } = this.passes[this.pass]!
       const size = target.width
       const tile = Math.min(TILE, size)
       const perRow = Math.ceil(size / tile)
@@ -71,7 +79,7 @@ export class BakeJob {
       const height = Math.min(tile, size - y)
       const lastTile = this.tile === perRow * perRow - 1
       bakeCubeTile(gl, target, material, this.face, x, y, width, height, lastTile && this.face === 5)
-      spent += width * height * cost
+      baked++
       if (!lastTile) {
         this.tile++
       } else if (this.face < 5) {
@@ -87,7 +95,7 @@ export class BakeJob {
       this.ready = true
       for (const listener of this.listeners) listener()
     }
-    return spent
+    return baked
   }
 }
 
@@ -108,12 +116,25 @@ export function bakesPending(): boolean {
   return queue.length > 0
 }
 
-/** Spend this frame's budget on the oldest jobs first. */
-export function runBakeQueue(gl: WebGLRenderer, budget: number) {
-  let left = budget
-  while (queue.length > 0 && left > 0) {
-    const job = queue[0]!
-    left -= job.step(gl, left)
-    if (job.ready) queue.shift()
+const tokens = new WeakMap<BakeJob, object[]>()
+
+/** The pass at the head of the queue, as a token that changes whenever the pass does. */
+export function currentBake(): object | null {
+  const job = queue[0]
+  if (!job) return null
+  let list = tokens.get(job)
+  if (!list) {
+    list = []
+    tokens.set(job, list)
   }
+  list[job.passIndex] ??= {}
+  return list[job.passIndex]!
+}
+
+/** Bake up to `tiles` tiles of the oldest job's current pass. */
+export function runBakeQueue(gl: WebGLRenderer, tiles: number) {
+  const job = queue[0]
+  if (!job) return
+  job.step(gl, tiles)
+  if (job.ready) queue.shift()
 }

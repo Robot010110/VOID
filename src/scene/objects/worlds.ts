@@ -48,8 +48,9 @@ export function moonFace(detail: Detail, tier: QualityTier): number {
 
 /**
  * Close-up maps are large (about 100 MB for a rocky world on High), so only one unused set
- * is kept, for going back and forth between a planet and its system. Small maps are cheap
- * and kept for a few minutes, so returning to a system is instant.
+ * is kept, for going back and forth between a planet and its system. A world's moons keep
+ * theirs alongside (they are a tenth the size). Small maps are cheap and kept for a few
+ * minutes, so returning to a system is instant.
  */
 export function keepPolicy(detail: Detail): KeepPolicy {
   return detail === 'close'
@@ -57,8 +58,11 @@ export function keepPolicy(detail: Detail): KeepPolicy {
     : { keepFor: 180_000, group: 'system', spare: 96 }
 }
 
-/** Relative per-texel cost of each bake, for the background budget. */
-const COST = { terrain: 3, derive: 1, clouds: 2, bands: 2 } as const
+export function moonPolicy(detail: Detail): KeepPolicy {
+  return detail === 'close'
+    ? { keepFor: 60_000, group: 'close-moons', spare: 6 }
+    : { keepFor: 180_000, group: 'system', spare: 96 }
+}
 
 /** A rocky world: terrain, normals and population, clouds, air and rings. */
 export class RockyWorld implements Disposable {
@@ -86,10 +90,10 @@ export class RockyWorld implements Disposable {
     this.ringTexture = preset.rings ? createRingTexture(preset.rings, preset.seed) : null
 
     const passes: BakePass[] = [
-      { target: this.terrain, material: this.terrainBake, cost: COST.terrain },
-      { target: this.derived, material: this.deriveBake, cost: COST.derive },
+      { target: this.terrain, material: this.terrainBake },
+      { target: this.derived, material: this.deriveBake },
     ]
-    if (this.cloudBake) passes.push({ target: this.clouds, material: this.cloudBake, cost: COST.clouds })
+    if (this.cloudBake) passes.push({ target: this.clouds, material: this.cloudBake })
     this.job = new BakeJob(passes, (gl) => this.atmosphere.bake(gl))
   }
 
@@ -188,7 +192,7 @@ export class GasWorld implements Disposable {
     })
     this.atmosphere = new AtmosphereModel(preset.atmosphere)
     this.ringTexture = preset.rings ? createRingTexture(preset.rings, preset.seed) : null
-    this.job = new BakeJob([{ target: this.bands, material: this.bake, cost: COST.bands }], (gl) =>
+    this.job = new BakeJob([{ target: this.bands, material: this.bake }], (gl) =>
       this.atmosphere.bake(gl),
     )
   }
@@ -222,8 +226,8 @@ export class MoonWorld implements Disposable {
     this.deriveBake = createDeriveBake(body.terrain, body.surface)
     this.deriveBake.uniforms.uTerrain!.value = this.terrain.texture
     this.job = new BakeJob([
-      { target: this.terrain, material: this.terrainBake, cost: COST.terrain },
-      { target: this.derived, material: this.deriveBake, cost: COST.derive },
+      { target: this.terrain, material: this.terrainBake },
+      { target: this.derived, material: this.deriveBake },
     ])
   }
 

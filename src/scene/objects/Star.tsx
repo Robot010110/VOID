@@ -54,7 +54,7 @@ class StarPattern implements Disposable {
       depthWrite: false,
       uniforms: { uFace: { value: 0 }, uSize: { value: 1 }, uSeedOffset: { value: seedOffset(seed) } },
     })
-    this.job = new BakeJob([{ target: this.target, material: this.bake, cost: 3 }])
+    this.job = new BakeJob([{ target: this.target, material: this.bake }])
   }
 
   dispose() {
