@@ -24,6 +24,14 @@ export default defineConfig([
     },
   },
   {
+    // three.js objects are mutable by design: scenes animate by writing uniforms and
+    // transforms inside useFrame and effects, never through React state. The compiler-era
+    // immutability rule would flag every one of those writes, and VOID does not use the
+    // React Compiler, so the rule stays on for UI code only.
+    files: ['src/scene/**/*.{ts,tsx}', 'src/debug/**/*.{ts,tsx}'],
+    rules: { 'react-hooks/immutability': 'off' },
+  },
+  {
     files: ['*.config.{ts,js}', 'e2e/**/*.ts'],
     languageOptions: { globals: globals.node },
   },

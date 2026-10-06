@@ -1,0 +1,81 @@
+/* VOID design tokens. The palette is light, not decoration: most of the screen stays dark. */
+:root {
+  --abyss: #03040b;
+  --dust: #1b1830;
+  --starlight: #f4ebdd;
+  --ember: #ffb36b;
+  --tide: #6fd3e0;
+  --aurora: #b07cff;
+
+  --font-literary: 'Fraunces Variable', 'Iowan Old Style', Georgia, serif;
+  --font-ui: 'Hanken Grotesk', system-ui, sans-serif;
+
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--abyss);
+  color: var(--starlight);
+  font-family: var(--font-ui);
+  font-weight: 300;
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.void {
+  position: fixed;
+  inset: 0;
+}
+
+.void-canvas {
+  display: block;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+:focus-visible {
+  outline: 1.5px solid var(--starlight);
+  outline-offset: 3px;
+}
+
+.debug-readout {
+  position: fixed;
+  left: 16px;
+  bottom: 14px;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--starlight);
+  opacity: 0.7;
+  pointer-events: none;
+  white-space: pre;
+}
