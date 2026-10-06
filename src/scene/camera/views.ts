@@ -1,3 +1,4 @@
+import type { GalaxyData } from '../../core/galaxy.ts'
 import type { PlanetPreset } from '../../core/planets.ts'
 import type { Vec3 } from '../../core/sky.ts'
 import { SYSTEM_EXTENT, type SystemData } from '../../core/universe.ts'
@@ -18,6 +19,30 @@ export interface Limits {
 export function lookingAlong(direction: Vec3): OrbitView {
   const [x, y, z] = direction
   return { azimuth: Math.atan2(-x, -z), polar: Math.acos(Math.max(-1, Math.min(1, -y))) }
+}
+
+/**
+ * A galaxy at rest: seen from well above its plane and a little turned, so its arms read as
+ * a spiral with depth and the whole disc fills the frame with room to spare.
+ */
+export function galaxyView(galaxy: GalaxyData): Required<OrbitView> {
+  return { azimuth: 0.35, polar: 0.9, distance: galaxy.shape.radius * 2.3 }
+}
+
+/** Named framings of a galaxy for `?view=`. */
+export function galaxyViews(galaxy: GalaxyData): Record<string, OrbitView> {
+  const home = galaxyView(galaxy)
+  return {
+    home,
+    top: { azimuth: home.azimuth, polar: 0.12, distance: home.distance * 1.08 },
+    edge: { azimuth: home.azimuth, polar: 1.53, distance: home.distance },
+    core: { azimuth: home.azimuth + 0.5, polar: 1.12, distance: galaxy.shape.radius * 0.75 },
+    wide: { azimuth: home.azimuth, polar: 1.05, distance: home.distance * 1.7 },
+  }
+}
+
+export function galaxyLimits(galaxy: GalaxyData): Limits {
+  return { min: galaxy.shape.radius * 0.3, max: galaxy.shape.radius * 4.2 }
 }
 
 /**

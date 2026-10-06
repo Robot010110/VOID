@@ -126,6 +126,8 @@ function Sky() {
   const level = useVoid((s) => s.level)
   if (LEVEL === 'sky') return <Starfield />
   if (SHOWROOM || level === 'planet') return <Starfield brightness={0.75} band={0.4} />
+  // Outside a galaxy its band is gone: what is left are a few stars between the galaxies.
+  if (level === 'galaxy') return <Starfield brightness={0.45} band={0} />
   return <Starfield brightness={0.9} band={0.55} />
 }
 

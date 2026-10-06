@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { describePlanet, describeStar } from './describe.ts'
 import { Rng } from './rng.ts'
 import {
+  generateStar,
   generateSystem,
   getSystem,
   HOME,
@@ -114,7 +115,8 @@ describe('generateSystem', () => {
       it('names every place uniquely and cleanly', () => {
         const names = [system.star.name, ...system.planets.map((p) => p.name)]
         expect(new Set(names).size).toBe(names.length)
-        for (const name of names) expect(name).toMatch(/^[A-Z][a-z]{3,8}$/)
+        for (const name of names.slice(1)) expect(name).toMatch(/^[A-Z][a-z]{3,8}$/)
+        expect(system.star.name).toMatch(system.star.catalogued ? /^[A-Z]{2}-\d{1,3}$/ : /^[A-Z][a-z]{1,6}$/)
       })
 
       it('draws every world from a valid preset', () => {
@@ -181,6 +183,29 @@ describe('the home system', () => {
     expect(home.star.temperature).toBeGreaterThan(5400)
     expect(home.star.temperature).toBeLessThan(6000)
     expect(describeStar(home)).toMatch(/^A yellow star/)
+  })
+
+  it('keeps the names visitors already know', () => {
+    expect(home.star.name).toBe('Vileth')
+    expect(home.star.catalogued).toBe(false)
+    expect(home.planets.map((p) => p.name)).toEqual([
+      'Eleth', 'Sithaen', 'Indith', 'Ithasal', 'Virlithe', 'Veni', 'Leilel', 'Lilaer',
+    ])
+  })
+})
+
+describe('generateStar', () => {
+  it('draws the same star its system is built around', () => {
+    for (let i = 0; i < 40; i++) expect(generateStar(i % 3, i)).toEqual(getSystem(i % 3, i).star)
+  })
+
+  it('catalogues unremarkable stars only', () => {
+    const stars = Array.from({ length: 400 }, (_, i) => generateStar(0, i))
+    const catalogued = stars.filter((star) => star.catalogued)
+    expect(catalogued.length / stars.length).toBeGreaterThan(0.25)
+    expect(catalogued.length / stars.length).toBeLessThan(0.6)
+    for (const star of catalogued) expect(star.temperature).toBeLessThanOrEqual(7200)
+    expect(stars[0]!.catalogued).toBe(false)
   })
 })
 

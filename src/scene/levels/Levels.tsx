@@ -10,15 +10,18 @@ import {
   type Scene,
   type WebGLRenderer,
 } from 'three'
+import { getGalaxy } from '../../core/galaxy.ts'
 import { pathKey, useVoid } from '../../core/store.ts'
 import { getSystem, levelOf, type Path } from '../../core/universe.ts'
 import { useOpeningView } from '../camera/opening.ts'
-import { systemLimits, systemViews } from '../camera/views.ts'
+import { galaxyLimits, galaxyViews, systemLimits, systemViews } from '../camera/views.ts'
 import { frameTransform } from '../frames.ts'
 import { bakesPending } from '../shared/bake.ts'
 import { worldClock } from '../shared/clock.ts'
+import { workPending } from '../shared/work.ts'
 import { levelRuntime } from '../stage.ts'
 import { LevelContext, type LevelInfo } from './context.ts'
+import { GalaxyLevel } from './GalaxyLevel.tsx'
 import { PlanetLevel } from './PlanetLevel.tsx'
 import { SystemLevel } from './SystemLevel.tsx'
 
@@ -66,6 +69,14 @@ function compiledAll(gl: WebGLRenderer, materials: Set<Material>): boolean {
 
 const position = new Vector3()
 
+function GalaxyFrame({ path, background }: { path: Path; background: boolean }) {
+  const galaxy = getGalaxy(path[0]!)
+  const views = useMemo(() => galaxyViews(galaxy), [galaxy])
+  const limits = useMemo(() => galaxyLimits(galaxy), [galaxy])
+  useOpeningView(views, views.home!.distance!, limits, !background)
+  return <GalaxyLevel path={path} />
+}
+
 function SystemFrame({ path, background }: { path: Path; background: boolean }) {
   const system = getSystem(path[0]!, path[1]!)
   const views = useMemo(() => systemViews(system), [system])
@@ -105,13 +116,14 @@ const LevelFrame = memo(function LevelFrame({ path }: { path: Path }) {
     // Compile this level's shaders in parallel instead of stalling the frame it appears in.
     if (compile.current === 'pending') compile.current = precompile(gl, group, camera, scene)
     if (compile.current !== 'done' && compiledAll(gl, compile.current)) compile.current = 'done'
-    runtime.ready = compile.current === 'done' && !bakesPending()
+    runtime.ready = compile.current === 'done' && !bakesPending() && !workPending()
   }, -50)
 
   const level = levelOf(path)
   return (
     <group ref={root}>
       <LevelContext.Provider value={info}>
+        {level === 'galaxy' && <GalaxyFrame path={path} background={background} />}
         {level === 'system' && <SystemFrame path={path} background={background} />}
         {level === 'planet' && <PlanetLevel path={path} />}
       </LevelContext.Provider>

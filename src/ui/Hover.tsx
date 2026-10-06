@@ -3,7 +3,7 @@ import { useVoid } from '../core/store.ts'
 import { getSystem } from '../core/universe.ts'
 import { descend } from '../scene/camera/transitions.ts'
 import { marker, pointer } from '../scene/stage.ts'
-import { KIND_WORDS } from './places.ts'
+import { childName, KIND_WORDS } from './places.ts'
 
 /**
  * The thin ring and soft name beside a hovered or focused world. Its place on screen is
@@ -13,7 +13,7 @@ export function HoverMarker() {
   const ref = useRef<HTMLDivElement>(null)
   const target = useVoid((s) => s.hoverTarget)
   const path = useVoid((s) => s.path)
-  const name = target !== null && path.length === 2 ? (getSystem(path[0]!, path[1]!).planets[target]?.name ?? '') : ''
+  const name = target !== null ? childName(path, target) : ''
 
   useEffect(() => {
     marker.element = ref.current

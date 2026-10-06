@@ -3,6 +3,7 @@
  * three short sentences, no poetry. Story fragments are never generated (see the brief);
  * these only say what is there.
  */
+import { galacticPosition, type GalaxyData } from './galaxy.ts'
 import { Rng, hashSeed } from './rng.ts'
 import {
   giantColourWords,
@@ -37,6 +38,38 @@ function starClass(temperature: number, age: number): string {
   if (temperature < 7500) return 'A yellow-white star, hotter and brighter than most.'
   if (temperature < 10000) return 'A white star that burns hot and fast.'
   return 'A blue-white star, fierce and short-lived.'
+}
+
+/** Words for a star's colour, as the eye would put it. */
+function starColour(temperature: number): string {
+  if (temperature < 3900) return 'red'
+  if (temperature < 5200) return 'orange'
+  if (temperature < 6000) return 'yellow'
+  if (temperature < 7500) return 'yellow-white'
+  if (temperature < 10000) return 'white'
+  return 'blue-white'
+}
+
+export function describeGalaxy(galaxy: GalaxyData, homeIndex?: number): string {
+  const { shape } = galaxy
+  const arms = number(shape.arms)
+  const core = galaxy.light.core < 4600 ? 'golden' : 'pale gold'
+  const sentences = [
+    shape.bar > 0
+      ? `A barred spiral galaxy, its ${arms} arms trailing from the ends of a ${core} bar.`
+      : `A spiral galaxy of ${arms} arms around a bright ${core} core.`,
+    galaxy.light.dust > 0.75
+      ? 'Young blue stars and pink clouds of new stars crowd along its arms, beside dark lanes of dust.'
+      : 'Young blue stars and pink clouds of new stars crowd along its arms.',
+  ]
+  const home = homeIndex === undefined ? undefined : galaxy.stars[homeIndex]
+  if (home) {
+    const [x, , z] = galacticPosition(galaxy, home.orbit, 0)
+    const out = Math.hypot(x, z) / shape.radius
+    const where = out < 0.4 ? 'close to its core' : out < 0.7 ? 'a little over halfway out' : 'out towards its edge'
+    sentences.push(`${home.star.name}, a ${starColour(home.star.temperature)} star, lies ${where}.`)
+  }
+  return sentences.join(' ')
 }
 
 export function describeStar(system: SystemData): string {

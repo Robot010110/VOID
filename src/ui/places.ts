@@ -1,7 +1,8 @@
 /** What the interface says about a place: its name, its ancestors, and two or three sentences. */
-import { describePlanet, describeStar } from '../core/describe.ts'
+import { describeGalaxy, describePlanet, describeStar } from '../core/describe.ts'
+import { getGalaxy, isHomeGalaxy } from '../core/galaxy.ts'
 import type { PlanetKind } from '../core/planets.ts'
-import { getSystem, type Path } from '../core/universe.ts'
+import { getSystem, HOME, type Path } from '../core/universe.ts'
 
 export interface Place {
   readonly name: string
@@ -11,16 +12,32 @@ export interface Place {
 }
 
 export function placeAt(path: Path): Place {
+  const galaxy = getGalaxy(path[0]!)
+  const top = [{ name: galaxy.name, path: path.slice(0, 1) }]
+  if (path.length === 1) {
+    return {
+      name: galaxy.name,
+      text: describeGalaxy(galaxy, isHomeGalaxy(galaxy.index) ? HOME[1] : undefined),
+      ancestors: [],
+    }
+  }
   const system = getSystem(path[0]!, path[1]!)
   if (path.length === 2) {
-    return { name: system.star.name, text: describeStar(system), ancestors: [] }
+    return { name: system.star.name, text: describeStar(system), ancestors: top }
   }
   const planet = system.planets[path[2]!]!
   return {
     name: planet.name,
     text: describePlanet(system, planet),
-    ancestors: [{ name: system.star.name, path: path.slice(0, 2) }],
+    ancestors: [...top, { name: system.star.name, path: path.slice(0, 2) }],
   }
+}
+
+/** The name of a child of the place at `path`, for the hover ring. */
+export function childName(path: Path, index: number): string {
+  if (path.length === 1) return getGalaxy(path[0]!).stars[index]?.star.name ?? ''
+  if (path.length === 2) return getSystem(path[0]!, path[1]!).planets[index]?.name ?? ''
+  return ''
 }
 
 /** A few words for what a world is, for screen readers choosing among them. */

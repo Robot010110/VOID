@@ -128,6 +128,21 @@ const BANNED_NAMES = new Set([
   'kanon', 'narn', 'unam', 'ayam', 'ikan', 'saka', 'naya', 'sate', 'tere', 'horda', 'varia',
   'edas', 'stirer', 'tamil', 'roma', 'romo', 'nana', 'mama', 'papa', 'dada', 'seth', 'vino',
   'tate', 'kano', 'rina', 'momi', 'drer', 'yate',
+  // Common words the liquid families like to fall into.
+  'this', 'that', 'thus', 'these', 'those', 'there', 'their', 'here', 'hers', 'thee', 'thine',
+  'fell', 'fill', 'file', 'fine', 'fire', 'fish', 'five', 'flee', 'fled', 'lithe', 'loin',
+  'lion', 'lien', 'liar', 'lair', 'rail', 'real', 'reel', 'rein', 'rile', 'sill', 'silo',
+  'sire', 'shine', 'shire', 'shell', 'sheer', 'shy', 'vein', 'vial', 'vise', 'noel', 'neon',
+  'nile', 'nine', 'noon', 'lease', 'sear', 'seer', 'sees', 'seine', 'sense', 'shea', 'shed',
+  'sheen', 'shelf', 'ship', 'shore', 'shorn', 'siren', 'sisal', 'solo', 'soul', 'sour',
+  'earn', 'ease', 'east', 'else', 'alien', 'alone', 'area', 'aria', 'arise', 'aroma', 'ether',
+  'ethos', 'aisle', 'ally', 'only', 'oily', 'lily', 'rely', 'reply', 'lisle', 'senile',
+  'ethan', 'ellen', 'ellis', 'elise', 'eliza', 'emil', 'enid', 'erin', 'eric', 'ivan', 'iris',
+  'isla', 'lena', 'leon', 'lila', 'lina', 'lois', 'lola', 'lyla', 'lynn', 'nell', 'neil', 'nora',
+  'nils', 'olin', 'omar', 'oren', 'rhea', 'rosa', 'ruth', 'ryan', 'sean', 'sian', 'silas',
+  'sven', 'theo', 'tess', 'vera', 'vern', 'viola', 'yara', 'alan', 'alana', 'elena', 'ines',
+  'luna', 'lune', 'nyla', 'nala', 'simba', 'elsa', 'arya', 'eden', 'evan', 'ithil', 'sakura',
+  'sess',
 ])
 
 /** Shape problems that make a name hard to say or awkward on the page. */

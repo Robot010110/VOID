@@ -17,7 +17,9 @@ import {
   UnsignedByteType,
   WebGLCubeRenderTarget,
   WebGLRenderTarget,
+  type Camera,
   type ColorSpace,
+  type Object3D,
   type PixelFormat,
   type ShaderMaterial,
   type TextureDataType,
@@ -87,6 +89,23 @@ export function bakeCubeTile(
     target.scissorTest = false
     target.texture.generateMipmaps = mipmaps
   })
+}
+
+let warmTarget: WebGLRenderTarget | null = null
+
+/**
+ * Draw an object once into a one-pixel target, so its buffers are uploaded (and its program
+ * linked) while it is still hidden, not in the frame it first appears in.
+ */
+export function warmUp(gl: WebGLRenderer, object: Object3D, camera: Camera) {
+  warmTarget ??= new WebGLRenderTarget(1, 1, { type: HalfFloatType, depthBuffer: true })
+  const previous = gl.getRenderTarget()
+  const visible = object.visible
+  object.visible = true
+  gl.setRenderTarget(warmTarget)
+  gl.render(object, camera)
+  gl.setRenderTarget(previous)
+  object.visible = visible
 }
 
 export interface TargetOptions {

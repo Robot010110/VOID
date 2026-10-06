@@ -24,6 +24,8 @@ export interface QualitySettings {
   readonly atmosphereSteps: number
   /** Octaves of per-pixel surface detail seen up close. */
   readonly detailOctaves: number
+  /** Particles drawing a galaxy: its light and its dust together. */
+  readonly galaxyParticles: number
 }
 
 /** Stars in the full catalogue; tiers draw a fraction of it. */
@@ -31,9 +33,9 @@ export const STAR_CATALOGUE_SIZE = 30000
 
 // prettier-ignore
 export const QUALITY: Record<QualityTier, QualitySettings> = {
-  high: { maxDpr: 2, starFraction: 1, grain: 1, bandWidth: 2048, planetFace: 1024, moonFace: 384, atmosphereSteps: 14, detailOctaves: 3 },
-  medium: { maxDpr: 1.5, starFraction: 0.5, grain: 1, bandWidth: 2048, planetFace: 768, moonFace: 256, atmosphereSteps: 10, detailOctaves: 2 },
-  low: { maxDpr: 1, starFraction: 0.2, grain: 0, bandWidth: 1024, planetFace: 512, moonFace: 192, atmosphereSteps: 5, detailOctaves: 1 },
+  high: { maxDpr: 2, starFraction: 1, grain: 1, bandWidth: 2048, planetFace: 1024, moonFace: 384, atmosphereSteps: 14, detailOctaves: 3, galaxyParticles: 400000 },
+  medium: { maxDpr: 1.5, starFraction: 0.5, grain: 1, bandWidth: 2048, planetFace: 768, moonFace: 256, atmosphereSteps: 10, detailOctaves: 2, galaxyParticles: 200000 },
+  low: { maxDpr: 1, starFraction: 0.2, grain: 0, bandWidth: 1024, planetFace: 512, moonFace: 192, atmosphereSteps: 5, detailOctaves: 1, galaxyParticles: 80000 },
 }
 
 export interface GpuInfo {

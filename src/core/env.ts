@@ -24,7 +24,10 @@ export const LEVEL = params.get('level')
 /** `?planet=<kind>` opens the planet showroom on one preset. */
 export const PLANET = params.get('planet')
 
-/** `?world=<index>` opens close up on one world of the home system. */
+/** `?system=<index>` opens on one star system of the home galaxy (0 is the home system). */
+export const SYSTEM = params.get('system')
+
+/** `?world=<index>` opens close up on one world of that system (the home system by default). */
 export const WORLD = params.get('world')
 
 const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')

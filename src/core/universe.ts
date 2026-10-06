@@ -4,12 +4,13 @@
  * universe seed and its index, a star's hashes its galaxy's seed and its index, and so on,
  * so any level can be generated without its siblings.
  *
- * Phase 2 generates star systems. Galaxies and the universe arrive in Phases 3 and 4.
+ * This file generates star systems; galaxy.ts generates galaxies (the universe arrives in
+ * Phase 4).
  *
  * Units: a system's outermost orbit lies about 200 units from its star, and times are
  * seconds at 1x. Planet presets keep their own units (planet radii).
  */
-import { Language } from './names.ts'
+import { catalogueName, Language } from './names.ts'
 import {
   hexToRgb,
   PRESETS,
@@ -110,6 +111,8 @@ export function orbitPoint(
 export interface StarData {
   readonly seed: number
   readonly name: string
+  /** Named by a catalogue designation (VX-11) rather than a word: an unremarkable star. */
+  readonly catalogued: boolean
   /** Surface temperature, kelvin. */
   readonly temperature: number
   /** Radius, system units. */
@@ -207,14 +210,17 @@ export interface SystemOptions {
   readonly featured?: boolean
 }
 
-export function generateSystem(galaxy: number, index: number, options: SystemOptions = {}): SystemData {
-  const seed = starSeed(galaxy, index)
-  const rng = new Rng(seed)
-  const language = galaxyLanguage(galaxy)
-  const names = new Rng(hashSeed(seed, 0x4a3e))
-  const featured = options.featured ?? false
+/** The system VOID's home galaxy is built around is featured; so far it is the only one. */
+export function isFeatured(galaxy: number, index: number): boolean {
+  return galaxy === HOME[0] && index === HOME[1]
+}
 
-  // The star.
+/**
+ * The star, drawn first from the system's generators, so it can also be generated on its own
+ * (for the galaxy, which shows hundreds of stars without generating their worlds).
+ * Unremarkable stars carry catalogue designations; featured, hot and bright ones are named.
+ */
+function drawStar(seed: number, rng: Rng, names: Rng, language: Language, featured: boolean): StarData {
   const band = featured
     ? SPECTRAL[2]
     : rng.weighted(
@@ -224,16 +230,37 @@ export function generateSystem(galaxy: number, index: number, options: SystemOpt
   const temperature = featured ? rng.range(5500, 5900) : rng.range(band.from, band.to)
   const radius = starRadius(temperature) * rng.range(0.93, 1.07)
   const luminosity = (radius / 4.4) ** 2 * (temperature / 5778) ** 4
-  const habitable = Math.min(Math.max(60 * Math.sqrt(luminosity), 26), 120)
-  const star: StarData = {
+  const remarkable = featured || temperature > 7200 || new Rng(hashSeed(seed, 0xca7a)).chance(0.45)
+  return {
     seed: hashSeed(seed, 0x57a2),
-    name: language.name(names, { minSyllables: 1, maxSyllables: 2, maxLength: 7 }),
+    name: remarkable
+      ? language.name(names, { minSyllables: 1, maxSyllables: 2, maxLength: 7 })
+      : catalogueName(names),
+    catalogued: !remarkable,
     temperature,
     radius,
     luminosity,
     age: featured ? rng.range(3, 6) : temperature > 9000 ? rng.range(0.05, 0.6) : rng.range(0.8, 9.5),
     rotation: rng.range(900, 1600),
   }
+}
+
+/** A system's star alone, identical to the one its system is generated around. */
+export function generateStar(galaxy: number, index: number): StarData {
+  const seed = starSeed(galaxy, index)
+  return drawStar(seed, new Rng(seed), new Rng(hashSeed(seed, 0x4a3e)), galaxyLanguage(galaxy), isFeatured(galaxy, index))
+}
+
+export function generateSystem(galaxy: number, index: number, options: SystemOptions = {}): SystemData {
+  const seed = starSeed(galaxy, index)
+  const rng = new Rng(seed)
+  const language = galaxyLanguage(galaxy)
+  const names = new Rng(hashSeed(seed, 0x4a3e))
+  const featured = options.featured ?? false
+
+  const star = drawStar(seed, rng, names, language, featured)
+  const { radius, luminosity } = star
+  const habitable = Math.min(Math.max(60 * Math.sqrt(luminosity), 26), 120)
 
   // Orbits: geometric spacing with jitter, stretched so the outermost sits near the edge.
   const count = featured ? rng.int(6, 8) : rng.weighted([3, 4, 5, 6, 7, 8], [1, 2, 3, 3, 2, 1])
@@ -624,8 +651,7 @@ export function getSystem(galaxy: number, index: number): SystemData {
   const key = `${galaxy}:${index}`
   let system = systems.get(key)
   if (!system) {
-    const featured = galaxy === HOME[0] && index === HOME[1]
-    system = generateSystem(galaxy, index, { featured })
+    system = generateSystem(galaxy, index, { featured: isFeatured(galaxy, index) })
     systems.set(key, system)
   }
   return system
