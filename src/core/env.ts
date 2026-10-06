@@ -18,11 +18,14 @@ export const TONE = params.get('tone')
 /** `?view=<name>` opens on one of the current level's named framings. */
 export const VIEW = params.get('view')
 
-/** `?level=sky|planet` picks the scene to show (until levels connect in Phase 2). */
+/** `?level=sky` shows the Phase 0 night sky on its own. */
 export const LEVEL = params.get('level')
 
-/** `?planet=<kind>` picks the planet preset shown at the planet level. */
+/** `?planet=<kind>` opens the planet showroom on one preset. */
 export const PLANET = params.get('planet')
+
+/** `?world=<index>` opens close up on one world of the home system. */
+export const WORLD = params.get('world')
 
 const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
 

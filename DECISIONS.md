@@ -95,3 +95,62 @@ Non-obvious calls, one or two lines each, with the reason. Newest phase last.
   - Planet filling the screen: 37 fps on Low (where this GPU starts) and 29 on High.
   - The normal framing: 60 fps on Low and about 52 on High.
   - Iris Xe is roughly 2.5–3× faster; the governor steps weaker GPUs down a tier.
+
+## Phase 2: The star system
+
+### Interface design plan
+
+Written before the interface was built, reviewed against the brief, then revised: a first draft gave the info panel a translucent card and put the place's name both on the card and at the end of the breadcrumb. Both read as a dashboard template, so the panel lost its box and the two names became one.
+
+**Principles**
+
+- The universe is the content and the interface is its caption. Nothing is boxed: no cards, no borders, no glass. Text sits on the sky, kept legible by a soft dark halo, not a container.
+- Two voices. Fraunces (light, soft) speaks the names of places. Hanken Grotesk light carries what navigates or explains.
+- Sentence case. No capitals, tracking, monospace, middle dots, arrows or icons. Breadcrumb separators are plain slashes in the quiet tier.
+- One colour, Starlight, in three strengths. Ember, Tide and Aurora stay reserved for light in the universe.
+- Motion is opacity, plus a small rise for arriving text. Nothing slides in from the edges.
+- Everything is reachable by keyboard. A focused world wears the same ring as a hovered one; every other control gets the Starlight focus outline.
+
+**Tokens**
+
+| Token | Value |
+|---|---|
+| Text, names | Starlight at 92% |
+| Text, prose | Starlight at 68% |
+| Text, quiet (ancestors, slashes) | Starlight at 46% |
+| Halo | `0 0 18px` Abyss at 90%, plus `0 0 2px` at 60% |
+| Name | Fraunces 300, soft, `clamp(1.75rem, 1.2rem + 1.6vw, 2.6rem)`, line height 1.05 |
+| Prose | Hanken 300, `clamp(0.9rem, 0.86rem + 0.2vw, 1rem)`, line height 1.6, at most 34ch |
+| Crumbs | Hanken 300, 0.8125rem |
+| Hover name | Fraunces 300, 1.0625rem |
+| Gutter | `clamp(16px, 3.2vw, 44px)`, plus safe-area insets |
+| Easing | `cubic-bezier(0.22, 1, 0.36, 1)` |
+| Timing | text in 0.9 s; out 0.5 s; idle fade 1.6 s |
+
+**Layout**
+
+One caption, bottom left. The breadcrumb's ancestors are a quiet line, the current place is its large name, and the description follows it. The name is the breadcrumb's last item, styled as a title, so it appears once.
+
+```
+Desktop, at a planet                          Phone, at a planet
++-------------------------------------------+  +-----------------------+
+|                                           |  |                       |
+|                ( ) Oru      hover: ring   |  |        (planet)       |
+|                             and name     |  |                       |
+|                                           |  |                       |
+|              (the world)                  |  | Vileth /              |
+|                                           |  | Ithasal               |
+| Vileth /                  ancestors       |  | A temperate world of  |
+| Ithasal                   current, large  |  | blue oceans and green |
+| A temperate world of blue oceans and      |  | continents...         |
+| green continents...       2-3 sentences   |  +-----------------------+
++-------------------------------------------+
+```
+
+**Behaviour**
+
+- The caption fades out when a transition starts and returns once the camera settles.
+- The interface fades to nothing after 4 s without input and returns on any input. When a new place arrives, the timer starts only after the description has had time to be read: about 1.5 s plus 0.3 s per word.
+- Hovering a world, or focusing it with Tab, shows a thin ring around it and its name beside it. Click, tap or Enter falls into it.
+- Escape or Backspace goes up a level. On touch, the breadcrumb's ancestors are the way up, padded to at least 44 px.
+- The caption is real DOM text in a polite live region, so a screen reader announces each arrival.

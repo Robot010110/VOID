@@ -169,6 +169,11 @@ const BASE_ORBIT = 20
 /** Seconds per rotation that reads as a 24-hour day in descriptions. */
 export const SECONDS_PER_DAY = 300
 
+/** Seconds per revolution at 1x of a circular orbit of this radius (Kepler's third law). */
+export function orbitalPeriod(radius: number): number {
+  return BASE_PERIOD * (radius / BASE_ORBIT) ** 1.5
+}
+
 const SPECTRAL = [
   { below: 3900, weight: 0.45, from: 2900, to: 3900 },
   { below: 5200, weight: 0.25, from: 3900, to: 5200 },
@@ -291,7 +296,7 @@ export function generateSystem(galaxy: number, index: number, options: SystemOpt
       light: Math.min(1, Math.max(0.55, (habitable / orbitRadius) ** 0.35)),
       orbit: {
         radius: orbitRadius,
-        period: BASE_PERIOD * (orbitRadius / BASE_ORBIT) ** 1.5,
+        period: orbitalPeriod(orbitRadius),
         phase: rng.range(0, Math.PI * 2),
         inclination: Math.max(-0.05, Math.min(0.05, rng.gauss(0, 0.02))),
         node: rng.range(0, Math.PI * 2),

@@ -5,6 +5,7 @@ import { blackbody } from '../../core/blackbody.ts'
 import distantFrag from '../../shaders/star/distant.frag'
 import distantVert from '../../shaders/star/distant.vert'
 import { worldClock } from '../shared/clock.ts'
+import { useLevel } from '../levels/context.ts'
 import { BODY_FADE_IN, fadeIn } from './body.ts'
 
 /** Fraction of the quad's half-size taken by the disc; the rest is corona. */
@@ -24,6 +25,7 @@ interface DistantSunProps {
  * infinity with a soft corona. Drawn with the sky, so planets and moons pass in front of it.
  */
 export function DistantSun({ direction, temperature, angularRadius = 0.0105, intensity = 60 }: DistantSunProps) {
+  const level = useLevel()
   const geometry = useMemo(() => new PlaneGeometry(2, 2), [])
   const material = useMemo(() => {
     const [r, g, b] = blackbody(temperature)
@@ -62,7 +64,7 @@ export function DistantSun({ direction, temperature, angularRadius = 0.0105, int
     const u = material.uniforms
     u.uSize!.value = (angularRadius * pixelsPerRadian) / DISC
     ;(u.uViewport!.value as Vector2).set(state.size.width * state.viewport.dpr, height)
-    u.uFade!.value = fadeIn(worldClock.real, 0, BODY_FADE_IN)
+    u.uFade!.value = fadeIn(worldClock.real, 0, BODY_FADE_IN) * level.fade.current
   })
 
   return <mesh geometry={geometry} material={material} renderOrder={-999} frustumCulled={false} />

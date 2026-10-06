@@ -12,12 +12,15 @@ export const worldClock = {
   real: 0,
   /** Multiplier on world time. */
   scale: 1,
+  /** Seconds this frame advanced, unscaled: what flights and fades step by. */
+  step: 0,
 }
 
 const SHOT_STEP = 1 / 60
 
 export function advanceWorldClock(delta: number) {
   const step = SHOT ? SHOT_STEP : Math.min(delta, 0.1)
+  worldClock.step = step
   worldClock.real += step
   worldClock.time += step * worldClock.scale
 }
