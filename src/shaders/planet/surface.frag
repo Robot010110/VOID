@@ -264,5 +264,6 @@ void main() {
   colour += uEmissive * uEmissiveStrength * heat * heat;
 #endif
 
-  gl_FragColor = vec4(colour * uFade, 1.0);
+  // Premultiplied: a fading world thins against the sky instead of darkening to a disc.
+  gl_FragColor = vec4(colour, 1.0) * uFade;
 }

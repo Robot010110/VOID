@@ -26,7 +26,33 @@ export const PREMULTIPLIED = {
   depthWrite: false,
 } as const
 
+/**
+ * Solid surfaces are premultiplied too, with alpha = fade, so a fading world thins against
+ * the stars instead of turning into a black disc. They still write depth.
+ */
+export const SOLID = {
+  transparent: true,
+  premultipliedAlpha: true,
+  blending: NormalBlending,
+  depthWrite: true,
+} as const
+
 const inverse = new Matrix4()
+const scale = new Vector3()
+
+/** The world-space radius of a unit sphere drawn by `object`. */
+export function worldRadius(object: Object3D): number {
+  return scale.setFromMatrixScale(object.matrixWorld).x
+}
+
+/**
+ * Pixels across the radius of a sphere of `radius` at `distance` from a camera with vertical
+ * field of view `fov` (degrees), on a drawing buffer `height` pixels tall.
+ */
+export function pixelRadius(radius: number, distance: number, fov: number, height: number): number {
+  const angular = Math.asin(Math.min(1, radius / Math.max(distance, radius * 1.0001)))
+  return (Math.tan(angular) / Math.tan((fov * Math.PI) / 360)) * height * 0.5
+}
 
 /** The sun direction and camera position in an object's own space (its unit sphere). */
 export function toObjectSpace(

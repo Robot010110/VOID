@@ -93,5 +93,5 @@ void main() {
 #endif
 
   vec3 colour = albedo * sunlight * lambert * limb * shadow / PI + albedo * uAmbient;
-  gl_FragColor = vec4(colour * uFade, 1.0);
+  gl_FragColor = vec4(colour, 1.0) * uFade;
 }

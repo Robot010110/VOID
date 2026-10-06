@@ -7,11 +7,16 @@ import type { AtmosphereModel } from './atmosphere.ts'
 const EMPTY: TweakSchema = {}
 
 /** Debug controls for an atmosphere: every medium parameter, re-baking the table on change. */
-export function useAtmosphereTweaks(preset: PlanetPreset, atmosphere: AtmosphereModel, rebake: () => void) {
+export function useAtmosphereTweaks(
+  preset: PlanetPreset,
+  atmosphere: AtmosphereModel,
+  rebake: () => void,
+  enabled: boolean,
+) {
   const params = preset.atmosphere
   const schema = useMemo<TweakSchema>(
     () =>
-      params
+      enabled && params
         ? {
             rayleighR: { value: params.rayleigh[0], min: 0, max: 60, step: 0.1 },
             rayleighG: { value: params.rayleigh[1], min: 0, max: 60, step: 0.1 },
@@ -27,7 +32,7 @@ export function useAtmosphereTweaks(preset: PlanetPreset, atmosphere: Atmosphere
             airglow: { value: params.airglow, color: true },
           }
         : EMPTY,
-    [params],
+    [params, enabled],
   )
   const timer = useRef(0)
   const apply = useCallback(

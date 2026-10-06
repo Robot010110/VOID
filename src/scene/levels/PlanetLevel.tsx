@@ -86,9 +86,9 @@ export function PlanetLevel() {
       <Starfield brightness={0.75} band={0.4} />
       <DistantSun direction={sun.direction} temperature={SUN_TEMPERATURE} />
       {preset.gas ? (
-        <GasGiant key={`body-${kind}`} preset={preset} sun={sun} />
+        <GasGiant key={`body-${kind}`} preset={preset} sun={sun} tweakable />
       ) : (
-        <Planet key={`body-${kind}`} preset={preset} sun={sun} />
+        <Planet key={`body-${kind}`} preset={preset} sun={sun} tweakable />
       )}
     </>
   )

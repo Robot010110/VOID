@@ -4,44 +4,41 @@ import {
   Color,
   FrontSide,
   Group,
-  HalfFloatType,
   Matrix3,
   Mesh,
-  RedFormat,
   ShaderMaterial,
   Vector3,
-  Vector4,
-  type DataTexture,
   type PerspectiveCamera,
 } from 'three'
 import type { PlanetPreset } from '../../core/planets.ts'
 import { QUALITY } from '../../core/quality.ts'
-import { Rng } from '../../core/rng.ts'
 import { useVoid } from '../../core/store.ts'
 import { useTweaks, type TweakSchema, type TweakValue } from '../../core/tweaks.ts'
 import atmosphereFrag from '../../shaders/atmosphere/atmosphere.frag'
 import atmosphereVert from '../../shaders/atmosphere/atmosphere.vert'
-import cloudBakeFrag from '../../shaders/clouds/bake.frag'
 import cloudsFrag from '../../shaders/clouds/clouds.frag'
-import fullscreenVert from '../../shaders/common/fullscreen.vert'
 import surfaceFrag from '../../shaders/planet/surface.frag'
 import surfaceVert from '../../shaders/planet/surface.vert'
+import { cancelBake, enqueueBake } from '../shared/bake.ts'
+import { peek, useShared } from '../shared/cache.ts'
 import { worldClock } from '../shared/clock.ts'
-import { bakeCube, createCubeTarget, icosphere, linear, sphereDetail } from '../shared/gpu.ts'
-import { AtmosphereModel } from './atmosphere.ts'
+import { icosphere, linear, sphereDetail } from '../shared/gpu.ts'
+import { FULL, useLevel } from '../levels/context.ts'
 import { useAtmosphereTweaks } from './atmosphereTweaks.ts'
-import { BODY_FADE_IN, fadeIn, PREMULTIPLIED, seedOffset, toObjectSpace, type Sunlight } from './body.ts'
-import { Moon } from './Moon.tsx'
-import { createRingTexture } from './ringTexture.ts'
-import { Rings } from './Rings.tsx'
 import {
-  createDeriveBake,
-  createTerrainBake,
-  surfaceSchema,
-  surfaceUniforms,
-  TERRAIN_STYLE,
-  terrainSchema,
-} from './surface.ts'
+  BODY_FADE_IN,
+  fadeIn,
+  pixelRadius,
+  PREMULTIPLIED,
+  SOLID,
+  toObjectSpace,
+  worldRadius,
+  type Sunlight,
+} from './body.ts'
+import { Moon } from './Moon.tsx'
+import { Rings } from './Rings.tsx'
+import { surfaceSchema, surfaceUniforms, TERRAIN_STYLE, terrainSchema } from './surface.ts'
+import { keepPolicy, planetFace, rockyKey, RockyWorld, type Detail } from './worlds.ts'
 
 const CLOUD_RADIUS = 1.006
 
@@ -55,23 +52,37 @@ const cloudSun = new Vector3()
 const cloudCam = new Vector3()
 const worldCenter = new Vector3()
 
-interface PlanetProps {
+export interface WorldProps {
   preset: PlanetPreset
   sun: Sunlight
+  /** Small maps for a world seen across its system, full-size maps close up. */
+  detail?: Detail
+  /**
+   * The body being handed between levels: shown at once and kept at full strength through
+   * the crossfade, since the other level's copy of it disappears in the same frame.
+   */
+  anchor?: boolean
+  /** Expose every parameter to the debug panel (one world at a time). */
+  tweakable?: boolean
 }
 
 /**
  * A rocky world: baked terrain, a lit surface with oceans and city lights, a churning cloud
- * layer, a scattering atmosphere, optional rings, and its moons. Radius 1 at the origin.
+ * layer, a scattering atmosphere, optional rings, and its moons. A unit sphere: its parent
+ * places and scales it.
  */
-export function Planet({ preset, sun }: PlanetProps) {
+export function Planet({ preset, sun, detail = 'close', anchor = false, tweakable = false }: WorldProps) {
   const terrain = preset.terrain!
   const surface = preset.surface!
   const gl = useThree((s) => s.gl)
+  const level = useLevel()
   const [tier] = useState(() => useVoid.getState().quality)
-  const settings = QUALITY[tier]
   const quality = useVoid((s) => s.quality)
+  const face = planetFace(detail, tier)
+  const closeKey = rockyKey(preset, planetFace('close', tier))
+  const world = useShared(rockyKey(preset, face), () => new RockyWorld(preset, face), keepPolicy(detail))
 
+  const root = useRef<Group>(null)
   const tilt = useRef<Group>(null)
   const spin = useRef<Group>(null)
   const cloudSpin = useRef<Group>(null)
@@ -80,57 +91,10 @@ export function Planet({ preset, sun }: PlanetProps) {
   const shellMesh = useRef<Mesh>(null)
   const fade = useRef(0)
   const start = useRef<number | null>(null)
-
-  const maps = useMemo(
-    () => ({
-      terrain: createCubeTarget(settings.planetFace, { type: HalfFloatType }),
-      derived: createCubeTarget(settings.planetFace),
-      clouds: createCubeTarget(preset.clouds ? settings.planetFace : 4, { format: RedFormat }),
-    }),
-    [settings.planetFace, preset.clouds],
-  )
-  const atmosphere = useMemo(() => new AtmosphereModel(preset.atmosphere), [preset.atmosphere])
-  const ringTexture = useMemo<DataTexture | null>(
-    () => (preset.rings ? createRingTexture(preset.rings, preset.seed) : null),
-    [preset.rings, preset.seed],
-  )
-
-  const bakes = useMemo(() => {
-    const terrainBake = createTerrainBake(terrain, preset.seed)
-    const deriveBake = createDeriveBake(terrain, surface)
-    deriveBake.uniforms.uTerrain!.value = maps.terrain.texture
-    let cloudBake: ShaderMaterial | null = null
-    if (preset.clouds) {
-      const rng = new Rng(preset.seed ^ 0x5eed)
-      const cyclones = Array.from({ length: 6 }, () => {
-        const lat = rng.sign() * rng.range(0.22, 0.62)
-        const lon = rng.range(0, Math.PI * 2)
-        const c = Math.cos(Math.asin(lat))
-        return new Vector4(c * Math.sin(lon), lat, c * Math.cos(lon), Math.sign(lat) * rng.range(0.8, 1.2))
-      })
-      const style = preset.clouds.style === 'haze' ? 'STYLE_HAZE' : preset.clouds.style === 'wisps' ? 'STYLE_WISPS' : 'STYLE_WEATHER'
-      cloudBake = new ShaderMaterial({
-        name: 'clouds-bake',
-        vertexShader: fullscreenVert,
-        fragmentShader: cloudBakeFrag,
-        defines: { [style]: '' },
-        depthTest: false,
-        depthWrite: false,
-        uniforms: {
-          uFace: { value: 0 },
-          uSize: { value: 1 },
-          uSeedOffset: { value: seedOffset(preset.seed ^ 0xc10d) },
-          uCoverage: { value: preset.clouds.coverage },
-          uScale: { value: preset.clouds.scale },
-          uCyclones: { value: cyclones },
-          uCycloneCount: { value: preset.clouds.cyclones },
-        },
-      })
-    }
-    return { terrainBake, deriveBake, cloudBake }
-  }, [terrain, surface, preset.seed, preset.clouds, maps])
+  const bound = useRef<RockyWorld | null>(null)
 
   const layers = useMemo(() => {
+    const atmosphere = world.atmosphere
     const hasAtmosphere = preset.atmosphere !== undefined
     const defines: Record<string, string> = { [TERRAIN_STYLE[terrain.style]]: '' }
     if (hasAtmosphere) defines.ATMOSPHERE = ''
@@ -145,13 +109,14 @@ export function Planet({ preset, sun }: PlanetProps) {
       vertexShader: surfaceVert,
       fragmentShader: surfaceFrag,
       defines,
+      ...SOLID,
       uniforms: {
         ...atmosphere.uniforms,
         ...surfaceUniforms(surface, sun),
-        uTerrain: { value: maps.terrain.texture },
-        uNormals: { value: maps.derived.texture },
-        uClouds: { value: maps.clouds.texture },
-        uRingMap: { value: ringTexture },
+        uTerrain: { value: null },
+        uNormals: { value: null },
+        uClouds: { value: null },
+        uRingMap: { value: world.ringTexture },
       },
     })
     const u = ground.uniforms
@@ -187,8 +152,8 @@ export function Planet({ preset, sun }: PlanetProps) {
         ...PREMULTIPLIED,
         uniforms: {
           ...atmosphere.uniforms,
-          uCloudMap: { value: maps.clouds.texture },
-          uNormals: { value: maps.derived.texture },
+          uCloudMap: { value: null },
+          uNormals: { value: null },
           uSurfaceRotation: { value: new Matrix3() },
           uSunObj: { value: new Vector3() },
           uSunIrradiance: { value: sun.irradiance },
@@ -229,37 +194,42 @@ export function Planet({ preset, sun }: PlanetProps) {
       })
     }
     return { ground, clouds, shell }
-  }, [preset, terrain, surface, atmosphere, maps, ringTexture, sun])
+  }, [preset, terrain, surface, world, sun])
 
-  // Bake every map, then let the planet fade in.
-  const bake = useCallback(() => {
-    bakeCube(gl, maps.terrain, bakes.terrainBake)
-    bakeCube(gl, maps.derived, bakes.deriveBake)
-    if (bakes.cloudBake) bakeCube(gl, maps.clouds, bakes.cloudBake)
-    atmosphere.bake(gl)
-  }, [gl, maps, bakes, atmosphere])
+  /** Point every layer at a set of baked maps (the small ones, or the close-up ones). */
+  const bind = useCallback(
+    (maps: RockyWorld) => {
+      const g = layers.ground.uniforms
+      g.uTerrain!.value = maps.terrain.texture
+      g.uNormals!.value = maps.derived.texture
+      g.uClouds!.value = maps.clouds.texture
+      if (layers.clouds) {
+        layers.clouds.uniforms.uCloudMap!.value = maps.clouds.texture
+        layers.clouds.uniforms.uNormals!.value = maps.derived.texture
+      }
+      bound.current = maps
+    },
+    [layers],
+  )
 
+  // Bake now, or a little each frame when the level arrived mid-transition.
   useLayoutEffect(() => {
-    bake()
-    start.current = null
-  }, [bake])
+    if (world.job.ready) return
+    if (level.background) {
+      enqueueBake(world.job)
+      return () => cancelBake(world.job)
+    }
+    world.job.run(gl)
+  }, [world, gl, level.background])
 
-  useEffect(
-    () => () => {
-      maps.terrain.dispose()
-      maps.derived.dispose()
-      maps.clouds.dispose()
-      atmosphere.dispose()
-      ringTexture?.dispose()
-      bakes.terrainBake.dispose()
-      bakes.deriveBake.dispose()
-      bakes.cloudBake?.dispose()
+  useEffect(() => {
+    bound.current = null
+    return () => {
       layers.ground.dispose()
       layers.clouds?.dispose()
       layers.shell?.dispose()
-    },
-    [maps, atmosphere, ringTexture, bakes, layers],
-  )
+    }
+  }, [layers])
 
   // Tier-dependent shading cost, adjustable at runtime without recompiling.
   useEffect(() => {
@@ -271,11 +241,25 @@ export function Planet({ preset, sun }: PlanetProps) {
   const lod = useRef(-1)
 
   useFrame((state) => {
-    if (!tilt.current || !spin.current || !surfaceMesh.current) return
-    const time = worldClock.time
-    if (start.current === null) start.current = worldClock.real
-    fade.current = fadeIn(worldClock.real, start.current, BODY_FADE_IN)
+    if (!root.current || !tilt.current || !spin.current || !surfaceMesh.current) return
 
+    // Use the close-up maps whenever they exist and are baked; they are identical to the
+    // planet level's, which is what makes the hand-over seamless.
+    let maps: RockyWorld | null = world.job.ready ? world : null
+    if (detail === 'system') {
+      const close = peek<RockyWorld>(closeKey)
+      if (close?.job.ready) maps = close
+    }
+    root.current.visible = maps !== null
+    if (!maps) return
+    if (maps !== bound.current) bind(maps)
+
+    const time = worldClock.time
+    if (start.current === null) start.current = anchor ? -Infinity : worldClock.real
+    fade.current = fadeIn(worldClock.real, start.current, BODY_FADE_IN) * (anchor ? FULL : level.fade).current
+
+    // Parents move every frame (orbits, level frames): bring their matrices up to date first.
+    root.current.updateWorldMatrix(true, false)
     const angle = (time / preset.dayLength) * Math.PI * 2
     spin.current.rotation.y = angle
     if (cloudSpin.current && preset.clouds) cloudSpin.current.rotation.y = angle * preset.clouds.spin
@@ -304,33 +288,38 @@ export function Planet({ preset, sun }: PlanetProps) {
       c.uFade!.value = fade.current
     }
 
-    if (layers.shell && shellMesh.current) {
-      shellMesh.current.getWorldPosition(worldCenter)
+    worldCenter.setFromMatrixPosition(surfaceMesh.current.matrixWorld)
+    const radius = worldRadius(surfaceMesh.current)
+    if (layers.shell) {
       ;(layers.shell.uniforms.uCenter!.value as Vector3).copy(worldCenter)
+      layers.shell.uniforms.uScale!.value = radius
       layers.shell.uniforms.uFade!.value = fade.current
     }
 
     // Level of detail from the planet's size on screen.
-    const distance = camera.position.distanceTo(worldCenter.setFromMatrixPosition(surfaceMesh.current.matrixWorld))
-    const pixels = (1 / Math.max(distance, 1.0001)) / Math.tan((camera.fov * Math.PI) / 360) * state.size.height * state.viewport.dpr * 0.5
-    const detail = sphereDetail(pixels)
-    if (detail !== lod.current) {
-      lod.current = detail
-      const sphere = icosphere(detail)
+    const height = state.size.height * state.viewport.dpr
+    const pixels = pixelRadius(radius, camera.position.distanceTo(worldCenter), camera.fov, height)
+    const detailLevel = sphereDetail(pixels)
+    if (detailLevel !== lod.current) {
+      lod.current = detailLevel
+      const sphere = icosphere(detailLevel)
       surfaceMesh.current.geometry = sphere
       if (cloudMesh.current) cloudMesh.current.geometry = sphere
       if (shellMesh.current) shellMesh.current.geometry = sphere
     }
   })
 
-  // Debug: every surface, terrain, cloud and atmosphere parameter.
+  // Debug: every surface, terrain, cloud and atmosphere parameter of the one world in focus.
   const rebakeTimer = useRef(0)
   const scheduleRebake = useCallback(() => {
     window.clearTimeout(rebakeTimer.current)
-    rebakeTimer.current = window.setTimeout(bake, 120)
-  }, [bake])
+    rebakeTimer.current = window.setTimeout(() => {
+      world.job.restart()
+      world.job.run(gl)
+    }, 120)
+  }, [world, gl])
 
-  const surfaceTweaks = useMemo(() => surfaceSchema(surface), [surface])
+  const surfaceTweaks = useMemo(() => (tweakable ? surfaceSchema(surface) : EMPTY), [surface, tweakable])
   const applySurface = useCallback(
     (key: string, value: TweakValue) => {
       const uniform = layers.ground.uniforms[`u${key.charAt(0).toUpperCase()}${key.slice(1)}`]
@@ -338,30 +327,30 @@ export function Planet({ preset, sun }: PlanetProps) {
       if (uniform.value instanceof Color) applyColour(uniform.value, value)
       else uniform.value = value
       if (key === 'seaLevel') {
-        bakes.deriveBake.uniforms.uSeaLevel!.value = value
+        world.deriveBake.uniforms.uSeaLevel!.value = value
         scheduleRebake()
       }
     },
-    [layers, bakes, scheduleRebake],
+    [layers, world, scheduleRebake],
   )
   useTweaks(`${preset.label}: surface`, surfaceTweaks, applySurface)
 
-  const terrainTweaks = useMemo(() => terrainSchema(terrain), [terrain])
+  const terrainTweaks = useMemo(() => (tweakable ? terrainSchema(terrain) : EMPTY), [terrain, tweakable])
   const applyTerrain = useCallback(
     (key: string, value: TweakValue) => {
       const name = `u${key.charAt(0).toUpperCase()}${key.slice(1)}`
-      const uniform = key === 'reliefScale' ? bakes.deriveBake.uniforms[name] : bakes.terrainBake.uniforms[name]
+      const uniform = key === 'reliefScale' ? world.deriveBake.uniforms[name] : world.terrainBake.uniforms[name]
       if (!uniform || typeof value !== 'number') return
       uniform.value = value
       scheduleRebake()
     },
-    [bakes, scheduleRebake],
+    [world, scheduleRebake],
   )
   useTweaks(`${preset.label}: terrain`, terrainTweaks, applyTerrain)
 
-  const cloudTweaks = useMemo<TweakSchema | null>(
+  const cloudTweaks = useMemo<TweakSchema>(
     () =>
-      preset.clouds
+      tweakable && preset.clouds
         ? {
             coverage: { value: preset.clouds.coverage, min: 0, max: 1, step: 0.01 },
             threshold: { value: preset.clouds.threshold, min: 0, max: 1, step: 0.01 },
@@ -372,16 +361,16 @@ export function Planet({ preset, sun }: PlanetProps) {
             shadow: { value: preset.clouds.shadow, min: 0, max: 1, step: 0.01 },
             cityGlow: { value: preset.lights ? 0.015 : 0, min: 0, max: 0.2, step: 0.001 },
           }
-        : null,
-    [preset.clouds, preset.lights],
+        : EMPTY,
+    [preset.clouds, preset.lights, tweakable],
   )
   const applyClouds = useCallback(
     (key: string, value: TweakValue) => {
       if (!layers.clouds) return
       const c = layers.clouds.uniforms
       const g = layers.ground.uniforms
-      if (key === 'coverage' && bakes.cloudBake) {
-        bakes.cloudBake.uniforms.uCoverage!.value = value
+      if (key === 'coverage' && world.cloudBake) {
+        world.cloudBake.uniforms.uCoverage!.value = value
         scheduleRebake()
       } else if (key === 'color') applyColour(c.uCloudColor!.value, value)
       else if (key === 'shadow') g.uCloudShadow!.value = value
@@ -394,21 +383,21 @@ export function Planet({ preset, sun }: PlanetProps) {
         if (uniform) uniform.value = value
       }
     },
-    [layers, bakes, scheduleRebake],
+    [layers, world, scheduleRebake],
   )
-  useTweaks(`${preset.label}: clouds`, cloudTweaks ?? EMPTY, applyClouds)
+  useTweaks(`${preset.label}: clouds`, cloudTweaks, applyClouds)
 
-  const lightTweaks = useMemo<TweakSchema | null>(
+  const lightTweaks = useMemo<TweakSchema>(
     () =>
-      preset.lights
+      tweakable && preset.lights
         ? {
             density: { value: preset.lights.density, min: 0, max: 1.5, step: 0.01 },
             intensity: { value: preset.lights.intensity, min: 0, max: 10, step: 0.05 },
             roads: { value: preset.lights.roads, min: 0, max: 1, step: 0.01 },
             color: { value: preset.lights.color, color: true },
           }
-        : null,
-    [preset.lights],
+        : EMPTY,
+    [preset.lights, tweakable],
   )
   const applyLights = useCallback(
     (key: string, value: TweakValue) => {
@@ -423,52 +412,55 @@ export function Planet({ preset, sun }: PlanetProps) {
     },
     [layers],
   )
-  useTweaks(`${preset.label}: lights`, lightTweaks ?? EMPTY, applyLights)
+  useTweaks(`${preset.label}: lights`, lightTweaks, applyLights)
 
-  useAtmosphereTweaks(preset, atmosphere, () => atmosphere.bake(gl))
+  useAtmosphereTweaks(preset, world.atmosphere, () => world.atmosphere.bake(gl), tweakable)
 
   return (
-    <group ref={tilt} rotation={[0, 0, preset.tilt]}>
-      <group ref={spin}>
-        <mesh
-          ref={surfaceMesh}
-          geometry={icosphere(24)}
-          material={layers.ground}
-          frustumCulled={false}
-          dispose={null}
-        />
-      </group>
-      {layers.clouds && (
-        <group ref={cloudSpin}>
+    <group ref={root} visible={false}>
+      <group ref={tilt} rotation={[0, 0, preset.tilt]}>
+        <group ref={spin}>
           <mesh
-            ref={cloudMesh}
+            ref={surfaceMesh}
             geometry={icosphere(24)}
-            material={layers.clouds}
-            scale={CLOUD_RADIUS}
-            renderOrder={1}
+            material={layers.ground}
             frustumCulled={false}
             dispose={null}
           />
         </group>
-      )}
-      {layers.shell && (
-        <mesh
-          ref={shellMesh}
-          geometry={icosphere(24)}
-          material={layers.shell}
-          scale={1 + (preset.atmosphere?.thickness ?? 0)}
-          renderOrder={2}
-          frustumCulled={false}
-          dispose={null}
-        />
-      )}
-      {preset.rings && ringTexture && <Rings rings={preset.rings} texture={ringTexture} sun={sun} fade={fade} />}
-      {preset.moons.map((moon, index) => (
-        <Moon key={index} spec={moon} seed={preset.seed + index * 7919} sun={sun} fade={fade} />
-      ))}
+        {layers.clouds && (
+          <group ref={cloudSpin}>
+            <mesh
+              ref={cloudMesh}
+              geometry={icosphere(24)}
+              material={layers.clouds}
+              scale={CLOUD_RADIUS}
+              renderOrder={1}
+              frustumCulled={false}
+              dispose={null}
+            />
+          </group>
+        )}
+        {layers.shell && (
+          <mesh
+            ref={shellMesh}
+            geometry={icosphere(24)}
+            material={layers.shell}
+            scale={1 + (preset.atmosphere?.thickness ?? 0)}
+            renderOrder={2}
+            frustumCulled={false}
+            dispose={null}
+          />
+        )}
+        {preset.rings && world.ringTexture && (
+          <Rings rings={preset.rings} texture={world.ringTexture} sun={sun} fade={fade} />
+        )}
+        {preset.moons.map((moon, index) => (
+          <Moon key={index} spec={moon} seed={preset.seed + index * 7919} sun={sun} fade={fade} detail={detail} />
+        ))}
+      </group>
     </group>
   )
 }
 
 const EMPTY: TweakSchema = {}
-

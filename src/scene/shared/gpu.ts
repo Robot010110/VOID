@@ -54,13 +54,38 @@ export function bakeTexture(gl: WebGLRenderer, target: WebGLRenderTarget, materi
 
 /** Render a pass into all six faces of a cube target. The material reads uFace and uSize. */
 export function bakeCube(gl: WebGLRenderer, target: WebGLCubeRenderTarget, material: ShaderMaterial) {
+  for (let face = 0; face < 6; face++) {
+    bakeCubeTile(gl, target, material, face, 0, 0, target.width, target.width, face === 5)
+  }
+}
+
+/**
+ * Render one rectangle of one cube face. three regenerates a target's whole mip chain after
+ * every render into it, so mipmaps are only built on the pass that completes the map.
+ */
+export function bakeCubeTile(
+  gl: WebGLRenderer,
+  target: WebGLCubeRenderTarget,
+  material: ShaderMaterial,
+  face: number,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  last: boolean,
+) {
+  const mipmaps = target.texture.minFilter !== LinearFilter
   renderWith(gl, material, () => {
     material.uniforms.uSize!.value = target.width
-    for (let face = 0; face < 6; face++) {
-      material.uniforms.uFace!.value = face
-      gl.setRenderTarget(target, face)
-      gl.render(bakeScene, bakeCamera)
-    }
+    material.uniforms.uFace!.value = face
+    const whole = x === 0 && y === 0 && width === target.width && height === target.width
+    target.scissor.set(x, y, width, height)
+    target.scissorTest = !whole
+    target.texture.generateMipmaps = mipmaps && last
+    gl.setRenderTarget(target, face)
+    gl.render(bakeScene, bakeCamera)
+    target.scissorTest = false
+    target.texture.generateMipmaps = mipmaps
   })
 }
 
