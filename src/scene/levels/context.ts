@@ -1,4 +1,5 @@
 import { createContext, useContext } from 'react'
+import type { Object3D } from 'three'
 
 export interface LevelInfo {
   /**
@@ -8,9 +9,14 @@ export interface LevelInfo {
   readonly fade: { current: number }
   /** The level mounted during a transition: bake in the background so motion never stops. */
   readonly background: boolean
+  /**
+   * Objects the level draws outside the scene graph (into its own buffers), whose shaders
+   * must be compiled with the level's before it appears.
+   */
+  readonly extras: Set<Object3D>
 }
 
-const STATIC: LevelInfo = { fade: { current: 1 }, background: false }
+const STATIC: LevelInfo = { fade: { current: 1 }, background: false, extras: new Set() }
 
 export const LevelContext = createContext<LevelInfo>(STATIC)
 

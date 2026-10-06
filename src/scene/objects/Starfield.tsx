@@ -8,6 +8,7 @@ import {
   HalfFloatType,
   LinearFilter,
   Matrix3,
+  Matrix4,
   Mesh,
   Points,
   RepeatWrapping,
@@ -15,6 +16,7 @@ import {
   Vector2,
   Vector3,
   WebGLRenderTarget,
+  type Group,
   type IUniform,
 } from 'three'
 import { SHOT } from '../../core/env.ts'
@@ -30,6 +32,7 @@ import glowVert from '../../shaders/starfield/glow.vert'
 import starsFrag from '../../shaders/starfield/stars.frag'
 import starsVert from '../../shaders/starfield/stars.vert'
 import { bakeTexture } from '../shared/gpu.ts'
+import { sky as skyTurn } from '../stage.ts'
 
 const SKY_SEED = hashSeed(UNIVERSE_SEED, 0x5c1e)
 /** Latitude (radians) either side of the band covered by the baked strip. */
@@ -117,6 +120,10 @@ function spikeDirection(degrees: number, out: Vector2): Vector2 {
 }
 
 const step = new Vector3()
+/** The sky from inside a galaxy's disc: its band, and its stars at full strength. */
+const INSIDE = { brightness: 0.9, band: 0.55 }
+const turn = new Matrix4()
+const turn3 = new Matrix3()
 
 /**
  * The background sky for every level: three parallax layers of stars at infinity, and the
@@ -278,6 +285,9 @@ export function Starfield({ brightness = 1, band = 1 }: StarfieldProps) {
   }, [brightness, band])
   const offset = useRef(new Vector3())
   const lastCamera = useRef<Vector3 | null>(null)
+  const root = useRef<Group>(null)
+  // The band's frame as baked, before the sky is turned.
+  const bandFrame = useMemo(() => (shared.uBandFrame!.value as Matrix3).clone(), [shared])
   const densityTarget = QUALITY[quality].starFraction
 
   useFrame((state, delta) => {
@@ -289,10 +299,14 @@ export function Starfield({ brightness = 1, band = 1 }: StarfieldProps) {
     const fade = FADE_IN > 0 ? Math.min(1, (t - fadeStart.current) / FADE_IN) : 1
     shared.uFade!.value = fade * fade * (3 - 2 * fade)
 
-    // Level changes (a planet coming into view, leaving the galaxy) ease over a second.
+    // Level changes (a planet coming into view, leaving the galaxy) ease over a second. Inside
+    // a galaxy's disc its band is the sky, whatever the level.
     const ease = 1 - Math.exp(-delta / 1.2)
-    level.current.brightness += (target.current.brightness - level.current.brightness) * ease
-    level.current.band += (target.current.band - level.current.band) * ease
+    const inside = skyTurn.inside
+    const wantBrightness = target.current.brightness + (INSIDE.brightness - target.current.brightness) * inside
+    const wantBand = target.current.band + (INSIDE.band - target.current.band) * inside
+    level.current.brightness += (wantBrightness - level.current.brightness) * ease
+    level.current.band += (wantBand - level.current.band) * ease
     shared.uBrightness!.value = tuned.current.brightness * level.current.brightness
     glow.material.uniforms.uIntensity!.value = tuned.current.band * level.current.band
 
@@ -316,6 +330,12 @@ export function Starfield({ brightness = 1, band = 1 }: StarfieldProps) {
         .multiplyScalar(layer.tuning.parallax)
     }
 
+    // The sky turns with the frame the camera is in (a system's sky shows its galaxy's plane).
+    if (root.current) root.current.quaternion.copy(skyTurn.orientation)
+    turn3.setFromMatrix4(turn.makeRotationFromQuaternion(skyTurn.orientation))
+    ;(shared.uBandFrame!.value as Matrix3).copy(bandFrame).multiply(turn3.transpose())
+    ;(glow.material.uniforms.uBandToWorld!.value as Matrix3).copy(shared.uBandFrame!.value as Matrix3).transpose()
+
     // Halfway to the far plane: inside the frustum at every level, and always infinitely far.
     const camera3 = state.camera as { far?: number }
     glow.material.uniforms.uRadius!.value = (camera3.far ?? 1000) * 0.5
@@ -338,7 +358,7 @@ export function Starfield({ brightness = 1, band = 1 }: StarfieldProps) {
   useTweaks('Starfield', TWEAKS, apply)
 
   return (
-    <group>
+    <group ref={root}>
       <primitive object={glow.mesh} />
       {layers.map((layer) => (
         <primitive key={layer.material.name} object={layer.points} />

@@ -5,7 +5,7 @@
 import { DEBUG, SHOT } from '../core/env.ts'
 import { useVoid } from '../core/store.ts'
 import { ascend, back, descend } from './camera/transitions.ts'
-import { worldClock } from './shared/clock.ts'
+import { stepping, worldClock } from './shared/clock.ts'
 import { levelRuntime } from './stage.ts'
 
 export function installTestHooks() {
@@ -14,6 +14,17 @@ export function installTestHooks() {
     descend,
     ascend,
     back,
+    /** Hold time still (true) or let it run (false). */
+    hold: (on: boolean) => {
+      stepping.manual = on
+      stepping.frames = 0
+    },
+    /** While held, let time run for `frames` frames. */
+    advance: (frames: number) => {
+      stepping.frames += frames
+    },
+    /** Frames still to run from the last advance. */
+    pending: () => stepping.frames,
     locate: (index: number) => levelRuntime(useVoid.getState().path).locate?.(index) ?? null,
     state: () => {
       const { path, level, transition, hoverTarget } = useVoid.getState()

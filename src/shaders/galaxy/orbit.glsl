@@ -37,17 +37,18 @@ float armAngle(float a) {
 }
 
 // Where a particle on `orbit` (mean radius, angle at time zero, height, radial scatter) is
-// now. `turnsWithArms` is 1 for knots that ride the arms. Also returns the particle's phase
-// against the arms (0 on a crest; one arm to the next is 2 pi) and how present the arms are
-// at its radius (0 in the bulge, 1 in the disc).
+// now. `turnsWithArms` is 1 for what rides the arms (knots, dust lanes). Also returns where
+// the particle is against the arms, measured from the crest at its actual radius (0 on a
+// crest, one arm to the next is 2 pi, positive downstream), and how present the arms are
+// there (0 in the bulge, 1 in the disc).
 vec3 galacticPosition(vec4 orbit, float turnsWithArms, out float armPhase, out float armPresence) {
   float a = orbit.x;
   float turned = uMotion.z * uTime;
   float phi = orbit.y + mix(orbitalSpeed(a), uMotion.z, turnsWithArms) * uTime;
-  armPhase = uArms.x * (phi - armAngle(a) - turned);
-  float e = armStrength(a);
-  float r = a * (1.0 + e * cos(armPhase + uArmShape.y) + barStrength(a) * cos(2.0 * (phi - uBar.y - turned))) + orbit.w;
-  armPresence = e / max(uArmShape.x, 1e-6);
+  float lobe = uArms.x * (phi - armAngle(a) - turned) + uArmShape.y;
+  float r = a * (1.0 + armStrength(a) * cos(lobe) + barStrength(a) * cos(2.0 * (phi - uBar.y - turned))) + orbit.w;
+  armPhase = uArms.x * (phi - armAngle(r) - turned);
+  armPresence = armStrength(r) / max(uArmShape.x, 1e-6);
   return vec3(r * cos(phi), orbit.z, -r * sin(phi));
 }
 

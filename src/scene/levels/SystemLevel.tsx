@@ -18,6 +18,13 @@ import { handover, levelRuntime, type Pick } from '../stage.ts'
 
 const MAX_ORBITS = 12
 
+/** Whether a running transition hands this system's star to or from its galaxy. */
+function starHanded(transition: Transition, system: Path): boolean {
+  if (transition.phase === 'idle') return false
+  const involves = (path: Path) => path.length === 2 && path[0] === system[0] && path[1] === system[1]
+  return (involves(transition.from) && transition.to.length === 1) || (involves(transition.to) && transition.from.length === 1)
+}
+
 /** The child taking part in a running transition, by index, or -1. */
 function transitionChild(transition: Transition, system: Path): number {
   if (transition.phase === 'idle') return -1
@@ -40,6 +47,8 @@ export function SystemLevel({ path }: { path: Path }) {
   const runtime = levelRuntime(path)
   const get = useThree((s) => s.get)
   const handed = useVoid((s) => transitionChild(s.transition, path))
+  const starAnchor = useVoid((s) => starHanded(s.transition, path))
+  const star = useRef<Group>(null)
   const anchors = useRef<Array<Group | null>>([])
   const root = useRef<Group>(null)
 
@@ -113,6 +122,8 @@ export function SystemLevel({ path }: { path: Path }) {
   useFrame((state) => {
     const time = worldClock.time
     const hover = useVoid.getState().hoverTarget
+    // Once the galaxy owns the star again (rising out), this copy steps aside.
+    if (star.current) star.current.visible = !(starAnchor && handover.owner === 'parent')
     const camera = state.camera
     for (let i = 0; i < worlds.length; i++) {
       const anchor = anchors.current[i]
@@ -159,7 +170,9 @@ export function SystemLevel({ path }: { path: Path }) {
 
   return (
     <group ref={root}>
-      <Star star={system.star} />
+      <group ref={star}>
+        <Star star={system.star} anchor={starAnchor} />
+      </group>
       <Orbits planets={system.planets} strength={strength} />
       {belt && beltLight && <Belt belt={belt} light={beltLight} />}
       {worlds.map(({ planet, sun }, i) => (

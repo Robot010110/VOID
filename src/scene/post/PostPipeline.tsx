@@ -1,6 +1,6 @@
 import { Bloom, EffectComposer, SMAA, ToneMapping, Vignette } from '@react-three/postprocessing'
 import { ToneMappingMode, type BloomEffect, type VignetteEffect } from 'postprocessing'
-import { useThree } from '@react-three/fiber'
+import { useFrame, useThree } from '@react-three/fiber'
 import { useCallback, useRef } from 'react'
 import { HalfFloatType } from 'three'
 import { TONE } from '../../core/env.ts'
@@ -24,6 +24,13 @@ const TWEAKS: TweakSchema = {
   grain: { value: 0.022, min: 0, max: 0.08, step: 0.001 },
 }
 
+/**
+ * Bloom's strength per level, as a share of the tuned intensity. A galaxy is a field of
+ * extended light that can fill the screen, and blooms only at its core; stars and worlds are
+ * small bright sources that bloom fully.
+ */
+const LEVEL_BLOOM: Record<string, number> = { universe: 0.6, galaxy: 0.45, system: 1, planet: 1 }
+
 /** At or above this pixel ratio, edges are fine enough that SMAA costs more than it gives. */
 const SMAA_MAX_DPR = 1.75
 
@@ -39,11 +46,22 @@ export function PostPipeline() {
   const bloom = useRef<BloomEffect>(null)
   const vignette = useRef<VignetteEffect>(null)
   const film = useRef<FilmEffect>(null)
+  const bloomTuned = useRef(num(TWEAKS, 'bloomIntensity'))
+  const bloomLevel = useRef(LEVEL_BLOOM[useVoid.getState().level] ?? 1)
+
+  // Bloom follows the level, easing over a couple of seconds through a transition.
+  useFrame((_, delta) => {
+    const effect = bloom.current
+    if (!effect) return
+    const target = LEVEL_BLOOM[useVoid.getState().level] ?? 1
+    bloomLevel.current += (target - bloomLevel.current) * (1 - Math.exp(-Math.min(delta, 0.1) / 0.7))
+    effect.intensity = bloomTuned.current * bloomLevel.current
+  })
 
   const apply = useCallback(
     (key: string, value: TweakValue) => {
       if (typeof value !== 'number') return
-      if (key === 'bloomIntensity' && bloom.current) bloom.current.intensity = value
+      if (key === 'bloomIntensity') bloomTuned.current = value
       if (key === 'vignetteDarkness' && vignette.current) vignette.current.darkness = value
       if (key === 'vignetteOffset' && vignette.current) vignette.current.offset = value
       if (key === 'contrast' && film.current) film.current.contrast = value

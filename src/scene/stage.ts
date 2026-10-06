@@ -2,6 +2,7 @@
  * Runtime state shared by the scene, the camera director and the interface, outside React:
  * it changes every frame. React state (the store) holds only what changes structure.
  */
+import { Quaternion } from 'three'
 import { pathKey } from '../core/store.ts'
 import type { Path } from '../core/universe.ts'
 import type { Limits } from './camera/views.ts'
@@ -64,6 +65,20 @@ export const handover = {
   index: -1,
   /** Which level draws it: the parent until the swap of a descent, the child after it. */
   owner: 'parent' as 'parent' | 'child',
+}
+
+/**
+ * How the background sky is turned in the active frame. Each system's sky shows the band of
+ * its galaxy, so the sky is fixed in a system's frame (and its planets'); seen from the
+ * galaxy's frame it is turned like the system the camera came from or is falling towards.
+ */
+export const sky = {
+  orientation: new Quaternion(),
+  /**
+   * How far inside a galaxy's disc the camera is, 0 to 1, while a galaxy is on stage. Inside,
+   * the galaxy's own light has resolved away and the sky's band is what is left of it.
+   */
+  inside: 0,
 }
 
 /** Camera speed through scale, for the post effects (log distance per second, smoothed). */

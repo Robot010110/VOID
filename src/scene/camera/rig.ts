@@ -2,9 +2,10 @@
  * The camera rig's state, shared by the rig component (which turns input into motion) and
  * the transition director (which takes over the camera for flights between levels).
  * The camera orbits a centre point at a distance; angles follow three's spherical
- * convention (polar from +y, azimuth from +z towards +x).
+ * convention (polar from up, azimuth from +z towards +x) in the pose's basis, which is the
+ * frame's own axes except while a flight banks from one level's plane into another's.
  */
-import { Vector3 } from 'three'
+import { Quaternion, Vector3 } from 'three'
 import type { OrbitView } from './views.ts'
 
 export interface RigPose {
@@ -12,6 +13,8 @@ export interface RigPose {
   distance: number
   azimuth: number
   polar: number
+  /** The orbit's axes in the frame: identity, except while banking between levels. */
+  readonly basis: Quaternion
 }
 
 /** Keep away from the poles, where an orbit flips over. */
@@ -20,7 +23,7 @@ export const POLAR_MAX = 0.92 * Math.PI
 
 export const rig = {
   /** Where the camera is now, in the active level's frame. */
-  pose: { center: new Vector3(), distance: 6, azimuth: 0, polar: Math.PI / 2 } as RigPose,
+  pose: { center: new Vector3(), distance: 6, azimuth: 0, polar: Math.PI / 2, basis: new Quaternion() } as RigPose,
   /** Where steering is taking it. */
   target: { distance: 6, azimuth: 0, polar: Math.PI / 2 },
   velocity: { azimuth: 0, polar: 0 },
@@ -36,6 +39,7 @@ export const rig = {
 export function placeRig(view: OrbitView, distance: number, center = new Vector3()) {
   const { pose, target, velocity } = rig
   pose.center.copy(center)
+  pose.basis.identity()
   pose.distance = target.distance = Math.min(Math.max(view.distance ?? distance, rig.limits.min), rig.limits.max)
   pose.azimuth = target.azimuth = view.azimuth
   pose.polar = target.polar = view.polar

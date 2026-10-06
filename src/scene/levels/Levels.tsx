@@ -2,11 +2,13 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import {
   HalfFloatType,
+  Quaternion,
   Vector3,
   WebGLRenderTarget,
   type Camera,
   type Group,
   type Material,
+  type Object3D,
   type Scene,
   type WebGLRenderer,
 } from 'three'
@@ -45,11 +47,12 @@ function programOf(gl: WebGLRenderer, material: Material) {
  * the background and the returned materials are polled until their programs are ready;
  * without it, linking is forced now, mid-flight, rather than at the moment of the swap.
  */
-function precompile(gl: WebGLRenderer, root: Group, camera: Camera, scene: Scene): Set<Material> {
+function precompile(gl: WebGLRenderer, roots: Iterable<Object3D>, camera: Camera, scene: Scene): Set<Material> {
   compileTarget ??= new WebGLRenderTarget(1, 1, { type: HalfFloatType, depthBuffer: true })
   const previous = gl.getRenderTarget()
   gl.setRenderTarget(compileTarget)
-  const materials = gl.compile(root, camera, scene)
+  const materials = new Set<Material>()
+  for (const root of roots) for (const material of gl.compile(root, camera, scene)) materials.add(material)
   gl.setRenderTarget(previous)
   if (!gl.extensions.has('KHR_parallel_shader_compile')) {
     for (const material of materials) programOf(gl, material)?.getUniforms()
@@ -68,6 +71,7 @@ function compiledAll(gl: WebGLRenderer, materials: Set<Material>): boolean {
 }
 
 const position = new Vector3()
+const rotation = new Quaternion()
 
 function GalaxyFrame({ path, background }: { path: Path; background: boolean }) {
   const galaxy = getGalaxy(path[0]!)
@@ -100,7 +104,7 @@ const LevelFrame = memo(function LevelFrame({ path }: { path: Path }) {
   // settled by then), then the materials still compiling, then 'done'.
   const compile = useRef<'pending' | Set<Material> | 'done'>('pending')
   const [background] = useState(() => useVoid.getState().transition.phase !== 'idle')
-  const info = useMemo<LevelInfo>(() => ({ fade: runtime.fade, background }), [runtime, background])
+  const info = useMemo<LevelInfo>(() => ({ fade: runtime.fade, background, extras: new Set() }), [runtime, background])
 
   useEffect(() => {
     compile.current = 'pending'
@@ -109,12 +113,13 @@ const LevelFrame = memo(function LevelFrame({ path }: { path: Path }) {
   useFrame(() => {
     const group = root.current
     if (!group) return
-    const scale = frameTransform(path, useVoid.getState().path, worldClock.time, position)
+    const scale = frameTransform(path, useVoid.getState().path, worldClock.time, position, rotation)
     group.position.copy(position)
+    group.quaternion.copy(rotation)
     group.scale.setScalar(scale)
     group.visible = runtime.visible
     // Compile this level's shaders in parallel instead of stalling the frame it appears in.
-    if (compile.current === 'pending') compile.current = precompile(gl, group, camera, scene)
+    if (compile.current === 'pending') compile.current = precompile(gl, [group, ...info.extras], camera, scene)
     if (compile.current !== 'done' && compiledAll(gl, compile.current)) compile.current = 'done'
     runtime.ready = compile.current === 'done' && !bakesPending() && !workPending()
   }, -50)

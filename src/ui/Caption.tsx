@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react'
 import { useVoid } from '../core/store.ts'
-import { ascend } from '../scene/camera/transitions.ts'
+import { ascendTo } from '../scene/camera/transitions.ts'
 import { holdInterface, readingTime } from './idle.ts'
 import { placeAt } from './places.ts'
 
@@ -24,7 +24,7 @@ export function Caption() {
         <ol className="crumbs">
           {place.ancestors.map((ancestor) => (
             <li key={ancestor.path.join('/')} className="crumb">
-              <button type="button" className="crumb-button" onClick={() => ascend()}>
+              <button type="button" className="crumb-button" onClick={() => ascendTo(ancestor.path)}>
                 {ancestor.name}
               </button>
             </li>

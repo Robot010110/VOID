@@ -18,8 +18,18 @@ export const worldClock = {
 
 const SHOT_STEP = 1 / 60
 
+/**
+ * Stepping by hand, for the screenshot script: while `manual`, time only moves for the
+ * frames `advance` grants, so a transition can be frozen at an exact moment.
+ */
+export const stepping = { manual: false, frames: 0 }
+
 export function advanceWorldClock(delta: number) {
-  const step = SHOT ? SHOT_STEP : Math.min(delta, 0.1)
+  let step = SHOT ? SHOT_STEP : Math.min(delta, 0.1)
+  if (stepping.manual) {
+    step = stepping.frames > 0 ? SHOT_STEP : 0
+    stepping.frames = Math.max(0, stepping.frames - 1)
+  }
   worldClock.step = step
   worldClock.real += step
   worldClock.time += step * worldClock.scale

@@ -4,6 +4,7 @@ uniform float uFade;
 uniform float uDiscLight;
 
 varying vec3 vColour;
+varying vec3 vFace;
 varying vec4 vLight;
 varying vec2 vSpread;
 
@@ -13,8 +14,9 @@ void main() {
   float r2 = dot(p, p);
   float r = sqrt(r2);
 
-  float light = vLight.x * exp(-r2 / (2.0 * vSpread.x * vSpread.x));
-  light += vLight.y * exp(-r2 / (2.0 * vSpread.y * vSpread.y));
+  float point = vLight.x * exp(-r2 / (2.0 * vSpread.x * vSpread.x));
+  point += vLight.y * exp(-r2 / (2.0 * vSpread.y * vSpread.y));
+  vec3 colour = vColour * point;
 
   float disc = vLight.z;
   if (disc > 0.7) {
@@ -23,9 +25,9 @@ void main() {
     float limb = 1.0 - 0.55 * (1.0 - sqrt(1.0 - x * x));
     float edge = 1.0 - smoothstep(disc - 0.75, disc + 0.75, r);
     float corona = 0.28 * exp(-max(r - disc, 0.0) / (disc * 0.55)) + 0.06 * exp(-max(r - disc, 0.0) / (disc * 1.8));
-    light += shown * uDiscLight * uFade * (limb * edge + corona * (1.0 - edge));
+    colour += shown * uDiscLight * uFade * (vFace * limb * edge + vColour * corona * (1.0 - edge));
   }
 
-  light *= 1.0 - smoothstep(halfSize * 0.8, halfSize, r);
-  gl_FragColor = vec4(vColour * light, 1.0);
+  colour *= 1.0 - smoothstep(halfSize * 0.8, halfSize, r);
+  gl_FragColor = vec4(colour, 1.0);
 }

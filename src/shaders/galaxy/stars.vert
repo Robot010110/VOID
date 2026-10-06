@@ -3,9 +3,10 @@
 // every distance; close in it grows as a real star's would, and once the camera can resolve
 // the star's disc it becomes a small sun, matched to the system's own star at the swap.
 #include "./orbit.glsl"
+#include "../common/blackbody.glsl"
 
 attribute vec4 aOrbit;
-// Index, light, the star's radius in system units, notable.
+// Index, light, the star's radius in system units, its temperature.
 attribute vec4 aStar;
 attribute vec3 aColour;
 
@@ -18,9 +19,12 @@ uniform float uStarLight;
 // Galaxy units: nearer than this, a star's light grows as the inverse square.
 uniform float uReach;
 uniform float uHover;
+uniform float uHidden;
 uniform float uPeakMax;
 
 varying vec3 vColour;
+// The disc's colour once resolved: the star's face, tinted as the system's star is.
+varying vec3 vFace;
 // x: point light peak, y: halo peak, z: disc radius (px), w: sprite half-size (px)
 varying vec4 vLight;
 // x: core sigma, y: halo sigma (px)
@@ -57,7 +61,9 @@ void main() {
   reach = max(reach, disc * 5.0 * step(0.7, disc));
 
   vColour = aColour;
+  vFace = blackbody(aStar.w * 0.78);
   vLight = vec4(peak, halo, disc, reach + 1.0);
   vSpread = vec2(coreSigma, haloSigma);
-  gl_PointSize = uFade > 0.0 && view.z < 0.0 ? min(2.0 * reach + 2.0, uMaxPointSize) : 0.0;
+  float hidden = step(abs(aStar.x - uHidden), 0.5);
+  gl_PointSize = uFade > 0.0 && view.z < 0.0 && hidden < 0.5 ? min(2.0 * reach + 2.0, uMaxPointSize) : 0.0;
 }

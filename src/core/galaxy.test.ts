@@ -177,9 +177,9 @@ describe('systemOrientation', () => {
 describe('GalaxyParticleJob', () => {
   const whole = new GalaxyParticleJob(home, 20000).run()
 
-  it('splits each tier into light and a capped share of dust', () => {
-    expect(particleCounts(400000)).toEqual({ light: 340000, dust: 34000 })
-    expect(particleCounts(80000)).toEqual({ light: 68000, dust: 12000 })
+  it('splits each tier into light, sparkle and a capped share of dust', () => {
+    expect(particleCounts(400000)).toEqual({ light: 304000, sparkle: 36000, dust: 34000 })
+    expect(particleCounts(80000)).toEqual({ light: 60800, sparkle: 7200, dust: 12000 })
   })
 
   it('gives the same particles however it is chunked', () => {
@@ -190,26 +190,24 @@ describe('GalaxyParticleJob', () => {
       steps++
     }
     expect(steps).toBeGreaterThan(10)
-    expect(chunked.light.orbit).toEqual(whole.light.orbit)
-    expect(chunked.light.shape).toEqual(whole.light.shape)
-    expect(chunked.light.colour).toEqual(whole.light.colour)
-    expect(chunked.dust.orbit).toEqual(whole.dust.orbit)
+    for (const set of ['light', 'sparkle', 'dust'] as const) {
+      expect(chunked[set].orbit).toEqual(whole[set].orbit)
+      expect(chunked[set].shape).toEqual(whole[set].shape)
+      expect(chunked[set].colour).toEqual(whole[set].colour)
+    }
   })
 
-  it('puts the first half of the light above the plane and the second below', () => {
+  it('fills both sides of the plane alike', () => {
     const { light } = whole
-    const half = light.count / 2
-    let wrong = 0
-    for (let i = 0; i < light.count; i++) {
-      const y = light.orbit[i * 4 + 2]!
-      if ((i < half && y < 0) || (i >= half && y > 0)) wrong++
-    }
-    expect(wrong).toBe(0)
+    let above = 0
+    for (let i = 0; i < light.count; i++) if (light.orbit[i * 4 + 2]! > 0) above++
+    expect(above / light.count).toBeGreaterThan(0.45)
+    expect(above / light.count).toBeLessThan(0.55)
   })
 
   it('keeps every particle finite and inside the galaxy', () => {
     let bad = 0
-    for (const set of [whole.light, whole.dust]) {
+    for (const set of [whole.light, whole.sparkle, whole.dust]) {
       for (let i = 0; i < set.count; i++) {
         const a = set.orbit[i * 4]!
         if (!Number.isFinite(a) || a > home.shape.radius * 1.2) bad++
@@ -232,6 +230,26 @@ describe('GalaxyParticleJob', () => {
     const innerArea = Math.PI * (R * 0.25) ** 2
     const outerArea = Math.PI * (R * R - (R * 0.75) ** 2)
     expect(inner / innerArea).toBeGreaterThan((outer / outerArea) * 4)
+  })
+
+  it('crowds the old disc onto the arms', () => {
+    // Around a ring at mid radius, more disc light lies near an arm's crest than between arms.
+    const { light } = whole
+    let onArm = 0
+    let between = 0
+    const shape = home.shape
+    for (let i = 0; i < light.count; i++) {
+      if (light.shape[i * 4 + 3]! > 0 || light.shape[i * 4 + 2]! > 0) continue
+      const orbit = { radius: light.orbit[i * 4]!, phase: light.orbit[i * 4 + 1]!, height: 0, scatter: light.orbit[i * 4 + 3]! }
+      const [x, , z] = galacticPosition(home, orbit, 0)
+      const r = Math.hypot(x, z)
+      if (r < 85 || r > 115) continue
+      const d = Math.atan2(-z, x) - armAngle(shape, r)
+      const phase = Math.cos(d * shape.arms)
+      if (phase > 0.7) onArm++
+      else if (phase < -0.7) between++
+    }
+    expect(onArm).toBeGreaterThan(between * 2)
   })
 })
 

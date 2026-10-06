@@ -80,6 +80,8 @@ function arches(seed: number): Vector4[] {
 
 interface StarProps {
   star: StarData
+  /** Handed between the galaxy and its system: drawn at full strength, not crossfaded. */
+  anchor?: boolean
 }
 
 /**
@@ -87,7 +89,7 @@ interface StarProps {
  * Both add light rather than cover what is behind them; the sphere still writes depth, so
  * worlds behind it are hidden and worlds in front of it hide it.
  */
-export function Star({ star }: StarProps) {
+export function Star({ star, anchor = false }: StarProps) {
   const level = useLevel()
   const gl = useThree((s) => s.gl)
   const sphere = useRef<Mesh>(null)
@@ -169,8 +171,9 @@ export function Star({ star }: StarProps) {
     toObjectSpace(mesh, sunObj.set(0, 1, 0), camera.position, sunObj, camObj)
     const s = materials.surface.uniforms
     ;(s.uCamObj!.value as Vector3).copy(camObj)
+    const fade = anchor ? 1 : level.fade.current
     s.uTime!.value = time
-    s.uFade!.value = level.fade.current
+    s.uFade!.value = fade
 
     // Seen up close, the limb lies a little outside the quad's radius-1 circle.
     center.setFromMatrixPosition(mesh.matrixWorld)
@@ -179,7 +182,7 @@ export function Star({ star }: StarProps) {
     const c = materials.corona.uniforms
     c.uLimb!.value = 1 / Math.sqrt(1 - 1 / (distance * distance))
     c.uTime!.value = time
-    c.uFade!.value = level.fade.current
+    c.uFade!.value = fade
 
     const height = state.size.height * state.viewport.dpr
     const detail = sphereDetail(pixelRadius(radius, distance * radius, camera.fov, height))

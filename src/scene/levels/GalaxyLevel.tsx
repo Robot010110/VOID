@@ -2,7 +2,7 @@ import { useThree } from '@react-three/fiber'
 import { useEffect, useRef } from 'react'
 import { Vector3, type Group, type PerspectiveCamera } from 'three'
 import { galacticPosition, getGalaxy, SYSTEM_SCALE } from '../../core/galaxy.ts'
-import { samePath, useVoid } from '../../core/store.ts'
+import { samePath, useVoid, type Transition } from '../../core/store.ts'
 import type { Path } from '../../core/universe.ts'
 import { galaxyLimits } from '../camera/views.ts'
 import { pixelRadius } from '../objects/body.ts'
@@ -12,6 +12,15 @@ import { levelRuntime, type Pick } from '../stage.ts'
 
 /** Pixels around a star that still count as pointing at it. */
 const REACH = 14
+
+/** The star a running transition hands between this galaxy and its system, or -1. */
+function handedStar(transition: Transition, galaxy: Path): number {
+  if (transition.phase === 'idle') return -1
+  for (const path of [transition.from, transition.to]) {
+    if (path.length === 2 && path[0] === galaxy[0]) return path[1]!
+  }
+  return -1
+}
 
 const point: [number, number, number] = [0, 0, 0]
 const world = new Vector3()
@@ -23,6 +32,7 @@ export function GalaxyLevel({ path }: { path: Path }) {
   const runtime = levelRuntime(path)
   const get = useThree((s) => s.get)
   const active = useVoid((s) => samePath(s.path, path))
+  const handed = useVoid((s) => handedStar(s.transition, path))
   const root = useRef<Group>(null)
 
   useEffect(() => {
@@ -69,7 +79,7 @@ export function GalaxyLevel({ path }: { path: Path }) {
 
   return (
     <group ref={root}>
-      <Galaxy galaxy={galaxy} active={active} />
+      <Galaxy galaxy={galaxy} active={active} handed={handed} />
     </group>
   )
 }

@@ -377,8 +377,8 @@ export function generateGalaxy(index: number): GalaxyData {
   const shape = generateShape(rng, featured)
   const motion = generateMotion(shape, rng)
   const light: GalaxyLight = {
-    core: featured ? 4300 : rng.range(3900, 4800),
-    disc: featured ? 5600 : rng.range(5000, 6200),
+    core: featured ? 4100 : rng.range(3900, 4800),
+    disc: featured ? 5000 : rng.range(4800, 5800),
     young: featured ? 15000 : rng.range(11000, 20000),
     dust: featured ? 0.9 : rng.range(0.55, 1),
   }

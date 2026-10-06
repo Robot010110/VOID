@@ -1,6 +1,6 @@
 import { useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useRef } from 'react'
-import { Spherical, type PerspectiveCamera } from 'three'
+import { Spherical, Vector3, type PerspectiveCamera } from 'three'
 import { prefersReducedMotion, SHOT } from '../../core/env.ts'
 import { useVoid } from '../../core/store.ts'
 import { worldClock } from '../shared/clock.ts'
@@ -53,6 +53,8 @@ function fieldOfView(aspect: number): number {
   return clamp(needed, FOV, MAX_FOV)
 }
 
+const offset = new Vector3()
+
 function activeRuntime() {
   return levelRuntime(useVoid.getState().path)
 }
@@ -95,7 +97,8 @@ export function CameraRig() {
 
     /** Accumulate zoom-in over a target; enough of it falls into the target. */
     const leanInto = (x: number, y: number, amount: number, now: number): boolean => {
-      if (useVoid.getState().level !== 'system') return false
+      const level = useVoid.getState().level
+      if (level !== 'galaxy' && level !== 'system') return false
       const hit = activeRuntime().pick?.(x, y)
       if (!hit) return false
       if (hit.index !== intent.target || now - intent.time > INTENT_WINDOW) intent.amount = 0
@@ -111,7 +114,8 @@ export function CameraRig() {
 
     /** Accumulate zoom-out past the limit; enough of it rises out of the level. */
     const leanOut = (amount: number, now: number) => {
-      if (useVoid.getState().level !== 'planet' || rig.target.distance < rig.limits.max * 0.999) return
+      const level = useVoid.getState().level
+      if ((level !== 'planet' && level !== 'system') || rig.target.distance < rig.limits.max * 0.999) return
       if (intent.target !== -2 || now - intent.time > INTENT_WINDOW) intent.amount = 0
       intent.target = -2
       intent.time = now
@@ -283,7 +287,9 @@ export function CameraRig() {
     }
 
     spherical.current.set(pose.distance, pose.polar, pose.azimuth)
-    cam.position.setFromSpherical(spherical.current).add(pose.center)
+    offset.setFromSpherical(spherical.current).applyQuaternion(pose.basis)
+    cam.position.copy(pose.center).add(offset)
+    cam.up.set(0, 1, 0).applyQuaternion(pose.basis)
     cam.lookAt(pose.center)
 
     if (!SHOT && !prefersReducedMotion()) {
