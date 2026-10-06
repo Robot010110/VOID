@@ -47,3 +47,51 @@ Non-obvious calls, one or two lines each, with the reason. Newest phase last.
 - **The initial tier is a guess from the GPU string, memory, cores and pointer type.** Intel HD/UHD start on Low: a UHD 620 measured about 27 fps at DPR 1.5 and a steady 60 at DPR 1. Iris Xe, Apple silicon and discrete GPUs start on High.
 - **The governor** (drei's PerformanceMonitor) has separate decline and incline bounds, a longer cool-down before stepping up than down, and a lock after three flip-flops, so it never oscillates.
 - **The GPU probe reads `RENDERER` first** and only asks for `WEBGL_debug_renderer_info` when that is masked, because Firefox warns when the extension is touched. It never calls `loseContext()`, because Chrome logs that as a warning.
+
+## Phase 1: One perfect planet
+
+### Surfaces
+
+- **Surfaces are baked once into cube maps, then shaded every frame.** Per-pixel domain-warped noise across a full-screen planet would cost hundreds of noise evaluations per pixel. The bake runs once per world, and again only when a debug parameter changes. Cube maps of 3D noise on the sphere have no seams and no polar pinching.
+- **Two maps per rocky world.** A 16-bit cube map holds height, moisture, slow variation and a style mask. An 8-bit one holds normals and population. Normals are baked from central differences of the height, so lighting interpolates smoothly between texels instead of faceting. Face size is 1024 / 768 / 512 by tier, fixed at load.
+- **Fine detail is added per pixel, and each octave fades out before it reaches the size of a pixel.** Close-ups gain ridges and fractal coastlines while distant views stay calm. The same rule governs clouds and city lights.
+- **No vertex displacement.** At planetary scale relief is a fraction of a pixel at the limb, and a smooth sphere keeps the atmosphere's analytic ground intersection exact. Icosphere detail is chosen by on-screen size, keeping the silhouette within a quarter pixel of a true circle.
+- **Five terrain styles share one shader family:** continents, dunes, ice, lava and craters. Presets are parameter sets; airless moons reuse the barren and ice presets.
+
+### Atmosphere and light
+
+- **The raymarched single-scattering atmosphere won over the fresnel rim approximation.** It gives the blue limb, the warm terminator and a bright backlit rim. Sunlight transmittance comes from a 256×64 precomputed table, which also carries the planet's soft shadow, so each sample costs one texture read. Units are planet radii. The atmosphere is drawn about 6× thicker than Earth's, with coefficients scaled down to keep Earth-like optical depth.
+- **Samples follow the path.** A short drop to the ground gets 4 samples, bunched towards the dense air near the surface. Long grazing paths along the limb get up to 14 / 10 / 5 by tier. This cut the close-view atmosphere cost by more than half.
+- **Low keeps a minimal march instead of dropping it, a deliberate deviation from the brief.** With adaptive sampling most of the planet already uses 4 samples. The fresnel fallback would lose the warm terminator for a small saving. Revisit in the Phase 9 performance pass.
+- **Sun irradiance is set so a white sunlit surface sits just under the bloom threshold** (π × 0.95). Only real light sources bloom: the sun, ocean glint, city lights and lava.
+- **The warm terminator is lifted slightly.** Ground light uses transmittance^0.8, clouds ^0.7. The exact values read as dirty brown instead of a sunset glow.
+
+### Layers
+
+- **Translucent layers output premultiplied colour.** Clouds, atmosphere and rings add light plus an alpha that dims what is behind, so the atmosphere glows, hazes the ground and dims the stars behind the limb in one blend.
+- **Draw order:**
+  1. The sky and the distant sun, first in the opaque queue.
+  2. The surface and moons, opaque.
+  3. Clouds, then the atmosphere, then rings.
+
+  Rings come after the atmosphere so their near side is never hazed. Their far side, where it shows beside the limb, is slightly under-hazed, which is invisible in practice.
+- **Clouds use two levels of domain warping** for curling, streaming systems. Cyclone twists stay gentle, because strong shear winds fine detail into concentric rings.
+- **Clouds turn about 7% faster than the ground and churn along a curl flow.** The flow comes from one gradient-noise evaluation and is divergence-free, so cloud neither piles up nor tears.
+- **City lights never shrink below about a pixel.** Like the stars, they keep part of their energy as they shrink. Overlapping lights roll off exponentially, so distant cities read as clusters and dense metros glow without burning out.
+- **Population is baked:** coastal, low, temperate, liveable land, gathered unevenly by noise. Metropolitan areas are its densest parts. The cloud base glows faintly above them at night.
+- **Gas giants bake their band field once; all motion happens at lookup time.** Each latitude turns at its own rate and storms swirl the lookup, so storms ride their bands and nothing is re-baked per frame.
+- **Ring density comes from a 1024×1 profile** built from radial waves and smooth gaps, with mipmaps for distance. The planet shadows the rings by a ray-sphere test with penumbra; the rings shadow the planet by a ray-plane test.
+
+### Framing
+
+- **Tall screens widen the view instead of cropping it.** The vertical field of view is 50° on landscape screens. On portrait screens it widens to keep at least 42° across, up to 72°, where perspective starts to stretch the planet's edges.
+- **The opening shot is composed for the screen's shape.** On a wide screen the sun sits beside the planet. On a tall one it rises below it, and the planet stands a quarter further back so the whole crescent fits.
+
+### Review and performance
+
+- **`?level=sky` shows the Phase 0 sky until levels connect in Phase 2.** `?planet=<kind>` picks a preset, and `?debug` can switch it live.
+- **`npm run shots` now uses the real GPU and falls back to software automatically.** `npm run shots:soft` forces SwiftShader as the brief describes. One high-quality planet shot takes about 2.3 minutes on SwiftShader against about 15 seconds on the GPU.
+- **Measured on an Intel UHD 620 at 1600×900, DPR 1:**
+  - Planet filling the screen: 37 fps on Low (where this GPU starts) and 29 on High.
+  - The normal framing: 60 fps on Low and about 52 on High.
+  - Iris Xe is roughly 2.5–3× faster; the governor steps weaker GPUs down a tier.

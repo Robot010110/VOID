@@ -1,7 +1,8 @@
 // Second bake pass over the terrain cube map: surface normals from central differences of the
 // height (so lighting interpolates smoothly between texels), and where a civilisation would
 // settle: low, temperate, not too dry, and close to a coast.
-// Output: rgb = object-space normal * 0.5 + 0.5, a = settlement density [0, 1].
+// Output: rgb = object-space normal * 0.5 + 0.5, a = population [0, 1].
+#include "../common/noise.glsl"
 #include "../common/cube.glsl"
 
 uniform samplerCube uTerrain;
@@ -44,6 +45,9 @@ void main() {
   float temperate = 1.0 - smoothstep(0.5, 0.78, abs(d.y));
   float liveable = smoothstep(0.18, 0.42, here.g);
   float settled = land * lowland * temperate * mix(0.25, 1.0, coastal) * mix(0.35, 1.0, liveable);
+  // People gather unevenly: a few dense regions, long empty stretches between.
+  float gather = snoise(d * 7.0 + 11.0) * 0.6 + snoise(d * 19.0 + 3.0) * 0.4;
+  float population = settled * smoothstep(0.12, 0.7, gather);
 
-  gl_FragColor = vec4(normal * 0.5 + 0.5, settled);
+  gl_FragColor = vec4(normal * 0.5 + 0.5, population);
 }

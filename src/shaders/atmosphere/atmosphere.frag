@@ -40,17 +40,25 @@ void main() {
   float start = max(shell.x, 0.0);
   float end = shell.y;
   vec2 ground = raySphere(origin, direction, uAtmBottom);
-  if (ground.x > 0.0) end = min(end, ground.x);
+  bool hitsGround = ground.x > 0.0;
+  if (hitsGround) end = min(end, ground.x);
 
-  float dt = (end - start) / float(uSteps);
+  // Samples follow the path: a few for a short drop straight down to the ground, the full
+  // budget for long grazing paths along the limb.
+  float pathLength = end - start;
+  float steps = clamp(ceil(pathLength / (uAtmTop - uAtmBottom) * 2.5), 4.0, float(uSteps));
   vec3 depth = vec3(0.0);
   vec3 rayleigh = vec3(0.0);
   vec3 mie = vec3(0.0);
   float glow = 0.0;
 
   for (int i = 0; i < 64; i++) {
-    if (i >= uSteps) break;
-    vec3 p = origin + direction * (start + dt * (float(i) + 0.5));
+    if (float(i) >= steps) break;
+    float s = (float(i) + 0.5) / steps;
+    // Rays ending on the ground crowd their samples towards it, where the air is densest.
+    float along = hitsGround ? 1.0 - (1.0 - s) * (1.0 - s) : s;
+    float dt = (hitsGround ? 2.0 * (1.0 - s) : 1.0) * pathLength / steps;
+    vec3 p = origin + direction * (start + along * pathLength);
     float r = length(p);
     vec3 density = mediumDensity(max(r - uAtmBottom, 0.0)) * dt;
     depth += density;

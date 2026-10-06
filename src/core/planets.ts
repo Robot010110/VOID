@@ -183,7 +183,7 @@ const EARTH_AIR: AtmosphereParams = {
   airglowStrength: 0.012,
 }
 
-const CITY_LIGHTS: LightsParams = { density: 0.5, intensity: 4.2, color: '#ffb36b', roads: 0.18 }
+const CITY_LIGHTS: LightsParams = { density: 0.44, intensity: 5, color: '#ffb36b', roads: 0.18 }
 
 const BARREN_SURFACE: SurfaceParams = {
   seaLevel: -9,
@@ -499,7 +499,7 @@ export const PRESETS: Record<PlanetKind, PlanetPreset> = {
     rings: {
       inner: 1.5,
       outer: 1.95,
-      opacity: 0.6,
+      opacity: 0.78,
       colorA: '#f1f5f9',
       colorB: '#b9c9d8',
       forward: 1.8,

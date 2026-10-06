@@ -1,3 +1,4 @@
+import { useThree } from '@react-three/fiber'
 import { useMemo } from 'react'
 import { Color, Vector3 } from 'three'
 import { blackbody } from '../../core/blackbody.ts'
@@ -30,15 +31,19 @@ function sunlight(direction: Vector3, temperature: number): Sunlight {
 
 /**
  * Named framings around the planet, relative to its sun. `home` is the opening shot: the
- * planet in front of its star, which sits just beyond the limb.
+ * planet in front of its star, which sits just beyond the limb: beside it on a wide screen,
+ * rising below it on a tall one, where the planet also stands a little further back.
  */
-function planetViews(sun: Vector3, framing: number): Record<string, OrbitView> {
+function planetViews(sun: Vector3, framing: number, portrait: boolean): Record<string, OrbitView> {
   const sunAzimuth = Math.atan2(sun.x, sun.z)
   const sunPolar = Math.acos(sun.y)
   const awayAzimuth = sunAzimuth + Math.PI
   const awayPolar = Math.PI - sunPolar
+  const home = portrait
+    ? { azimuth: awayAzimuth - 0.06, polar: awayPolar + 0.42, distance: framing * 1.25 }
+    : { azimuth: awayAzimuth - 0.42, polar: awayPolar + 0.08, distance: framing }
   return {
-    home: { azimuth: awayAzimuth - 0.42, polar: awayPolar + 0.08, distance: framing },
+    home,
     night: { azimuth: awayAzimuth - 0.85, polar: awayPolar - 0.12, distance: framing },
     terminator: { azimuth: sunAzimuth + Math.PI / 2, polar: 1.42, distance: framing },
     day: { azimuth: sunAzimuth + 0.5, polar: 1.2, distance: framing },
@@ -52,7 +57,11 @@ export function PlanetLevel() {
   const kind = useVoid((s) => s.planet)
   const preset = PRESETS[kind]
   const sun = useMemo(() => sunlight(SUN_DIRECTION, SUN_TEMPERATURE), [])
-  const views = useMemo(() => planetViews(SUN_DIRECTION, preset.framing), [preset.framing])
+  const portrait = useThree((s) => s.size.width < s.size.height * 0.85)
+  const views = useMemo(
+    () => planetViews(SUN_DIRECTION, preset.framing, portrait),
+    [preset.framing, portrait],
+  )
 
   const schema = useMemo<TweakSchema>(() => ({ preset: { value: kind, options: PLANET_KINDS } }), [kind])
   const apply = useMemo(

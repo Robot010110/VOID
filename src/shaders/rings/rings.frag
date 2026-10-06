@@ -43,7 +43,7 @@ void main() {
 
   // Lit face: diffuse, stronger the higher the sun stands over the ring plane.
   // Unlit face: only light that filters through thin parts of the ring.
-  float diffuse = litFace ? (0.25 + 0.75 * sunElevation) : (1.0 - density) * 0.55 * sunElevation + 0.03;
+  float diffuse = litFace ? (0.35 + 0.65 * sunElevation) : (1.0 - density) * 0.55 * sunElevation + 0.03;
   float phase = max(dot(-view, uSunObj), 0.0);
   float forward = pow(phase, 10.0) * uForward;
 

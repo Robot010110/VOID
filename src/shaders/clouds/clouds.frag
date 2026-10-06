@@ -18,6 +18,7 @@ uniform float uOpacity;
 uniform vec3 uCloudColor;
 uniform float uAmbient;
 uniform float uDetail;
+uniform int uDetailOctaves;
 uniform float uCloudRadius;
 uniform vec3 uCityColor;
 uniform float uCityGlow;
@@ -31,21 +32,20 @@ void main() {
   vec3 d = normalize(vPos);
   float footprint = length(fwidth(vPos));
 
-  // Churn: a slowly drifting warp of the lookup direction.
-  float t = uTime * 0.012;
-  vec3 flow = vec3(
-    snoise(d * 2.2 + vec3(0.0, 0.0, t)),
-    snoise(d * 2.2 + vec3(5.1, t, 0.0)),
-    snoise(d * 2.2 + vec3(t, 9.7, 0.0))
-  );
+  // Churn: the lookup drifts along a slowly changing swirl. The flow runs along the level
+  // lines of one noise field (its gradient turned a right angle about the vertical), so it
+  // never piles cloud up or tears it apart, and it costs a single noise evaluation.
+  vec3 gradient;
+  snoiseGrad(d * 2.2 + vec3(0.0, 0.0, uTime * 0.012), gradient);
+  vec3 flow = cross(d, gradient - d * dot(gradient, d)) * 0.3;
   vec3 lookup = normalize(d + flow * uFlow);
   float cover = texture(uCloudMap, lookup).r;
 
-  // Ragged edges up close: two octaves, each fading before it reaches the pixel size.
+  // Ragged edges up close, each octave fading before it reaches the pixel size.
   float fadeA = 1.0 - smoothstep(0.2, 0.5, footprint * 90.0);
+  if (uDetailOctaves > 0 && fadeA > 0.0) cover += snoise(d * 90.0 + flow * 3.0) * 0.05 * uDetail * fadeA;
   float fadeB = 1.0 - smoothstep(0.2, 0.5, footprint * 260.0);
-  cover += snoise(d * 90.0 + flow * 3.0) * 0.05 * uDetail * fadeA;
-  cover += snoise(d * 260.0 + flow * 5.0) * 0.04 * uDetail * fadeB;
+  if (uDetailOctaves > 1 && fadeB > 0.0) cover += snoise(d * 260.0 + flow * 5.0) * 0.04 * uDetail * fadeB;
 
   float alpha = smoothstep(uThreshold, uThreshold + uSoftness, cover) * uOpacity;
   if (alpha < 0.003) discard;
@@ -65,9 +65,11 @@ void main() {
   float body = mix(0.72, 1.04, smoothstep(uThreshold, uThreshold + 0.45, cover));
   vec3 colour = uCloudColor * body * (sun * wrap * shade * 0.88 / PI + uAmbient);
 
-  // City glow on the cloud base at night, only over the most settled ground.
-  float settled = texture(uNormals, uSurfaceRotation * d).a;
-  colour += uCityColor * uCityGlow * smoothstep(0.35, 0.85, settled) * smoothstep(0.05, -0.15, mu);
+  // City glow on the cloud base at night, only over the most populous ground.
+  if (mu < 0.05 && uCityGlow > 0.0) {
+    float people = texture(uNormals, uSurfaceRotation * d).a;
+    colour += uCityColor * uCityGlow * smoothstep(0.3, 0.75, people) * smoothstep(0.05, -0.15, mu);
+  }
 
   gl_FragColor = vec4(colour * alpha, alpha) * uFade;
 }

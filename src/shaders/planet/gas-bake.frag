@@ -25,8 +25,12 @@ void main() {
   float wobble = fbm(p * 2.5 + w * 1.8, 5);
   vec3 v = vec3(fbm(p * 5.0 + w * 2.0, 3), fbm(p * 5.0 + w * 2.0 + 4.4, 3), 0.0);
   float ripple = fbm(p * 9.0 + v * 2.5, 4);
-  float y = d.y + uTurbulence * (0.034 * wobble + 0.012 * ripple);
+  float y = d.y + uTurbulence * (0.024 * wobble + 0.016 * ripple);
   vec3 colour = texture(uPalette, vec2(y * 0.5 + 0.5, 0.5)).rgb;
+  // Bands within bands: a second, differently torn reading of the palette blended in,
+  // so each band carries finer stripes of its neighbours' colours.
+  float y2 = d.y + uTurbulence * (0.05 * fbm(p * 1.7 + w * 2.2 + 31.0, 4) + 0.02 * ripple);
+  colour = mix(colour, texture(uPalette, vec2(y2 * 0.5 + 0.5, 0.5)).rgb, 0.35);
 
   // Fine streaks drawn out along the winds, and eddies that brighten or darken a band.
   float streaks = fbm(vec3(d.x, d.y * 34.0, d.z) * 6.0 + w * 2.8, 5);

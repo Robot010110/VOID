@@ -2,17 +2,20 @@ import { defineConfig } from '@playwright/test'
 
 const PORT = 5199
 
-// Headless Chromium has no GPU here, so WebGL runs on SwiftShader (software). Set VOID_GPU=1
-// to try the machine's real GPU through ANGLE instead.
-const gpuArgs =
-  process.env.VOID_GPU === '1'
-    ? ['--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist']
-    : ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist']
+// `npm run shots` renders on the machine's GPU through ANGLE and falls back to SwiftShader
+// (software) where there is none. `npm run shots:soft` (playwright.soft.config.ts) forces
+// SwiftShader: identical pictures, roughly ten times slower once planets bake their maps.
+const gpuArgs = [
+  '--enable-gpu',
+  '--ignore-gpu-blocklist',
+  '--enable-unsafe-swiftshader',
+  ...(process.platform === 'win32' ? ['--use-angle=d3d11'] : []),
+]
 
 export default defineConfig({
   testDir: './e2e',
   outputDir: './test-results',
-  timeout: 240_000,
+  timeout: 300_000,
   fullyParallel: false,
   workers: 1,
   reporter: 'list',

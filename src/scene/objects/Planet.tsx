@@ -200,6 +200,7 @@ export function Planet({ preset, sun }: PlanetProps) {
           uCloudColor: { value: linear(preset.clouds.color) },
           uAmbient: { value: surface.ambient },
           uDetail: { value: 1 },
+          uDetailOctaves: { value: 2 },
           uCloudRadius: { value: CLOUD_RADIUS },
           uCityColor: { value: linear(preset.lights?.color ?? '#000000') },
           uCityGlow: { value: preset.lights ? 0.015 : 0 },
@@ -263,6 +264,7 @@ export function Planet({ preset, sun }: PlanetProps) {
   // Tier-dependent shading cost, adjustable at runtime without recompiling.
   useEffect(() => {
     layers.ground.uniforms.uDetailOctaves!.value = QUALITY[quality].detailOctaves
+    if (layers.clouds) layers.clouds.uniforms.uDetailOctaves!.value = Math.min(2, QUALITY[quality].detailOctaves)
     if (layers.shell) layers.shell.uniforms.uSteps!.value = QUALITY[quality].atmosphereSteps
   }, [layers, quality])
 

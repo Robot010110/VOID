@@ -104,22 +104,20 @@ float settlements(vec3 d, float frequency, float size, float density, float foot
   return light;
 }
 
-vec3 cityLights(vec3 d, float settled, float footprint) {
-  // People gather unevenly: a few dense regions, long empty stretches between.
-  float gather = snoise(d * 7.0 + 11.0) * 0.6 + snoise(d * 19.0 + 3.0) * 0.4;
-  float population = settled * smoothstep(0.12, 0.7, gather);
-  // Metropolitan areas pack settlements tighter and brighter; they are made of points too,
-  // never a single glowing blob.
-  float metro = smoothstep(0.55, 0.95, snoise(d * 34.0 + 5.0)) * smoothstep(0.2, 0.6, population);
-  float density = clamp(population * uCityDensity * (1.0 + metro * 2.0), 0.0, 1.0);
-  float light = settlements(d, 190.0, 0.15, density, footprint) * (1.0 + metro);
-  light += settlements(d, 560.0, 0.13, density, footprint) * (0.4 + metro);
-  light += settlements(d, 1500.0, 0.12, density * metro, footprint) * metro * 0.6;
+vec3 cityLights(vec3 d, float population, float footprint) {
+  // The most populous ground holds metropolitan areas: settlements packed tighter and
+  // brighter. They are made of points too, never a single glowing blob.
+  float metro = smoothstep(0.42, 0.85, population);
+  float density = clamp(population * uCityDensity * (1.0 + metro * 0.6), 0.0, 1.0);
+  float light = settlements(d, 190.0, 0.15, density, footprint) * (1.0 + metro * 0.5);
+  light += settlements(d, 560.0, 0.13, density, footprint) * (0.4 + metro * 0.4);
   // Roads: faint threads where a noise field crosses zero, only between settlements.
   float field = abs(snoise(d * 58.0 + 3.1));
   float roadFade = 1.0 - smoothstep(0.08, 0.3, footprint * 58.0);
   light += (1.0 - smoothstep(0.0, 0.02, field)) * smoothstep(0.25, 0.6, population) * uRoads * roadFade;
-  return uCityColor * light * uCityIntensity;
+  // Overlapping lights roll off instead of adding up without limit, so a dense metropolis
+  // glows rather than burning out into a flat patch.
+  return uCityColor * (1.0 - exp(-light * 1.4)) / 1.4 * uCityIntensity;
 }
 
 float cloudCover(vec3 d) {
@@ -258,7 +256,7 @@ void main() {
 
 #ifdef LIGHTS
   float night = smoothstep(0.05, -0.16, mu);
-  if (night > 0.0 && !water) colour += cityLights(d, derived.a, footprint) * night;
+  if (night > 0.0 && !water && derived.a > 0.01) colour += cityLights(d, derived.a, footprint) * night;
 #endif
 
 #ifdef LAVA

@@ -12,14 +12,31 @@ interface Shot {
   scale?: number
 }
 
+const PLANET = 'shot=planet&quality=high'
+
 const SHOTS: Shot[] = [
-  { name: '0-sky-home', query: 'shot=sky&quality=high&view=home' },
-  { name: '0-sky-core', query: 'shot=sky&quality=high&view=core' },
-  { name: '0-sky-pole', query: 'shot=sky&quality=high&view=pole' },
-  { name: '0-sky-home-low', query: 'shot=sky&quality=low&view=home' },
+  // Phase 0: the night sky alone.
+  { name: '0-sky-home', query: 'shot=sky&level=sky&quality=high&view=home' },
+  // Phase 1: the terrestrial world from every side.
+  { name: '1-terrestrial-home', query: `${PLANET}&view=home` },
+  { name: '1-terrestrial-day', query: `${PLANET}&view=day` },
+  { name: '1-terrestrial-terminator', query: `${PLANET}&view=terminator` },
+  { name: '1-terrestrial-night', query: `${PLANET}&view=night` },
+  { name: '1-terrestrial-close', query: `${PLANET}&view=close` },
+  // Phase 1: every other planet type.
+  { name: '1-ocean-day', query: `${PLANET}&planet=ocean&view=day` },
+  { name: '1-desert-day', query: `${PLANET}&planet=desert&view=day` },
+  { name: '1-ice-day', query: `${PLANET}&planet=ice&view=day` },
+  { name: '1-lava-terminator', query: `${PLANET}&planet=lava&view=terminator` },
+  { name: '1-toxic-day', query: `${PLANET}&planet=toxic&view=day` },
+  { name: '1-barren-terminator', query: `${PLANET}&planet=barren&view=terminator` },
+  { name: '1-gas-day', query: `${PLANET}&planet=gas&view=day` },
+  { name: '1-ringed-home', query: `${PLANET}&planet=ringed&view=home` },
+  { name: '1-ice-giant-terminator', query: `${PLANET}&planet=ice-giant&view=terminator` },
+  // A phone held upright.
   {
-    name: '0-sky-phone',
-    query: 'shot=sky&quality=medium&view=home',
+    name: '1-terrestrial-phone',
+    query: 'shot=planet&quality=medium&view=home',
     viewport: { width: 390, height: 844 },
     scale: 2,
   },
@@ -54,7 +71,7 @@ for (const shot of SHOTS) {
     page.on('pageerror', (error) => problems.push(`pageerror: ${error.message}`))
 
     await page.goto(`/?${shot.query}`)
-    await page.waitForSelector('html[data-void-ready="true"]', { timeout: 180_000 })
+    await page.waitForSelector('html[data-void-ready="true"]', { timeout: 240_000 })
     await frames(page, 12)
     await page.screenshot({ path: `screenshots/${shot.name}.png` })
     await context.close()

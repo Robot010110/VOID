@@ -82,7 +82,7 @@ export function createCubeTarget(size: number, options: TargetOptions = {}): Web
     magFilter: LinearFilter,
     depthBuffer: false,
   })
-  target.texture.anisotropy = 8
+  target.texture.anisotropy = 4
   return target
 }
 

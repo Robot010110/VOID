@@ -27,6 +27,12 @@ const POLAR_MIN = 0.08 * Math.PI
 const POLAR_MAX = 0.92 * Math.PI
 /** Handheld drift amplitude in radians: a couple of pixels, never still, never noticed. */
 const DRIFT = 0.0018
+/** Vertical field of view on landscape screens. */
+const FOV = 50
+/** On portrait screens the view widens to keep at least this much horizontally... */
+const MIN_HORIZONTAL_FOV = 42
+/** ...but never beyond this vertically, where perspective starts to stretch. */
+const MAX_FOV = 72
 
 const ARROWS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'])
 
@@ -38,6 +44,13 @@ function isTyping(target: EventTarget | null): boolean {
 }
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max)
+
+/** Vertical field of view for a screen shape: 50 degrees, widened for tall screens. */
+function fieldOfView(aspect: number): number {
+  const half = (MIN_HORIZONTAL_FOV * Math.PI) / 360
+  const needed = (2 * Math.atan(Math.tan(half) / aspect) * 180) / Math.PI
+  return clamp(needed, FOV, MAX_FOV)
+}
 
 /**
  * Orbits the camera around the current level's centre. Drag (mouse or one finger) and the
@@ -169,6 +182,14 @@ export function CameraRig({ views, distance, minDistance, maxDistance }: CameraR
   useFrame((frame, delta) => {
     const s = state.current
     const dt = Math.min(delta, 0.1)
+
+    if ('fov' in camera) {
+      const fov = fieldOfView(frame.size.width / Math.max(frame.size.height, 1))
+      if (Math.abs(camera.fov - fov) > 0.01) {
+        camera.fov = fov
+        camera.updateProjectionMatrix()
+      }
+    }
 
     if (s.keys.has('ArrowLeft')) s.targetAzimuth += KEY_SPEED * dt
     if (s.keys.has('ArrowRight')) s.targetAzimuth -= KEY_SPEED * dt
