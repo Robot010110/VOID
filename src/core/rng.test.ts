@@ -85,13 +85,17 @@ describe('Rng', () => {
     const buckets = new Array<number>(20).fill(0)
     const n = 200000
     let sum = 0
+    let min = Infinity
+    let max = -Infinity
     for (let i = 0; i < n; i++) {
       const x = rng.next()
-      expect(x).toBeGreaterThanOrEqual(0)
-      expect(x).toBeLessThan(1)
+      min = Math.min(min, x)
+      max = Math.max(max, x)
       sum += x
       buckets[Math.floor(x * 20)]!++
     }
+    expect(min).toBeGreaterThanOrEqual(0)
+    expect(max).toBeLessThan(1)
     expect(sum / n).toBeCloseTo(0.5, 2)
     // Chi-square with 19 degrees of freedom; 43.8 is the 0.1% critical value.
     const expected = n / 20
@@ -145,15 +149,17 @@ describe('Rng', () => {
     let my = 0
     let mz = 0
     let northern = 0
+    let worstLength = 0
     const n = 50000
     for (let i = 0; i < n; i++) {
       rng.onSphere(p)
-      expect(Math.hypot(p[0], p[1], p[2])).toBeCloseTo(1, 10)
+      worstLength = Math.max(worstLength, Math.abs(Math.hypot(p[0], p[1], p[2]) - 1))
       mx += p[0]
       my += p[1]
       mz += p[2]
       if (p[2] > 0.5) northern++
     }
+    expect(worstLength).toBeLessThan(1e-10)
     expect(Math.abs(mx / n)).toBeLessThan(0.01)
     expect(Math.abs(my / n)).toBeLessThan(0.01)
     expect(Math.abs(mz / n)).toBeLessThan(0.01)

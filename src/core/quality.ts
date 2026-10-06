@@ -16,15 +16,24 @@ export interface QualitySettings {
   readonly grain: number
   /** Width in texels of the baked galactic band. */
   readonly bandWidth: number
+  /** Face size of a planet's baked terrain and cloud cube maps. */
+  readonly planetFace: number
+  /** Face size of a moon's cube maps. */
+  readonly moonFace: number
+  /** Raymarch steps through an atmosphere. */
+  readonly atmosphereSteps: number
+  /** Octaves of per-pixel surface detail seen up close. */
+  readonly detailOctaves: number
 }
 
 /** Stars in the full catalogue; tiers draw a fraction of it. */
 export const STAR_CATALOGUE_SIZE = 30000
 
+// prettier-ignore
 export const QUALITY: Record<QualityTier, QualitySettings> = {
-  high: { maxDpr: 2, starFraction: 1, grain: 1, bandWidth: 2048 },
-  medium: { maxDpr: 1.5, starFraction: 0.5, grain: 1, bandWidth: 2048 },
-  low: { maxDpr: 1, starFraction: 0.2, grain: 0, bandWidth: 1024 },
+  high: { maxDpr: 2, starFraction: 1, grain: 1, bandWidth: 2048, planetFace: 1024, moonFace: 384, atmosphereSteps: 14, detailOctaves: 3 },
+  medium: { maxDpr: 1.5, starFraction: 0.5, grain: 1, bandWidth: 2048, planetFace: 768, moonFace: 256, atmosphereSteps: 10, detailOctaves: 2 },
+  low: { maxDpr: 1, starFraction: 0.2, grain: 0, bandWidth: 1024, planetFace: 512, moonFace: 192, atmosphereSteps: 7, detailOctaves: 1 },
 }
 
 export interface GpuInfo {

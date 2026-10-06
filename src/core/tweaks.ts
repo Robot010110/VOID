@@ -72,7 +72,7 @@ export function useTweaks(
   apply: (key: string, value: TweakValue) => void,
 ): void {
   useEffect(() => {
-    if (!DEBUG) return
+    if (!DEBUG || Object.keys(schema).length === 0) return
     return registerTweaks({ id, schema, apply })
   }, [id, schema, apply])
 }

@@ -9,10 +9,8 @@ import {
   LinearFilter,
   Matrix3,
   Mesh,
-  OrthographicCamera,
   Points,
   RepeatWrapping,
-  Scene,
   ShaderMaterial,
   Vector2,
   Vector3,
@@ -26,11 +24,12 @@ import { generateSky, type StarLayerKind } from '../../core/sky.ts'
 import { useVoid } from '../../core/store.ts'
 import { num, useTweaks, type TweakSchema, type TweakValue } from '../../core/tweaks.ts'
 import bakeFrag from '../../shaders/starfield/bake.frag'
-import bakeVert from '../../shaders/starfield/bake.vert'
+import fullscreenVert from '../../shaders/common/fullscreen.vert'
 import glowFrag from '../../shaders/starfield/glow.frag'
 import glowVert from '../../shaders/starfield/glow.vert'
 import starsFrag from '../../shaders/starfield/stars.frag'
 import starsVert from '../../shaders/starfield/stars.vert'
+import { bakeTexture } from '../shared/gpu.ts'
 
 const SKY_SEED = hashSeed(UNIVERSE_SEED, 0x5c1e)
 /** Latitude (radians) either side of the band covered by the baked strip. */
@@ -68,11 +67,6 @@ const LAYER_TUNING: Record<StarLayerKind, { parallax: number; dust: number; glow
   mid: { parallax: 0.4, dust: 0.65, glowBoost: 0.5 },
   near: { parallax: 1, dust: 0.12, glowBoost: 0 },
 }
-
-const FULLSCREEN_TRIANGLE = new BufferGeometry().setAttribute(
-  'position',
-  new BufferAttribute(new Float32Array([-1, -1, 0, 3, -1, 0, -1, 3, 0]), 3),
-)
 
 /**
  * A ring of sky around the band's plane, in band coordinates, carrying the baked strip's
@@ -129,7 +123,14 @@ const step = new Vector3()
  * diffuse band of the home galaxy behind them. Drawn first, at the far plane, with additive
  * light: anything opaque in the scene covers it, anything transparent glows over it.
  */
-export function Starfield() {
+interface StarfieldProps {
+  /** Level multiplier on star brightness (a planet in view dims the sky a little). */
+  brightness?: number
+  /** Level multiplier on the galactic band: 1 inside a galaxy, 0 outside any. */
+  band?: number
+}
+
+export function Starfield({ brightness = 1, band = 1 }: StarfieldProps) {
   const gl = useThree((s) => s.gl)
   const quality = useVoid((s) => s.quality)
   const [bandWidth] = useState(() => QUALITY[useVoid.getState().quality].bandWidth)
@@ -236,7 +237,7 @@ export function Starfield() {
     const rng = new Rng(sky.seed)
     const material = new ShaderMaterial({
       name: 'band-bake',
-      vertexShader: bakeVert,
+      vertexShader: fullscreenVert,
       fragmentShader: bakeFrag,
       uniforms: {
         uLatMax: { value: BAND_LAT_MAX },
@@ -247,14 +248,7 @@ export function Starfield() {
       depthTest: false,
       depthWrite: false,
     })
-    const scene = new Scene()
-    const mesh = new Mesh(FULLSCREEN_TRIANGLE, material)
-    mesh.frustumCulled = false
-    scene.add(mesh)
-    const previous = gl.getRenderTarget()
-    gl.setRenderTarget(bandTarget)
-    gl.render(scene, new OrthographicCamera(-1, 1, 1, -1, 0, 1))
-    gl.setRenderTarget(previous)
+    bakeTexture(gl, bandTarget, material)
     material.dispose()
     fadeStart.current = null
     const context = gl.getContext()
@@ -276,6 +270,12 @@ export function Starfield() {
   )
 
   const parallax = useRef(num(TWEAKS, 'parallax'))
+  const tuned = useRef({ brightness: num(TWEAKS, 'brightness'), band: num(TWEAKS, 'bandGlow') })
+  const level = useRef({ brightness, band })
+  const target = useRef({ brightness, band })
+  useEffect(() => {
+    target.current = { brightness, band }
+  }, [brightness, band])
   const offset = useRef(new Vector3())
   const lastCamera = useRef<Vector3 | null>(null)
   const densityTarget = QUALITY[quality].starFraction
@@ -288,6 +288,13 @@ export function Starfield() {
     if (fadeStart.current === null) fadeStart.current = t
     const fade = FADE_IN > 0 ? Math.min(1, (t - fadeStart.current) / FADE_IN) : 1
     shared.uFade!.value = fade * fade * (3 - 2 * fade)
+
+    // Level changes (a planet coming into view, leaving the galaxy) ease over a second.
+    const ease = 1 - Math.exp(-delta / 1.2)
+    level.current.brightness += (target.current.brightness - level.current.brightness) * ease
+    level.current.band += (target.current.band - level.current.band) * ease
+    shared.uBrightness!.value = tuned.current.brightness * level.current.brightness
+    glow.material.uniforms.uIntensity!.value = tuned.current.band * level.current.band
 
     const density = shared.uDensity!.value as number
     shared.uDensity!.value =
@@ -319,13 +326,14 @@ export function Starfield() {
       if (typeof value !== 'number') return
       const uniformKey = `u${key.charAt(0).toUpperCase()}${key.slice(1)}`
       if (key === 'spikeAngle') spikeDirection(value, shared.uSpikeDirection!.value as Vector2)
-      else if (key === 'bandGlow') glow.material.uniforms.uIntensity!.value = value
+      else if (key === 'bandGlow') tuned.current.band = value
+      else if (key === 'brightness') tuned.current.brightness = value
       else if (key === 'parallax') parallax.current = value
       else if (key === 'dust')
         for (const layer of layers) layer.material.uniforms.uDust!.value = layer.tuning.dust * value
       else if (shared[uniformKey]) shared[uniformKey].value = value
     },
-    [shared, layers, glow],
+    [shared, layers],
   )
   useTweaks('Starfield', TWEAKS, apply)
 

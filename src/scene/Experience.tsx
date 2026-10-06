@@ -1,13 +1,14 @@
 import { Canvas, useFrame, type RootState } from '@react-three/fiber'
 import { lazy, Suspense, useRef } from 'react'
 import type { WebGLRendererParameters } from 'three'
-import { DEBUG } from '../core/env.ts'
+import { DEBUG, LEVEL } from '../core/env.ts'
 import { QUALITY } from '../core/quality.ts'
 import { useVoid } from '../core/store.ts'
-import { CameraRig } from './camera/CameraRig.tsx'
-import { Starfield } from './objects/Starfield.tsx'
+import { PlanetLevel } from './levels/PlanetLevel.tsx'
+import { SkyLevel } from './levels/SkyLevel.tsx'
 import { PostPipeline } from './post/PostPipeline.tsx'
 import { QualityGovernor } from './QualityGovernor.tsx'
+import { advanceWorldClock } from './shared/clock.ts'
 
 const DebugProbe = DEBUG ? lazy(() => import('../debug/DebugProbe.tsx')) : null
 
@@ -25,6 +26,12 @@ const CAMERA = { fov: 50, near: 0.05, far: 4000, position: [0, 0, 6] as [number,
 function onCreated({ gl }: RootState) {
   // The film grade lifts black to Abyss after tone mapping, so the clear colour is true black.
   gl.setClearColor(0x000000, 1)
+}
+
+/** Advances world time before anything else reads it this frame. */
+function WorldClock() {
+  useFrame((_, delta) => advanceWorldClock(delta), -100)
+  return null
 }
 
 /** Marks the document once real frames are on screen, for the screenshot script. */
@@ -48,9 +55,9 @@ export function Experience() {
       camera={CAMERA}
       onCreated={onCreated}
     >
+      <WorldClock />
       <QualityGovernor />
-      <CameraRig />
-      <Starfield />
+      {LEVEL === 'sky' ? <SkyLevel /> : <PlanetLevel />}
       <PostPipeline />
       <ReadySignal />
       {DebugProbe && (

@@ -15,8 +15,14 @@ export const PINNED_QUALITY: QualityTier | null = parseTier(params.get('quality'
 /** `?tone=agx|aces|neutral` overrides the tone mapper, for comparing grades. */
 export const TONE = params.get('tone')
 
-/** `?view=<name>` opens on one of the named framings in CameraRig. */
+/** `?view=<name>` opens on one of the current level's named framings. */
 export const VIEW = params.get('view')
+
+/** `?level=sky|planet` picks the scene to show (until levels connect in Phase 2). */
+export const LEVEL = params.get('level')
+
+/** `?planet=<kind>` picks the planet preset shown at the planet level. */
+export const PLANET = params.get('planet')
 
 const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
 

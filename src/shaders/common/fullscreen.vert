@@ -1,3 +1,4 @@
+// A full-screen triangle for bake passes; vUv spans [0, 1] over the target.
 varying vec2 vUv;
 
 void main() {

@@ -2,10 +2,16 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useRef } from 'react'
 import { Spherical } from 'three'
 import { prefersReducedMotion, SHOT, VIEW } from '../../core/env.ts'
-import { HOME_BAND, type Vec3 } from '../../core/sky.ts'
+import type { OrbitView } from './views.ts'
 
-/** Distance from the orbit's centre. */
-const ORBIT_RADIUS = 6
+interface CameraRigProps {
+  /** Named framings for `?view=`; `home` is where the camera starts. */
+  views: Record<string, OrbitView>
+  distance: number
+  minDistance: number
+  maxDistance: number
+}
+
 /** Radians of orbit per CSS pixel dragged. */
 const DRAG_SPEED = 0.0042
 /** Radians per second while an arrow key is held. */
@@ -14,29 +20,13 @@ const KEY_SPEED = 0.85
 const FOLLOW = 7
 /** How quickly a flick's momentum dies away (per second). */
 const FLING_DECAY = 3.2
+/** Zoom per wheel pixel (multiplicative, so it feels the same near and far). */
+const WHEEL_ZOOM = 0.0011
 /** Keep away from the poles, where an orbit flips over. */
-const POLAR_MIN = 0.16 * Math.PI
-const POLAR_MAX = 0.84 * Math.PI
+const POLAR_MIN = 0.08 * Math.PI
+const POLAR_MAX = 0.92 * Math.PI
 /** Handheld drift amplitude in radians: a couple of pixels, never still, never noticed. */
 const DRIFT = 0.0018
-
-interface Orbit {
-  azimuth: number
-  polar: number
-}
-
-/** The orbit position whose camera looks along `direction` towards the centre. */
-function lookingAlong(direction: Vec3): Orbit {
-  const [x, y, z] = direction
-  return { azimuth: Math.atan2(-x, -z), polar: Math.acos(Math.max(-1, Math.min(1, -y))) }
-}
-
-/** Named framings, used by `?view=` and the screenshot script. */
-const VIEWS: Record<string, Orbit> = {
-  home: { azimuth: 0, polar: Math.PI / 2 + 0.04 },
-  core: lookingAlong(HOME_BAND.core),
-  pole: lookingAlong(HOME_BAND.pole),
-}
 
 const ARROWS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'])
 
@@ -47,69 +37,103 @@ function isTyping(target: EventTarget | null): boolean {
   )
 }
 
+const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max)
+
 /**
  * Orbits the camera around the current level's centre. Drag (mouse or one finger) and the
- * arrow keys steer; everything eases, a flick carries on and settles, and an idle camera
- * breathes with a slow handheld drift. Fly-to and zoom arrive with the levels in Phase 2.
+ * arrow keys steer; the wheel and a pinch zoom. Everything eases, a flick carries on and
+ * settles, and an idle camera breathes with a slow handheld drift. Fly-to and descending
+ * between levels arrive in Phase 2.
  */
-export function CameraRig() {
+export function CameraRig({ views, distance, minDistance, maxDistance }: CameraRigProps) {
   const camera = useThree((s) => s.camera)
   const canvas = useThree((s) => s.gl.domElement)
-  const start = VIEWS[VIEW ?? 'home'] ?? VIEWS.home!
+  const start = views[VIEW ?? 'home'] ?? views.home ?? { azimuth: 0, polar: Math.PI / 2 }
+  const startDistance = clamp(start.distance ?? distance, minDistance, maxDistance)
 
   const state = useRef({
     azimuth: start.azimuth,
     polar: start.polar,
+    distance: startDistance,
     targetAzimuth: start.azimuth,
     targetPolar: start.polar,
+    targetDistance: startDistance,
     velocityAzimuth: 0,
     velocityPolar: 0,
-    pointerId: -1,
-    lastX: 0,
-    lastY: 0,
+    pointers: new Map<number, { x: number; y: number }>(),
+    pinch: 0,
     lastMove: 0,
     keys: new Set<string>(),
   })
+  const limits = useRef({ minDistance, maxDistance })
   const spherical = useRef(new Spherical())
 
   useEffect(() => {
+    limits.current = { minDistance, maxDistance }
     const s = state.current
+    s.targetDistance = clamp(s.targetDistance, minDistance, maxDistance)
+  }, [minDistance, maxDistance])
+
+  useEffect(() => {
+    const s = state.current
+    const zoomBy = (factor: number) => {
+      const { minDistance: min, maxDistance: max } = limits.current
+      s.targetDistance = clamp(s.targetDistance * factor, min, max)
+    }
+    const pinchSpan = () => {
+      const [a, b] = [...s.pointers.values()]
+      return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 0
+    }
 
     const onPointerDown = (event: PointerEvent) => {
-      if (s.pointerId !== -1 || (event.pointerType === 'mouse' && event.button !== 0)) return
-      s.pointerId = event.pointerId
-      s.lastX = event.clientX
-      s.lastY = event.clientY
+      if (event.pointerType === 'mouse' && event.button !== 0) return
+      s.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
       s.lastMove = event.timeStamp
       s.velocityAzimuth = 0
       s.velocityPolar = 0
+      s.pinch = pinchSpan()
       canvas.setPointerCapture(event.pointerId)
     }
 
     const onPointerMove = (event: PointerEvent) => {
-      if (event.pointerId !== s.pointerId) return
-      const dAzimuth = -(event.clientX - s.lastX) * DRAG_SPEED
-      const dPolar = -(event.clientY - s.lastY) * DRAG_SPEED
+      const previous = s.pointers.get(event.pointerId)
+      if (!previous) return
+      const dx = event.clientX - previous.x
+      const dy = event.clientY - previous.y
+      s.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
+      if (s.pointers.size >= 2) {
+        // Pinch: spread zooms in, squeeze zooms out.
+        const span = pinchSpan()
+        if (s.pinch > 0 && span > 0) zoomBy(s.pinch / span)
+        s.pinch = span
+        return
+      }
+      const dAzimuth = -dx * DRAG_SPEED
+      const dPolar = -dy * DRAG_SPEED
       const dt = Math.max((event.timeStamp - s.lastMove) / 1000, 1 / 240)
       s.targetAzimuth += dAzimuth
-      s.targetPolar = Math.min(Math.max(s.targetPolar + dPolar, POLAR_MIN), POLAR_MAX)
+      s.targetPolar = clamp(s.targetPolar + dPolar, POLAR_MIN, POLAR_MAX)
       // Smoothed velocity, carried on as momentum when the pointer lets go.
       s.velocityAzimuth = s.velocityAzimuth * 0.6 + (dAzimuth / dt) * 0.4
       s.velocityPolar = s.velocityPolar * 0.6 + (dPolar / dt) * 0.4
-      s.lastX = event.clientX
-      s.lastY = event.clientY
       s.lastMove = event.timeStamp
     }
 
     const onPointerUp = (event: PointerEvent) => {
-      if (event.pointerId !== s.pointerId) return
-      s.pointerId = -1
+      if (!s.pointers.delete(event.pointerId)) return
       if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId)
-      // A drag that stopped before release should not fling.
-      if (event.timeStamp - s.lastMove > 90 || prefersReducedMotion()) {
+      s.pinch = pinchSpan()
+      // A drag that stopped before release, or the end of a pinch, should not fling.
+      if (s.pointers.size > 0 || event.timeStamp - s.lastMove > 90 || prefersReducedMotion()) {
         s.velocityAzimuth = 0
         s.velocityPolar = 0
       }
+    }
+
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault()
+      const pixels = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaMode === 2 ? event.deltaY * 400 : event.deltaY
+      zoomBy(Math.exp(clamp(pixels, -240, 240) * WHEEL_ZOOM))
     }
 
     const onKeyDown = (event: KeyboardEvent) => {
@@ -126,6 +150,7 @@ export function CameraRig() {
     canvas.addEventListener('pointermove', onPointerMove)
     canvas.addEventListener('pointerup', onPointerUp)
     canvas.addEventListener('pointercancel', onPointerUp)
+    canvas.addEventListener('wheel', onWheel, { passive: false })
     window.addEventListener('keydown', onKeyDown)
     window.addEventListener('keyup', onKeyUp)
     window.addEventListener('blur', onBlur)
@@ -134,6 +159,7 @@ export function CameraRig() {
       canvas.removeEventListener('pointermove', onPointerMove)
       canvas.removeEventListener('pointerup', onPointerUp)
       canvas.removeEventListener('pointercancel', onPointerUp)
+      canvas.removeEventListener('wheel', onWheel)
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('keyup', onKeyUp)
       window.removeEventListener('blur', onBlur)
@@ -149,20 +175,22 @@ export function CameraRig() {
     if (s.keys.has('ArrowUp')) s.targetPolar -= KEY_SPEED * dt
     if (s.keys.has('ArrowDown')) s.targetPolar += KEY_SPEED * dt
 
-    if (s.pointerId === -1) {
+    if (s.pointers.size === 0) {
       s.targetAzimuth += s.velocityAzimuth * dt
       s.targetPolar += s.velocityPolar * dt
       const decay = Math.exp(-FLING_DECAY * dt)
       s.velocityAzimuth *= decay
       s.velocityPolar *= decay
     }
-    s.targetPolar = Math.min(Math.max(s.targetPolar, POLAR_MIN), POLAR_MAX)
+    s.targetPolar = clamp(s.targetPolar, POLAR_MIN, POLAR_MAX)
 
     const ease = 1 - Math.exp(-FOLLOW * dt)
     s.azimuth += (s.targetAzimuth - s.azimuth) * ease
     s.polar += (s.targetPolar - s.polar) * ease
+    // Zoom eases in log space, so near and far approach at the same pace.
+    s.distance *= Math.exp(Math.log(s.targetDistance / s.distance) * ease)
 
-    spherical.current.set(ORBIT_RADIUS, s.polar, s.azimuth)
+    spherical.current.set(s.distance, s.polar, s.azimuth)
     camera.position.setFromSpherical(spherical.current)
     camera.lookAt(0, 0, 0)
 
