@@ -56,7 +56,8 @@ void main() {
   float cover = streaks * (fbm(p * 0.7 + 4.0, 3) * 0.5 + 0.5) + (uCoverage - 0.5);
 #else
   // Earth-like weather. Two levels of domain warping fold the noise into the curling,
-  // streaming shapes of real cloud systems; latitude organises them into belts.
+  // streaming shapes of real cloud systems. Latitude organises them: a narrow rain belt at
+  // the equator, clear subtropics, storm tracks at mid-latitudes and dry poles.
   vec3 p = vec3(q.x, q.y * 1.5, q.z) * uScale + uSeedOffset;
   vec3 a = vec3(fbm(p, 4), fbm(p + vec3(5.2, 1.3, 2.8), 4), fbm(p + vec3(1.7, 9.2, 4.3), 4));
   vec3 b = vec3(
@@ -64,11 +65,18 @@ void main() {
     fbm(p + 1.6 * a + vec3(2.1, 6.4, 9.9), 4),
     fbm(p + 1.6 * a + vec3(7.4, 3.3, 1.2), 4)
   );
-  float flow = fbm(p + 1.4 * b, 6) * 0.5 + 0.5;
-  // Rain belt at the equator, clear subtropics, storm tracks at mid-latitudes.
-  float belts = 0.2 * cos(latitude * 6.0) - 0.06 * smoothstep(0.8, 1.2, latitude);
+  float flow = fbm(p + 1.15 * b, 6) * 0.5 + 0.5;
+  float belts = 0.1 * exp(-pow(latitude / 0.14, 2.0))
+    - 0.12 * exp(-pow((latitude - 0.45) / 0.16, 2.0))
+    + 0.1 * exp(-pow((latitude - 0.95) / 0.28, 2.0))
+    - 0.06 * smoothstep(1.25, 1.5, latitude);
   float cover = flow + belts + (uCoverage - 0.5);
-  cover += (fbm(p * 7.0 + b * 2.0, 4)) * 0.08;
+  // Convection: in the warm low latitudes the cover breaks into clusters of separate cells
+  // with clear lanes between them, so it reads as cloud rather than as poured milk.
+  vec2 cells = cellular(p * 6.5 + b * 1.5);
+  float clumps = smoothstep(0.02, 0.45, cells.y - cells.x);
+  cover += (clumps - 0.55) * 0.18 * (1.0 - smoothstep(0.3, 0.85, latitude));
+  cover += fbm(p * 7.0 + b * 2.0, 4) * 0.07;
 #endif
 
   cover = mix(cover, cover - 0.6, eye);

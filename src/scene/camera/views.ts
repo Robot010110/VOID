@@ -41,6 +41,7 @@ export function systemViews(system: SystemData): Record<string, OrbitView> {
     top: { azimuth: home.azimuth, polar: 0.16, distance: home.distance * 1.15 },
     edge: { azimuth: home.azimuth, polar: 1.5, distance: home.distance },
     wide: { azimuth: home.azimuth, polar: 1.0, distance: SYSTEM_EXTENT * 2.2 },
+    star: { azimuth: home.azimuth, polar: 1.32, distance: system.star.radius * 3.2 },
   }
 }
 
