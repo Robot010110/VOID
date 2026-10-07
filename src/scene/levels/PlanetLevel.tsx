@@ -2,7 +2,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
 import { Color, Group, Vector3, type PerspectiveCamera } from 'three'
 import { blackbody } from '../../core/blackbody.ts'
-import { useVoid } from '../../core/store.ts'
+import { samePath, useVoid } from '../../core/store.ts'
 import { getSystem, orbitPosition, type Path, type PlanetData, type SystemData } from '../../core/universe.ts'
 import { useOpeningView } from '../camera/opening.ts'
 import { planetLimits, planetViews } from '../camera/views.ts'
@@ -84,8 +84,9 @@ export function PlanetLevel({ path }: { path: Path }) {
     // Once the system owns the world again (going up), this copy steps aside.
     if (body.current) body.current.visible = !(handover.index === index && handover.owner === 'parent')
 
-    // Where the world is on screen, for words set beside it.
-    if (level.background || !body.current) return
+    // Where the world is on screen, for words set beside it, once this is the place the
+    // visitor is at (a world fallen into was mounted during the fall).
+    if (!body.current || !samePath(useVoid.getState().path, path)) return
     const camera = state.camera as PerspectiveCamera
     body.current.getWorldPosition(centre)
     const size = scale.setFromMatrixScale(body.current.matrixWorld).x
