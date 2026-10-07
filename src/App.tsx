@@ -12,7 +12,7 @@ export default function App() {
       <h1 className="visually-hidden">VOID</h1>
       <p className="visually-hidden">
         An interactive universe. Drag or use the arrow keys to look around, Tab to choose a
-        star or a world and Enter to fall into it, Escape to rise back out.
+        galaxy, a star or a world and Enter to fall into it, Escape to rise back out.
       </p>
       <Experience />
       {LEVEL !== 'sky' && !isPlanetKind(PLANET) && <Hud />}

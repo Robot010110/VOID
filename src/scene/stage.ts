@@ -2,7 +2,7 @@
  * Runtime state shared by the scene, the camera director and the interface, outside React:
  * it changes every frame. React state (the store) holds only what changes structure.
  */
-import { Quaternion } from 'three'
+import { Matrix3, Quaternion, Vector2, Vector3, type Texture } from 'three'
 import { pathKey } from '../core/store.ts'
 import type { Path } from '../core/universe.ts'
 import type { Limits } from './camera/views.ts'
@@ -79,6 +79,25 @@ export const sky = {
    * the galaxy's own light has resolved away and the sky's band is what is left of it.
    */
   inside: 0,
+}
+
+/**
+ * The black hole's lensing, written by the hole every frame it is on stage and read by the post
+ * effect that bends the scene around it (see BlackHole.tsx and post/Lensing.ts).
+ */
+export const lens = {
+  /** Whether the hole bends anything on screen this frame: its pass is skipped otherwise. */
+  active: false,
+  /** How much of the bending applies, 0 to 1: it fades with the universe. */
+  strength: 0,
+  /** The camera in the hole's frame, in the hole's radii. */
+  camera: new Vector3(0, 0, 100),
+  viewToHole: new Matrix3(),
+  holeToView: new Matrix3(),
+  /** Tangent of half the field of view, across and up. */
+  tanHalfFov: new Vector2(1, 1),
+  /** The traced hole: its disc's light, and its shadow's cover in alpha. */
+  trace: null as Texture | null,
 }
 
 /** Camera speed through scale, for the post effects (log distance per second, smoothed). */

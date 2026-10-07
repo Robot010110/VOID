@@ -83,7 +83,8 @@ const BANNED_SUBSTRINGS = [
   'fart', 'boob', 'dum', 'kill', 'hate', 'puke', 'snot', 'turd', 'bum', 'jew', 'wank', 'twat',
   'homo', 'gay', 'lesb', 'spic', 'kike', 'coon', 'paki', 'retard', 'damn', 'hell', 'god',
   'kak', 'cac', 'kaka', 'pupu', 'pipi', 'moron', 'satan', 'koran', 'quran', 'kuran', 'allah',
-  'jesus', 'buddh', 'karma', 'kama', 'rama', 'mana', 'nazi', 'stalin', 'hitler',
+  'jesus', 'buddh', 'karma', 'kama', 'rama', 'mana', 'nazi', 'stalin', 'hitler', 'vix',
+  'kathr', 'drogo', 'runn',
 ] as const
 
 /**
@@ -142,7 +143,8 @@ const BANNED_NAMES = new Set([
   'nils', 'olin', 'omar', 'oren', 'rhea', 'rosa', 'ruth', 'ryan', 'sean', 'sian', 'silas',
   'sven', 'theo', 'tess', 'vera', 'vern', 'viola', 'yara', 'alan', 'alana', 'elena', 'ines',
   'luna', 'lune', 'nyla', 'nala', 'simba', 'elsa', 'arya', 'eden', 'evan', 'ithil', 'sakura',
-  'sess',
+  'sess', 'maril', 'vila', 'nukel', 'andu', 'sali', 'lini', 'monda', 'aesir', 'haru', 'akutan',
+  'aman', 'sono', 'kuro',
 ])
 
 /** Shape problems that make a name hard to say or awkward on the page. */

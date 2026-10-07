@@ -24,7 +24,11 @@ export const LEVEL = params.get('level')
 /** `?planet=<kind>` opens the planet showroom on one preset. */
 export const PLANET = params.get('planet')
 
-/** `?system=<index>` opens on one star system of the home galaxy (0 is the home system). */
+/** `?galaxy=<index>` opens on one galaxy (0 is the home galaxy); `?hole` on the black hole. */
+export const GALAXY = params.get('galaxy')
+export const HOLE = params.has('hole')
+
+/** `?system=<index>` opens on one star system of that galaxy (0 of the home galaxy is home). */
 export const SYSTEM = params.get('system')
 
 /** `?world=<index>` opens close up on one world of that system (the home system by default). */

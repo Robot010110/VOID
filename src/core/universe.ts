@@ -4,12 +4,13 @@
  * universe seed and its index, a star's hashes its galaxy's seed and its index, and so on,
  * so any level can be generated without its siblings.
  *
- * This file generates star systems; galaxy.ts generates galaxies (the universe arrives in
- * Phase 4).
+ * This file holds the levels and generates star systems; galaxy.ts generates galaxies, and
+ * cosmos.ts the universe they hang in.
  *
  * Units: a system's outermost orbit lies about 200 units from its star, and times are
  * seconds at 1x. Planet presets keep their own units (planet radii).
  */
+import { isHole } from './cosmos.ts'
 import { catalogueName, Language } from './names.ts'
 import {
   hexToRgb,
@@ -26,15 +27,19 @@ import {
 } from './planets.ts'
 import { hashSeed, Rng, UNIVERSE_SEED } from './rng.ts'
 
-export type Level = 'universe' | 'galaxy' | 'system' | 'planet'
+/** The black hole is a level of its own: a child of the universe, beside the galaxies. */
+export type Level = 'universe' | 'galaxy' | 'hole' | 'system' | 'planet'
 
-/** Where the visitor is: indices from the universe down (galaxy, star, planet). */
+/**
+ * Where the visitor is: indices from the universe down (galaxy, star, planet). The universe
+ * is the empty path; its last child is the black hole.
+ */
 export type Path = readonly number[]
 
-const LEVELS: readonly Level[] = ['universe', 'galaxy', 'system', 'planet']
-
 export function levelOf(path: Path): Level {
-  return LEVELS[Math.min(path.length, LEVELS.length - 1)]!
+  if (path.length === 0) return 'universe'
+  if (path.length === 1) return isHole(path[0]!) ? 'hole' : 'galaxy'
+  return path.length === 2 ? 'system' : 'planet'
 }
 
 /** The system VOID opens on: the first star of the first galaxy. */

@@ -12,11 +12,21 @@ import {
   type Scene,
   type WebGLRenderer,
 } from 'three'
+import { getUniverse, isHole } from '../../core/cosmos.ts'
 import { getGalaxy } from '../../core/galaxy.ts'
-import { pathKey, useVoid } from '../../core/store.ts'
+import { pathKey, samePath, useVoid } from '../../core/store.ts'
 import { getSystem, levelOf, type Path } from '../../core/universe.ts'
 import { useOpeningView } from '../camera/opening.ts'
-import { galaxyLimits, galaxyViews, systemLimits, systemViews } from '../camera/views.ts'
+import {
+  galaxyLimits,
+  galaxyViews,
+  holeLimits,
+  holeViews,
+  systemLimits,
+  systemViews,
+  universeLimits,
+  universeViews,
+} from '../camera/views.ts'
 import { frameTransform } from '../frames.ts'
 import { bakesPending } from '../shared/bake.ts'
 import { worldClock } from '../shared/clock.ts'
@@ -24,8 +34,10 @@ import { workPending } from '../shared/work.ts'
 import { levelRuntime } from '../stage.ts'
 import { LevelContext, type LevelInfo } from './context.ts'
 import { GalaxyLevel } from './GalaxyLevel.tsx'
+import { HoleLevel } from './HoleLevel.tsx'
 import { PlanetLevel } from './PlanetLevel.tsx'
 import { SystemLevel } from './SystemLevel.tsx'
+import { UniverseLevel } from './UniverseLevel.tsx'
 
 /**
  * A one-pixel target of the kind the scene really renders into (linear, half float), bound
@@ -73,9 +85,33 @@ function compiledAll(gl: WebGLRenderer, materials: Set<Material>): boolean {
 const position = new Vector3()
 const rotation = new Quaternion()
 
+function usePortrait(): boolean {
+  return useThree((s) => s.size.width < s.size.height * 0.85)
+}
+
+function UniverseFrame({ path, background }: { path: Path; background: boolean }) {
+  const universe = getUniverse()
+  const portrait = usePortrait()
+  const views = useMemo(() => universeViews(universe, portrait), [universe, portrait])
+  const limits = useMemo(() => universeLimits(), [])
+  // Beneath the black hole the universe is on stage too, but the hole frames the camera.
+  const [opening] = useState(() => samePath(useVoid.getState().path, path))
+  useOpeningView(views, views.home!.distance!, limits, !background && opening)
+  return <UniverseLevel path={path} />
+}
+
+function HoleFrame({ path, background }: { path: Path; background: boolean }) {
+  const hole = getUniverse().hole
+  const portrait = usePortrait()
+  const views = useMemo(() => holeViews(hole, portrait), [hole, portrait])
+  const limits = useMemo(() => holeLimits(hole), [hole])
+  useOpeningView(views, views.home!.distance!, limits, !background)
+  return <HoleLevel path={path} />
+}
+
 function GalaxyFrame({ path, background }: { path: Path; background: boolean }) {
   const galaxy = getGalaxy(path[0]!)
-  const portrait = useThree((s) => s.size.width < s.size.height * 0.85)
+  const portrait = usePortrait()
   const views = useMemo(() => galaxyViews(galaxy, portrait), [galaxy, portrait])
   const limits = useMemo(() => galaxyLimits(galaxy), [galaxy])
   useOpeningView(views, views.home!.distance!, limits, !background)
@@ -129,6 +165,8 @@ const LevelFrame = memo(function LevelFrame({ path }: { path: Path }) {
   return (
     <group ref={root}>
       <LevelContext.Provider value={info}>
+        {level === 'universe' && <UniverseFrame path={path} background={background} />}
+        {level === 'hole' && <HoleFrame path={path} background={background} />}
         {level === 'galaxy' && <GalaxyFrame path={path} background={background} />}
         {level === 'system' && <SystemFrame path={path} background={background} />}
         {level === 'planet' && <PlanetLevel path={path} />}
@@ -137,13 +175,24 @@ const LevelFrame = memo(function LevelFrame({ path }: { path: Path }) {
   )
 })
 
-/** The levels on stage: the current one, plus the next one while a transition runs. */
+/** True for the black hole's place, which the universe around it stages. */
+function inHole(path: Path): boolean {
+  return path.length === 1 && isHole(path[0]!)
+}
+
+const UNIVERSE: Path = []
+
+/**
+ * The levels on stage: the current one, plus the next one while a transition runs. The black
+ * hole is drawn by the universe around it, so the universe stays on stage beneath it.
+ */
 export function Levels() {
   const path = useVoid((s) => s.path)
   const transition = useVoid((s) => s.transition)
   const mounted = useMemo(() => {
     const both = transition.phase === 'approaching' || transition.phase === 'swapping'
     const list = both ? [transition.from, transition.to] : [path]
+    if (list.some(inHole)) list.unshift(UNIVERSE)
     const seen = new Set<string>()
     return list.filter((p) => {
       const key = pathKey(p)

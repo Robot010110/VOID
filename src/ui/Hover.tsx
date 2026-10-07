@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react'
-import { galacticPosition, getGalaxy, type GalaxyData } from '../core/galaxy.ts'
+import { getUniverse, isHole, type Universe } from '../core/cosmos.ts'
+import { GALAXY_WORDS } from '../core/describe.ts'
+import { galacticPosition, getGalaxy, getGalaxyLook, type GalaxyData } from '../core/galaxy.ts'
 import { useVoid } from '../core/store.ts'
 import { getSystem, HOME } from '../core/universe.ts'
 import { descend } from '../scene/camera/transitions.ts'
@@ -77,12 +79,51 @@ function GalaxyTargets({ galaxy, settled }: { galaxy: GalaxyData; settled: boole
 }
 
 /**
+ * The universe's notable places for the keyboard: the home galaxy, the black hole, and the
+ * largest of the rest. Every other galaxy is a pointer's reach away.
+ */
+function UniverseTargets({ universe, settled }: { universe: Universe; settled: boolean }) {
+  const places = useMemo(() => {
+    const largest = universe.galaxies
+      .filter((g) => g.index !== HOME[0])
+      .sort((a, b) => b.size - a.size)
+      .slice(0, 10)
+    return [
+      { index: HOME[0]!, label: `${getGalaxyLook(HOME[0]!).name}, ${GALAXY_WORDS[universe.galaxies[HOME[0]!]!.kind]}` },
+      { index: universe.hole.index, label: `${universe.hole.name}, a black hole` },
+      ...largest.map((g) => ({ index: g.index, label: `${getGalaxyLook(g.index).name}, ${GALAXY_WORDS[g.kind]}` })),
+    ]
+  }, [universe])
+  return (
+    <nav className="visually-hidden" aria-label="Galaxies">
+      <ul>
+        {places.map(({ index, label }) => (
+          <li key={index}>
+            <button
+              type="button"
+              disabled={!settled}
+              onFocus={() => focusTarget(index)}
+              onBlur={blurTarget}
+              onClick={() => descend(index)}
+            >
+              {label}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  )
+}
+
+/**
  * What can be fallen into from here, as a list of buttons, unseen but reachable with Tab:
  * focusing one rings it in the scene, Enter falls into it.
  */
 export function Targets() {
   const path = useVoid((s) => s.path)
   const settled = useVoid((s) => s.transition.phase === 'idle')
+  if (path.length === 0) return <UniverseTargets universe={getUniverse()} settled={settled} />
+  if (isHole(path[0]!)) return null
   if (path.length === 1) return <GalaxyTargets galaxy={getGalaxy(path[0]!)} settled={settled} />
   if (path.length !== 2) return null
   const system = getSystem(path[0]!, path[1]!)

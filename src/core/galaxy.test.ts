@@ -11,12 +11,18 @@ import {
   orbitalSpeed,
   systemOrientation,
 } from './galaxy.ts'
+import { getUniverse } from './cosmos.ts'
 import { GalaxyParticleJob, LAYER_SHARE, particleCounts } from './galaxyParticles.ts'
 import { HOME_BAND } from './sky.ts'
 import { generateStar, getSystem, HOME } from './universe.ts'
 
 const home = getGalaxy(HOME[0]!)
 const SAMPLE = Array.from({ length: 8 }, (_, i) => generateGalaxy(i))
+const SPIRALS = SAMPLE.filter((g) => g.kind === 'spiral' || g.kind === 'barred')
+/** The first galaxy of each kind in the universe. */
+const firstOf = (kind: string) => getGalaxy(getUniverse().galaxies.find((g) => g.kind === kind)!.index)
+const elliptical = firstOf('elliptical')
+const irregular = firstOf('irregular')
 
 function apply(m: readonly number[], v: readonly number[]): number[] {
   return [0, 1, 2].map((i) => m[i * 3]! * v[0]! + m[i * 3 + 1]! * v[1]! + m[i * 3 + 2]! * v[2]!)
@@ -28,10 +34,16 @@ describe('generateGalaxy', () => {
     expect(getGalaxy(2)).toBe(getGalaxy(2))
   })
 
+  it('makes each galaxy the kind the universe gave it', () => {
+    for (const galaxy of SAMPLE) expect(galaxy.kind).toBe(getUniverse().galaxies[galaxy.index]!.kind)
+    expect(new Set(SAMPLE.map((g) => g.kind)).size).toBeGreaterThan(2)
+  })
+
   it('makes varied spirals of two to five arms', () => {
-    const arms = new Set(SAMPLE.map((g) => g.shape.arms))
+    expect(SPIRALS.length).toBeGreaterThan(2)
+    const arms = new Set(SPIRALS.map((g) => g.shape.arms))
     expect(arms.size).toBeGreaterThan(1)
-    for (const galaxy of SAMPLE) {
+    for (const galaxy of SPIRALS) {
       const { shape } = galaxy
       expect(shape.arms).toBeGreaterThanOrEqual(2)
       expect(shape.arms).toBeLessThanOrEqual(5)
@@ -44,14 +56,15 @@ describe('generateGalaxy', () => {
     }
   })
 
-  it('offers a few hundred stars to visit, spread through the disc', () => {
+  it('offers a few hundred stars to visit, spread through the galaxy', () => {
     for (const galaxy of SAMPLE) {
-      expect(galaxy.stars.length).toBeGreaterThanOrEqual(200)
+      expect(galaxy.stars.length).toBeGreaterThanOrEqual(galaxy.kind === 'irregular' ? 150 : 200)
       expect(galaxy.stars.length).toBeLessThanOrEqual(340)
       galaxy.stars.forEach((s, i) => {
         expect(s.index).toBe(i)
-        expect(s.orbit.radius).toBeGreaterThan(galaxy.shape.armStart)
-        expect(s.orbit.radius).toBeLessThan(galaxy.shape.radius * 1.05)
+        const [x, y, z] = galacticPosition(galaxy, s.orbit, 0)
+        expect(Math.hypot(x, y, z)).toBeLessThan(galaxy.shape.radius * 1.1)
+        if (galaxy.kind === 'spiral' || galaxy.kind === 'barred') expect(s.orbit.radius).toBeGreaterThan(galaxy.shape.armStart)
       })
       const notable = galaxy.stars.filter((s) => s.notable)
       expect(notable.length).toBeGreaterThanOrEqual(8)
@@ -83,12 +96,68 @@ describe('generateGalaxy', () => {
   })
 
   it('places nebulae in the arms', () => {
-    for (const galaxy of SAMPLE) {
+    for (const galaxy of SPIRALS) {
       expect(galaxy.nebulae.length).toBeGreaterThanOrEqual(5)
       for (const nebula of galaxy.nebulae) {
         expect(nebula.radius).toBeGreaterThan(galaxy.shape.armStart)
         expect(Math.abs(nebula.offset)).toBeLessThan(0.3)
       }
+    }
+  })
+})
+
+describe('ellipticals and irregulars', () => {
+  it('gives an elliptical no arms, no dust and no nebulae, and a slow turn', () => {
+    expect(elliptical.shape.arms).toBe(0)
+    expect(elliptical.light.dust).toBe(0)
+    expect(elliptical.nebulae).toEqual([])
+    expect(elliptical.motion.speed).toBeLessThan(home.motion.speed * 0.5)
+    expect(particleCounts(200000, 'elliptical').dust).toBe(0)
+  })
+
+  it('fills an elliptical from the heart out, flattened by its axis ratio', () => {
+    const { light } = new GalaxyParticleJob(elliptical, 20000).run()
+    const R = elliptical.shape.radius
+    let inner = 0
+    let maxHeight = 0
+    let maxAcross = 0
+    for (let i = 0; i < light.count; i++) {
+      const a = light.orbit[i * 4]!
+      const y = Math.abs(light.orbit[i * 4 + 2]!)
+      if (Math.hypot(a, y) < R * 0.25) inner++
+      maxHeight = Math.max(maxHeight, y)
+      maxAcross = Math.max(maxAcross, a)
+    }
+    // A Hernquist swarm: about half of it within a quarter of the radius.
+    expect(inner / light.count).toBeGreaterThan(0.35)
+    expect(maxHeight / maxAcross).toBeLessThan(elliptical.shape.flattening + 0.05)
+  })
+
+  it('gives an irregular complexes that turn with it, and nebulae on the largest', () => {
+    const form = irregular.irregular!
+    expect(form.clumps.length).toBeGreaterThanOrEqual(6)
+    expect(irregular.nebulae.length).toBeGreaterThanOrEqual(2)
+    const largest = [...form.clumps].sort((a, b) => b.weight - a.weight)[0]!
+    const [x, , z] = nebulaPosition(irregular, irregular.nebulae[0]!, 0)
+    expect(Math.hypot(x - largest.x, z - largest.z)).toBeLessThan(1e-6)
+    // Everything turns at the pattern's speed, so the clumps keep their shape.
+    const { light } = new GalaxyParticleJob(irregular, 8000).run()
+    for (let i = 0; i < light.count; i++) expect(light.shape[i * 4 + 3]).toBe(1)
+  })
+
+  it('keeps every particle of every kind finite and inside its galaxy', () => {
+    for (const galaxy of [elliptical, irregular]) {
+      const job = new GalaxyParticleJob(galaxy, 12000).run()
+      let bad = 0
+      for (const set of [job.light, job.sparkle, job.dust]) {
+        for (let i = 0; i < set.count; i++) {
+          const a = set.orbit[i * 4]!
+          const y = set.orbit[i * 4 + 2]!
+          if (!Number.isFinite(a) || !Number.isFinite(y) || Math.hypot(a, y) > galaxy.shape.radius * 1.4) bad++
+          if (!(set.shape[i * 4]! > 0) || !(set.shape[i * 4 + 1]! >= 0)) bad++
+        }
+      }
+      expect(bad).toBe(0)
     }
   })
 })
@@ -180,6 +249,21 @@ describe('GalaxyParticleJob', () => {
   it('splits each tier into light, sparkle and a capped share of dust', () => {
     expect(particleCounts(400000)).toEqual({ light: 304000, sparkle: 36000, dust: 34000 })
     expect(particleCounts(80000)).toEqual({ light: 60800, sparkle: 7200, dust: 12000 })
+    // The universe draws each galaxy from a few thousand: dust keeps its share.
+    expect(particleCounts(6000)).toEqual({ light: 4560, sparkle: 540, dust: 900 })
+  })
+
+  it('needs no runs for the universe, which sorts each particle in its shader', () => {
+    const plain = new GalaxyParticleJob(home, 6000, { grouped: false }).run()
+    expect(plain.groups).toBeNull()
+    // The same particles, only in natural order: the same light in total.
+    const sum = (set: { shape: Float32Array; count: number }) => {
+      let total = 0
+      for (let i = 0; i < set.count; i++) total += set.shape[i * 4 + 1]!
+      return total
+    }
+    const grouped = new GalaxyParticleJob(home, 6000).run()
+    expect(sum(plain.light)).toBeCloseTo(sum(grouped.light), 0)
   })
 
   it('gives the same particles however it is chunked', () => {

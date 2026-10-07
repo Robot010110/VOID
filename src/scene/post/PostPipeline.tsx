@@ -1,13 +1,15 @@
 import { Bloom, EffectComposer, FXAA, SMAA, ToneMapping, Vignette } from '@react-three/postprocessing'
 import { ToneMappingMode, type BloomEffect, type VignetteEffect } from 'postprocessing'
 import { useFrame, useThree } from '@react-three/fiber'
-import { useCallback, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { HalfFloatType } from 'three'
 import { TONE } from '../../core/env.ts'
 import { QUALITY } from '../../core/quality.ts'
 import { useVoid } from '../../core/store.ts'
 import { num, useTweaks, type TweakSchema, type TweakValue } from '../../core/tweaks.ts'
+import { lens } from '../stage.ts'
 import { Film, type FilmEffect } from './Film.ts'
+import { createLensingPass } from './Lensing.ts'
 
 const TONE_MODES: Record<string, ToneMappingMode> = {
   agx: ToneMappingMode.AGX,
@@ -29,7 +31,7 @@ const TWEAKS: TweakSchema = {
  * extended light that can fill the screen, and blooms only at its core; stars and worlds are
  * small bright sources that bloom fully.
  */
-const LEVEL_BLOOM: Record<string, number> = { universe: 0.6, galaxy: 0.45, system: 1, planet: 1 }
+const LEVEL_BLOOM: Record<string, number> = { universe: 0.6, galaxy: 0.45, hole: 1, system: 1, planet: 1 }
 
 /**
  * At or above this pixel ratio, edges are fine enough that antialiasing costs more than it
@@ -40,14 +42,23 @@ const LEVEL_BLOOM: Record<string, number> = { universe: 0.6, galaxy: 0.45, syste
 const SMAA_MAX_DPR = 1.75
 
 /**
- * HDR scene → antialiasing → bloom → AgX tone mapping → vignette → film grade (look, floor,
- * grain). Everything merges into one full-screen pass (plus the antialiasing's and bloom's
- * own small passes). Antialiasing goes first because it re-samples the raw input buffer at
- * edges; anything merged ahead of it in the same pass would be discarded there.
+ * HDR scene → the black hole's lensing (only while a hole is in view) → antialiasing → bloom →
+ * AgX tone mapping → vignette → film grade (look, floor, grain). Everything after the
+ * antialiasing merges into one full-screen pass (plus bloom's own small passes). Lensing and
+ * antialiasing re-sample their input at other places, so each runs in a pass of its own; the
+ * lensing goes first, so bloom sees the black hole's disc.
  */
 export function PostPipeline() {
   const quality = useVoid((s) => s.quality)
   const antialias = useThree((s) => s.viewport.dpr) < SMAA_MAX_DPR
+  const camera = useThree((s) => s.camera)
+  const lensing = useMemo(() => createLensingPass(camera), [camera])
+  useEffect(() => () => lensing.dispose(), [lensing])
+
+  // After the scene's own frame callbacks (the hole writes `lens`), before the composer renders.
+  useFrame(() => {
+    lensing.enabled = lens.active
+  }, 0.5)
   const bloom = useRef<BloomEffect>(null)
   const vignette = useRef<VignetteEffect>(null)
   const film = useRef<FilmEffect>(null)
@@ -79,6 +90,7 @@ export function PostPipeline() {
 
   return (
     <EffectComposer multisampling={0} frameBufferType={HalfFloatType} enableNormalPass={false}>
+      <primitive object={lensing} />
       {antialias ? quality === 'high' ? <SMAA /> : <FXAA /> : <></>}
       <Bloom
         ref={bloom}

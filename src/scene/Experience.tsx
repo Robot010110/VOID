@@ -33,7 +33,12 @@ const GL: WebGLRendererParameters = {
   powerPreference: 'high-performance',
 }
 
-const CAMERA = { fov: 50, near: 0.05, far: 4000, position: [0, 0, 6] as [number, number, number] }
+/**
+ * The far plane is far enough for the whole universe, even drawn in a galaxy's frame (some
+ * twenty times larger) while the two crossfade. Depth precision is set by the near plane,
+ * which follows the camera's distance.
+ */
+const CAMERA = { fov: 50, near: 0.05, far: 120000, position: [0, 0, 6] as [number, number, number] }
 
 /**
  * Tiles baked per frame in the background follow the frame rate: one more for every frame on
@@ -134,8 +139,10 @@ function Sky() {
   const level = useVoid((s) => s.level)
   if (LEVEL === 'sky') return <Starfield />
   if (SHOWROOM || level === 'planet') return <Starfield brightness={0.75} band={0.4} />
-  // Outside a galaxy its band is gone: what is left are a few stars between the galaxies.
+  // Outside a galaxy its band is gone: what is left are a few stars between the galaxies,
+  // fewer still out among the clusters.
   if (level === 'galaxy') return <Starfield brightness={0.45} band={0} />
+  if (level === 'universe' || level === 'hole') return <Starfield brightness={0.3} band={0} />
   return <Starfield brightness={0.9} band={0.55} />
 }
 

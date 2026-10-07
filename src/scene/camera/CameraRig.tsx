@@ -98,7 +98,7 @@ export function CameraRig() {
     /** Accumulate zoom-in over a target; enough of it falls into the target. */
     const leanInto = (x: number, y: number, amount: number, now: number): boolean => {
       const level = useVoid.getState().level
-      if (level !== 'galaxy' && level !== 'system') return false
+      if (level !== 'universe' && level !== 'galaxy' && level !== 'system') return false
       const hit = activeRuntime().pick?.(x, y)
       if (!hit) return false
       if (hit.index !== intent.target || now - intent.time > INTENT_WINDOW) intent.amount = 0
@@ -115,7 +115,7 @@ export function CameraRig() {
     /** Accumulate zoom-out past the limit; enough of it rises out of the level. */
     const leanOut = (amount: number, now: number) => {
       const level = useVoid.getState().level
-      if ((level !== 'planet' && level !== 'system') || rig.target.distance < rig.limits.max * 0.999) return
+      if (level === 'universe' || rig.target.distance < rig.limits.max * 0.999) return
       if (intent.target !== -2 || now - intent.time > INTENT_WINDOW) intent.amount = 0
       intent.target = -2
       intent.time = now

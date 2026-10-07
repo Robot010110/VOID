@@ -1,6 +1,7 @@
 /** What the interface says about a place: its name, its ancestors, and two or three sentences. */
-import { describeGalaxy, describePlanet, describeStar, starColour } from '../core/describe.ts'
-import { getGalaxy, isHomeGalaxy } from '../core/galaxy.ts'
+import { getUniverse, isHole } from '../core/cosmos.ts'
+import { describeGalaxy, describeHole, describePlanet, describeStar, describeUniverse, starColour } from '../core/describe.ts'
+import { getGalaxy, getGalaxyLook, isHomeGalaxy } from '../core/galaxy.ts'
 import type { PlanetKind } from '../core/planets.ts'
 import { getSystem, HOME, type Path } from '../core/universe.ts'
 
@@ -11,16 +12,23 @@ export interface Place {
   readonly ancestors: ReadonlyArray<{ readonly name: string; readonly path: Path }>
 }
 
+/** The breadcrumb's root. */
+const UNIVERSE_NAME = 'Universe'
+
 export function placeAt(path: Path): Place {
+  const universe = getUniverse()
+  if (path.length === 0) return { name: UNIVERSE_NAME, text: describeUniverse(universe), ancestors: [] }
+  const root = [{ name: UNIVERSE_NAME, path: [] as Path }]
+  if (isHole(path[0]!)) return { name: universe.hole.name, text: describeHole(), ancestors: root }
   const galaxy = getGalaxy(path[0]!)
-  const top = [{ name: galaxy.name, path: path.slice(0, 1) }]
   if (path.length === 1) {
     return {
       name: galaxy.name,
       text: describeGalaxy(galaxy, isHomeGalaxy(galaxy.index) ? HOME[1] : undefined),
-      ancestors: [],
+      ancestors: root,
     }
   }
+  const top = [...root, { name: galaxy.name, path: path.slice(0, 1) }]
   const system = getSystem(path[0]!, path[1]!)
   if (path.length === 2) {
     return { name: system.star.name, text: describeStar(system), ancestors: top }
@@ -35,6 +43,12 @@ export function placeAt(path: Path): Place {
 
 /** The name of a child of the place at `path`, for the hover ring. */
 export function childName(path: Path, index: number): string {
+  if (path.length === 0) {
+    const universe = getUniverse()
+    if (index === universe.hole.index) return universe.hole.name
+    return index >= 0 && index < universe.galaxies.length ? getGalaxyLook(index).name : ''
+  }
+  if (isHole(path[0]!)) return ''
   if (path.length === 1) return getGalaxy(path[0]!).stars[index]?.star.name ?? ''
   if (path.length === 2) return getSystem(path[0]!, path[1]!).planets[index]?.name ?? ''
   return ''

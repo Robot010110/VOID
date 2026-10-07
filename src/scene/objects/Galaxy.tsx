@@ -7,8 +7,6 @@ import {
   Color,
   CustomBlending,
   Group,
-  HalfFloatType,
-  LinearFilter,
   Matrix3,
   Matrix4,
   Mesh,
@@ -16,12 +14,10 @@ import {
   OneFactor,
   PlaneGeometry,
   Points,
-  Scene,
   ShaderMaterial,
   Vector2,
   Vector3,
   Vector4,
-  WebGLRenderTarget,
   ZeroFactor,
   type IUniform,
   type Object3D,
@@ -37,10 +33,9 @@ import {
   REFERENCE_LIGHT,
   type ParticleCounts,
 } from '../../core/galaxyParticles.ts'
-import { QUALITY, type QualityTier } from '../../core/quality.ts'
+import { QUALITY } from '../../core/quality.ts'
 import { useVoid } from '../../core/store.ts'
 import { num, useTweaks, type TweakSchema, type TweakValue } from '../../core/tweaks.ts'
-import compositeFrag from '../../shaders/galaxy/composite.frag'
 import compositeVert from '../../shaders/galaxy/composite.vert'
 import coreFrag from '../../shaders/galaxy/core.frag'
 import coreVert from '../../shaders/galaxy/core.vert'
@@ -56,6 +51,7 @@ import { cancelBake, enqueueBake } from '../shared/bake.ts'
 import { useShared, type Disposable } from '../shared/cache.ts'
 import { worldClock } from '../shared/clock.ts'
 import { FULLSCREEN_TRIANGLE } from '../shared/gpu.ts'
+import { SoftBuffer } from '../shared/softBuffer.ts'
 import { cancelWork, enqueueWork, type Work } from '../shared/work.ts'
 import { handover, sky } from '../stage.ts'
 import { ATLAS_POLICY, createNebulae, NebulaAtlas } from './Nebula.ts'
@@ -70,25 +66,6 @@ const TWEAKS: TweakSchema = {
   spread: { value: 3.6, min: 0.8, max: 10, step: 0.01 },
   youngShift: { value: 0.25, min: -1.5, max: 1.5, step: 0.01 },
 }
-
-/**
- * The soft light is drawn at this share of the screen's size in CSS pixels, then laid over
- * it: a diffuse glow needs no retina resolution, and blending its many sprites is what a
- * weak GPU pays for.
- */
-const BUFFER_SCALE: Record<QualityTier, number> = { high: 0.6, medium: 0.48, low: 0.34 }
-
-/**
- * Close up, a galaxy's glow covers the screen and can cost more than a frame allows. Its
- * buffer's resolution then steps down (to half at most) until frames are on time again, and
- * back up when there is room: the glow is soft enough that the change never shows. Steps are
- * coarse and slow, so the buffer is rarely reallocated and the resolution never oscillates.
- */
-const ADAPT_STEP = 0.1
-const ADAPT_MIN = 0.5
-const ADAPT_SLOW = 1 / 52
-const ADAPT_FAST = 1 / 58
-const ADAPT_HOLD = 0.8
 
 /** Draw order inside the light buffer, with the camera above the plane (mirrored below). */
 const BUFFER_ORDER = { fog: -1, back: 0, coreBack: 1, middle: 2, dust: 3, front: 4, coreFront: 5, nebulae: 6 } as const
@@ -238,7 +215,6 @@ function shown(object: Object3D): boolean {
 }
 
 const cameraLocal = new Vector3()
-const clearColour = new Color()
 const toLocal = new Matrix4()
 const viewToLocal = new Matrix4()
 
@@ -267,7 +243,6 @@ export function Galaxy({ galaxy, active, handed }: GalaxyProps) {
   const atlas = useShared(`nebula-atlas:${atlasSize}`, () => new NebulaAtlas(atlasSize), ATLAS_POLICY)
   const root = useRef<Group>(null)
   const warmed = useRef(false)
-  const adapt = useRef({ share: 1, frame: 1 / 60, hold: 0 })
   const tuned = useRef({
     exposure: num(TWEAKS, 'exposure'),
     softness: num(TWEAKS, 'softness'),
@@ -297,13 +272,7 @@ export function Galaxy({ galaxy, active, handed }: GalaxyProps) {
   const orbit = useMemo(() => orbitUniforms(galaxy), [galaxy])
 
   const parts = useMemo(() => {
-    const target = new WebGLRenderTarget(1, 1, {
-      type: HalfFloatType,
-      minFilter: LinearFilter,
-      magFilter: LinearFilter,
-      generateMipmaps: false,
-      depthBuffer: false,
-    })
+    const buffer = new SoftBuffer('galaxy', SCREEN_ORDER.light)
     // Uniforms of the soft light, in buffer pixels.
     const soft = {
       uFade: { value: 0 },
@@ -448,22 +417,8 @@ export function Galaxy({ galaxy, active, handed }: GalaxyProps) {
 
     const nebulae = createNebulae(galaxy, orbit, soft.uFade, atlas)
 
-    const composite = new ShaderMaterial({
-      name: 'galaxy-composite',
-      vertexShader: compositeVert,
-      fragmentShader: compositeFrag,
-      uniforms: { uLight: { value: target.texture }, uResolution: { value: new Vector2(1, 1) } },
-      blending: NormalBlending,
-      premultipliedAlpha: true,
-      transparent: true,
-      depthWrite: false,
-    })
-
     // The buffer's own little scene, carried by the level's transform each frame.
-    const scene = new Scene()
-    const holder = new Group()
-    holder.matrixAutoUpdate = false
-    scene.add(holder)
+    const holder = buffer.holder
     const quad = new PlaneGeometry(2, 2)
     const layers = {
       below: new Points(buffers.below, light),
@@ -488,23 +443,20 @@ export function Galaxy({ galaxy, active, handed }: GalaxyProps) {
 
     const starGeometry = createStars(galaxy)
     const screen = {
-      composite: new Mesh(FULLSCREEN_TRIANGLE, composite),
+      composite: buffer.composite,
       sparkle: new Points(buffers.sparkle, sparkle),
       stars: new Points(starGeometry, stars),
     }
-    screen.composite.renderOrder = SCREEN_ORDER.light
     screen.sparkle.renderOrder = SCREEN_ORDER.sparkle
     screen.stars.renderOrder = SCREEN_ORDER.stars
     for (const object of Object.values(screen)) object.frustumCulled = false
 
-    const materials = [light, dust, core, sparkle, stars, composite, fog]
+    const materials = [light, dust, core, sparkle, stars, fog]
     return {
-      target,
+      buffer,
       soft,
       lightUniforms,
       materials,
-      scene,
-      holder,
       layers,
       screen,
       quad,
@@ -513,7 +465,6 @@ export function Galaxy({ galaxy, active, handed }: GalaxyProps) {
       core,
       sparkle,
       stars,
-      composite,
       fog,
       emission,
       nebulae,
@@ -532,7 +483,7 @@ export function Galaxy({ galaxy, active, handed }: GalaxyProps) {
     () => () => {
       for (const material of parts.materials) material.dispose()
       parts.nebulae.dispose()
-      parts.target.dispose()
+      parts.buffer.dispose()
       parts.quad.dispose()
       parts.starGeometry.dispose()
     },
@@ -541,9 +492,9 @@ export function Galaxy({ galaxy, active, handed }: GalaxyProps) {
 
   // The buffer's objects are not in the scene graph: they are compiled with the level's own.
   useLayoutEffect(() => {
-    level.extras.add(parts.scene)
+    level.extras.add(parts.buffer.scene)
     return () => {
-      level.extras.delete(parts.scene)
+      level.extras.delete(parts.buffer.scene)
     }
   }, [level, parts])
 
@@ -587,19 +538,7 @@ export function Galaxy({ galaxy, active, handed }: GalaxyProps) {
     const group = root.current
     if (!group) return
     const ready = buffers.ready
-
-    // Resolution follows the frame rate while the galaxy is on screen.
-    const a = adapt.current
-    a.frame += (Math.min(delta, 0.1) - a.frame) * 0.08
-    a.hold = Math.max(0, a.hold - delta)
-    if (a.hold === 0 && a.frame > ADAPT_SLOW && a.share > ADAPT_MIN) {
-      a.share = Math.max(ADAPT_MIN, a.share - ADAPT_STEP)
-      a.hold = ADAPT_HOLD
-    } else if (a.hold === 0 && a.frame < ADAPT_FAST && a.share < 1) {
-      a.share = Math.min(1, a.share + ADAPT_STEP)
-      a.hold = ADAPT_HOLD * 2
-    }
-    const { soft, screen, layers, target } = parts
+    const { soft, screen, layers, buffer } = parts
     screen.sparkle.visible = ready
     screen.composite.visible = false
 
@@ -607,15 +546,11 @@ export function Galaxy({ galaxy, active, handed }: GalaxyProps) {
     soft.uFade.value = level.fade.current
     const cam = state.camera as PerspectiveCamera
     const dpr = state.viewport.dpr
-    const width = Math.max(1, Math.round(state.size.width * dpr))
     const height = Math.max(1, Math.round(state.size.height * dpr))
-    const share = BUFFER_SCALE[useVoid.getState().quality] * a.share
-    const bufferWidth = Math.max(1, Math.round(state.size.width * share))
-    const bufferHeight = Math.max(1, Math.round(state.size.height * share))
-    if (target.width !== bufferWidth || target.height !== bufferHeight) target.setSize(bufferWidth, bufferHeight)
-    ;(parts.composite.uniforms.uResolution!.value as Vector2).set(width, height)
+    // Resolution follows the frame rate while the galaxy is on screen.
+    buffer.resize(state.size.width, state.size.height, dpr, delta, useVoid.getState().quality)
     const focal = 1 / (2 * Math.tan((cam.fov * Math.PI) / 360))
-    soft.uPixelsPerUnit.value = bufferHeight * focal
+    soft.uPixelsPerUnit.value = buffer.pixelsPerUnit(cam.fov)
     parts.sparkle.uniforms.uPixelsPerUnit!.value = height * focal
     parts.sparkle.uniforms.uMinSigma!.value = 0.6 * dpr
     parts.sparkle.uniforms.uMaxSigma!.value = 1.3 * dpr
@@ -652,7 +587,7 @@ export function Galaxy({ galaxy, active, handed }: GalaxyProps) {
     layers.fog.visible = away < reach
     f.uOldLight!.value = parts.emission.old * exposure
     f.uYoungLight!.value = parts.emission.young * exposure
-    ;(f.uResolution!.value as Vector2).set(bufferWidth, bufferHeight)
+    ;(f.uResolution!.value as Vector2).set(buffer.width, buffer.height)
     ;(f.uCameraLocal!.value as Vector3).copy(cameraLocal)
     const tanHalf = Math.tan((cam.fov * Math.PI) / 360)
     ;(f.uTanHalfFov!.value as Vector2).set(tanHalf * cam.aspect, tanHalf)
@@ -667,17 +602,7 @@ export function Galaxy({ galaxy, active, handed }: GalaxyProps) {
     if (!ready || (!visible && warmed.current)) return
     warmed.current = true
     screen.composite.visible = visible
-    parts.holder.matrix.copy(group.matrixWorld)
-    const previous = gl.getRenderTarget()
-    gl.getClearColor(clearColour)
-    const alpha = gl.getClearAlpha()
-    gl.setRenderTarget(target)
-    gl.setClearColor(0x000000, 0)
-    // The post pipeline turns the renderer's automatic clear off.
-    gl.clear(true, false, false)
-    gl.render(parts.scene, cam)
-    gl.setRenderTarget(previous)
-    gl.setClearColor(clearColour, alpha)
+    buffer.render(gl, cam, group.matrixWorld)
   })
 
   return (

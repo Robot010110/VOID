@@ -3,6 +3,7 @@
  * three short sentences, no poetry. Story fragments are never generated (see the brief);
  * these only say what is there.
  */
+import { galaxySite, type GalaxyKind, type Universe } from './cosmos.ts'
 import { galacticPosition, type GalaxyData } from './galaxy.ts'
 import { Rng, hashSeed } from './rng.ts'
 import {
@@ -15,8 +16,15 @@ import {
 const NUMBERS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve']
 const ORDINALS = ['first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth', 'ninth', 'tenth']
 
+const TEENS = ['thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen']
+const TENS = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety']
+
+/** A number in words, up to ninety-nine. */
 function number(n: number): string {
-  return NUMBERS[n] ?? String(n)
+  if (n < NUMBERS.length) return NUMBERS[n]!
+  if (n < 20) return TEENS[n - 13]!
+  if (n < 100) return n % 10 === 0 ? TENS[n / 10]! : `${TENS[Math.floor(n / 10)]}-${NUMBERS[n % 10]}`
+  return String(n)
 }
 
 function ordinal(n: number): string {
@@ -50,8 +58,53 @@ export function starColour(temperature: number): string {
   return 'blue-white'
 }
 
+/** A few words for what a galaxy is, for screen readers choosing among them. */
+export const GALAXY_WORDS: Record<GalaxyKind, string> = {
+  spiral: 'a spiral galaxy',
+  barred: 'a barred spiral galaxy',
+  elliptical: 'an elliptical galaxy',
+  irregular: 'an irregular galaxy',
+}
+
+export function describeUniverse(universe: Universe): string {
+  const count = universe.galaxies.length
+  const spirals = universe.galaxies.filter((g) => g.kind === 'spiral' || g.kind === 'barred').length
+  const cluster = universe.galaxies.filter((g) => g.node === 0)
+  const golden = cluster.filter((g) => g.kind === 'elliptical').length > cluster.length / 2
+  return [
+    `${capitalise(number(count))} galaxies hang along faint threads of gas, gathered into clusters and strung out between them.`,
+    spirals > count / 2
+      ? golden
+        ? 'Most are spirals; in the great cluster they are smooth golden ellipticals, the oldest of all.'
+        : 'Most are spirals, a few are smooth golden ellipticals, and the smallest are ragged and young.'
+      : 'Spirals, smooth golden ellipticals and small ragged galaxies hang side by side.',
+    'Alone in a void between them, a black hole bends the light of everything behind it.',
+  ].join(' ')
+}
+
+export function describeHole(): string {
+  return [
+    'A black hole, alone in the dark between the galaxies.',
+    'Its disc of falling gas burns white-hot at the inner edge and cools to ember further out, brighter on the side that turns towards you.',
+    'The nebula behind it, and every galaxy beyond, is bent into rings around its shadow.',
+  ].join(' ')
+}
+
 export function describeGalaxy(galaxy: GalaxyData, homeIndex?: number): string {
   const { shape } = galaxy
+  if (galaxy.kind === 'elliptical') {
+    const giant = galaxySite(galaxy.index).size > 17
+    return [
+      `${giant ? 'A giant elliptical galaxy' : 'An elliptical galaxy'}, a smooth swarm of old golden stars, with no arms and no dust.`,
+      'Its oldest stars gather in tight round clusters that hang around it like sparks.',
+    ].join(' ')
+  }
+  if (galaxy.kind === 'irregular') {
+    return [
+      'A small irregular galaxy, lopsided and ragged, with no arms and no bright core.',
+      'Young blue stars and pink clouds of new stars crowd its few bright knots.',
+    ].join(' ')
+  }
   const arms = number(shape.arms)
   const core = galaxy.light.core < 4600 ? 'golden' : 'pale gold'
   const sentences = [

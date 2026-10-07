@@ -11,8 +11,12 @@
  *
  * A system's frame is turned within its galaxy (its sky's band is the galactic plane), so a
  * fall from a galaxy into a system banks the camera from one plane into the other, and the
- * sky turns with it. Flights move the camera's direction and its up along shortest arcs,
- * planned in the frame where they end, so nothing ever swings round.
+ * sky turns with it; a galaxy's frame is turned within the universe in the same way. Flights
+ * move the camera's direction and its up along shortest arcs, planned in the frame where they
+ * end, so nothing ever swings round.
+ *
+ * The black hole is drawn by the universe itself (they are one place), so a flight between
+ * them changes only the frame and the framing: nothing fades.
  *
  * Clocks advance with the frames the scene renders, so motion and fades stay in lockstep
  * with the picture (and screenshot runs are repeatable); GSAP supplies the easing curves.
@@ -21,29 +25,34 @@
  */
 import gsap from 'gsap'
 import { Quaternion, Vector3 } from 'three'
+import { galaxyCount, getUniverse, isHole } from '../../core/cosmos.ts'
 import { prefersReducedMotion } from '../../core/env.ts'
-import { getGalaxy } from '../../core/galaxy.ts'
+import { getGalaxy, getGalaxyLook } from '../../core/galaxy.ts'
 import { IDLE, samePath, useVoid, type Transition } from '../../core/store.ts'
 import { getSystem, levelOf, type Level, type Path } from '../../core/universe.ts'
 import { anchorOf } from '../frames.ts'
 import { worldClock } from '../shared/clock.ts'
 import { handover, levelRuntime, sky } from '../stage.ts'
 import { rig, settleRig, type RigPose } from './rig.ts'
-import { galaxyView, isPortrait, systemView } from './views.ts'
+import { galaxyView, holeView, isPortrait, systemView, universeView } from './views.ts'
 
-/** Seconds for each fall, by the level fallen into or risen to: a galaxy is the longest drop. */
-const DOWN: Partial<Record<Level, number>> = { system: 3, planet: 2.2 }
-const UP_TO: Partial<Record<Level, number>> = { galaxy: 3.2, system: 2.6 }
+/** Seconds for each fall, by the level fallen into or risen to: the longer the drop, the longer. */
+const DOWN: Partial<Record<Level, number>> = { galaxy: 3.6, hole: 3.4, system: 3, planet: 2.2 }
+const UP_TO: Partial<Record<Level, number>> = { universe: 3.8, galaxy: 3.2, system: 2.6 }
 const REDUCED_DOWN = 1.4
 const REDUCED_UP = 1.6
 const RETREAT = 1.3
 const CROSSFADE = 0.8
 /**
  * Where the levels swap, as a multiple of the child's resting distance: once it fills most
- * of the view going down, a little further out going up.
+ * of the view going down, a little further out going up. A galaxy seen from the universe is
+ * drawn from only a few thousand particles, so it hands over to its own level while it is
+ * still small on screen, where the two look alike.
  */
-const SWAP_DOWN = 1.35
-const SWAP_UP = 1.5
+const SWAP_DOWN: Partial<Record<Level, number>> = { galaxy: 3 }
+const SWAP_UP: Partial<Record<Level, number>> = { galaxy: 3.2 }
+const SWAP_DOWN_DEFAULT = 1.35
+const SWAP_UP_DEFAULT = 1.5
 /** Share of an approach over which the camera's centre moves onto the target. */
 const CENTRE_SHARE = 0.6
 /** How fast an ascent creeps on while the level above is still getting ready. */
@@ -137,16 +146,29 @@ function end(path: Path) {
 }
 
 function exists(path: Path): boolean {
-  if (path.length === 2) return getGalaxy(path[0]!).stars[path[1]!] !== undefined
+  if (path.length === 1) return Number.isInteger(path[0]) && path[0]! >= 0 && (path[0]! < galaxyCount() || isHole(path[0]!))
+  if (path.length === 2) return !isHole(path[0]!) && getGalaxy(path[0]!).stars[path[1]!] !== undefined
   if (path.length === 3) return getSystem(path[0]!, path[1]!).planets[path[2]!] !== undefined
   return false
+}
+
+/**
+ * Whether two places are drawn by the same stage: the black hole and the universe around it.
+ * Between them only the frame and the framing change.
+ */
+function sameStage(a: Path, b: Path): boolean {
+  const hole = (path: Path) => path.length === 1 && isHole(path[0]!)
+  return (a.length === 0 && hole(b)) || (b.length === 0 && hole(a))
 }
 
 /** How far from a level's centre the camera rests, in the level's own units. */
 function restDistance(path: Path): number {
   if (path.length === 3) return getSystem(path[0]!, path[1]!).planets[path[2]!]!.preset.framing
   if (path.length === 2) return systemView(getSystem(path[0]!, path[1]!)).distance
-  return galaxyView(getGalaxy(path[0]!), isPortrait()).distance
+  if (path.length === 1) {
+    return isHole(path[0]!) ? holeView(getUniverse().hole, isPortrait()).distance : galaxyView(getGalaxyLook(path[0]!), isPortrait()).distance
+  }
+  return universeView(isPortrait()).distance
 }
 
 /**
@@ -162,6 +184,29 @@ function worldArrival(planet: Vector3, camera: Vector3): Vector3 {
   return fromAngles(near(left) < near(right) ? left : right, 1.2)
 }
 
+/**
+ * Which way the camera rests once it has fallen into `to`, in that level's frame: a world
+ * three-quarter lit; a system or a galaxy from the side the camera falls in from, a little
+ * above its plane; the black hole always from its one composed side, its nebula behind it.
+ */
+function arrivalDirection(
+  to: Path,
+  level: Level,
+  camera: Vector3,
+  parent: { centre: Vector3; distance: number; direction: Vector3 },
+): Vector3 {
+  if (level === 'planet') {
+    // The world's own frame is not turned: arrival is planned from the system's.
+    return worldArrival(anchor, parent.direction.clone().multiplyScalar(parent.distance).add(parent.centre))
+  }
+  if (level === 'hole') {
+    const view = holeView(getUniverse().hole)
+    return fromAngles(view.azimuth, view.polar)
+  }
+  const polar = level === 'system' ? systemView(getSystem(to[0]!, to[1]!)).polar : galaxyView(getGalaxyLook(to[0]!)).polar
+  return fromAngles(Math.atan2(camera.x, camera.z), polar)
+}
+
 /** Fly into one of the current level's children and swap to its level. */
 export function descend(index: number) {
   const state = useVoid.getState()
@@ -173,9 +218,10 @@ export function descend(index: number) {
 
   const arriving = levelRuntime(to)
   const leaving = levelRuntime(from)
-  arriving.visible = false
+  const shared = sameStage(from, to)
+  arriving.visible = shared
   arriving.ready = false
-  arriving.fade.current = 0
+  arriving.fade.current = shared ? 1 : 0
   leaving.fade.current = 1
   handover.index = index
   handover.owner = 'parent'
@@ -204,13 +250,9 @@ export function descend(index: number) {
   const camera = startDirection.clone().multiplyScalar(startDistance).add(startCentre)
   const rest = {
     distance: restDistance(to),
-    direction:
-      level === 'planet'
-        ? // The world's own frame is not turned: arrival is planned from the system's.
-          worldArrival(anchor, parent.direction.clone().multiplyScalar(parent.distance).add(parent.centre))
-        : // A system is entered from the side the camera falls in from, a little above its plane.
-          fromAngles(Math.atan2(camera.x, camera.z), systemView(getSystem(to[0]!, to[1]!)).polar),
+    direction: arrivalDirection(to, level, camera, parent),
   }
+  const swapAt = SWAP_DOWN[level] ?? SWAP_DOWN_DEFAULT
   const duration = prefersReducedMotion() ? REDUCED_DOWN : (DOWN[level] ?? 2.2)
   let t = 0
   let swapped = false
@@ -230,14 +272,14 @@ export function descend(index: number) {
     // The sky turns early, while the galaxy's band is still too faint to see turning.
     skyNow.slerpQuaternions(startSky, IDENTITY, clamp01(along / 0.18))
 
-    if (!swapped && towards >= 1 && distance <= rest.distance * SWAP_DOWN && arriving.ready) {
+    if (!swapped && towards >= 1 && distance <= rest.distance * swapAt && arriving.ready) {
       swapped = true
       handover.owner = 'child'
       arriving.visible = true
       useVoid.getState().setPath(to)
       setTransition({ phase: 'swapping', direction: 'down', from, to })
     }
-    if (swapped && !faded && crossfade(fade, leaving.fade, arriving.fade)) {
+    if (swapped && !faded && (shared || crossfade(fade, leaving.fade, arriving.fade))) {
       faded = true
       setTransition({ phase: 'settling', direction: 'down', from, to })
     }
@@ -285,17 +327,18 @@ export function ascend() {
   const state = useVoid.getState()
   if (state.transition.phase !== 'idle') return
   const from = state.path
-  // A galaxy has nowhere to rise to until the universe arrives.
-  if (from.length < 2) return
+  // The universe has nowhere to rise to.
+  if (from.length < 1) return
   const to: Path = from.slice(0, -1)
   const index = from[from.length - 1]!
   const level = levelOf(to)
 
   const arriving = levelRuntime(to)
   const leaving = levelRuntime(from)
-  arriving.visible = false
-  arriving.ready = false
-  arriving.fade.current = 0
+  const shared = sameStage(from, to)
+  arriving.visible = shared
+  arriving.ready = shared
+  arriving.fade.current = shared ? 1 : 0
   leaving.fade.current = 1
   handover.index = index
   handover.owner = 'child'
@@ -313,11 +356,16 @@ export function ascend() {
   const startSky = sky.orientation.clone()
   const camera = direction.clone().multiplyScalar(rig.pose.distance).add(startCentre)
   camera.multiplyScalar(scale).applyQuaternion(turn).add(anchor)
-  // Rising out of a world ends on its star, out of a system on its galaxy's centre: still
-  // facing the way the camera faced, from the side it was on.
-  const view = level === 'system' ? systemView(getSystem(to[0]!, to[1]!)) : galaxyView(getGalaxy(to[0]!), isPortrait())
+  // Rising out of a world ends on its star, out of a system on its galaxy's centre, out of a
+  // galaxy on the universe's: still facing the way the camera faced, from the side it was on.
+  const view =
+    level === 'system'
+      ? systemView(getSystem(to[0]!, to[1]!))
+      : level === 'galaxy'
+        ? galaxyView(getGalaxyLook(to[0]!), isPortrait())
+        : universeView(isPortrait())
   const rest = { distance: view.distance, direction: fromAngles(Math.atan2(camera.x, camera.z), view.polar) }
-  const swapDistance = restDistance(from) * SWAP_UP * scale
+  const swapDistance = restDistance(from) * (SWAP_UP[levelOf(from)] ?? SWAP_UP_DEFAULT) * scale
   const duration = prefersReducedMotion() ? REDUCED_UP : (UP_TO[level] ?? 2.6)
   let t = 0
   let swapAt = 1
@@ -340,7 +388,7 @@ export function ascend() {
       useVoid.getState().setPath(to)
       setTransition({ phase: 'swapping', direction: 'up', from, to })
     }
-    if (swapped && !faded && crossfade(fade, leaving.fade, arriving.fade)) {
+    if (swapped && !faded && (shared || crossfade(fade, leaving.fade, arriving.fade))) {
       faded = true
       setTransition({ phase: 'settling', direction: 'up', from, to })
     }
