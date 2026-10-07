@@ -24,7 +24,7 @@ import {
   type PerspectiveCamera,
 } from 'three'
 import { blackbody } from '../../core/blackbody.ts'
-import { crestPhase, SYSTEM_SCALE, type GalaxyData } from '../../core/galaxy.ts'
+import { CORE_LIGHT, crestPhase, SYSTEM_SCALE, type GalaxyData } from '../../core/galaxy.ts'
 import {
   discEmission,
   GalaxyParticleJob,
@@ -270,6 +270,8 @@ export function Galaxy({ galaxy, active, handed }: GalaxyProps) {
   }, [atlas, gl, level.background])
 
   const orbit = useMemo(() => orbitUniforms(galaxy), [galaxy])
+  // The near glow models a spiral's disc; ellipticals and irregulars resolve into their stars.
+  const disc = galaxy.kind === 'spiral' || galaxy.kind === 'barred'
 
   const parts = useMemo(() => {
     const buffer = new SoftBuffer('galaxy', SCREEN_ORDER.light)
@@ -327,7 +329,7 @@ export function Galaxy({ galaxy, active, handed }: GalaxyProps) {
       fragmentShader: coreFrag,
       uniforms: {
         uColour: { value: new Color(...blackbody(galaxy.light.core)) },
-        uIntensity: { value: num(TWEAKS, 'coreLight') / 2 },
+        uIntensity: { value: (num(TWEAKS, 'coreLight') / 2) * CORE_LIGHT[galaxy.kind] },
         uRadius: { value: galaxy.shape.bulge * 0.55 },
         uSize: { value: galaxy.shape.bulge * 2.4 },
         uFade: soft.uFade,
@@ -527,10 +529,10 @@ export function Galaxy({ galaxy, active, handed }: GalaxyProps) {
       if (key === 'softness') tuned.current.softness = value
       if (key === 'spread') tuned.current.spread = value
       if (key === 'dust') parts.dust.uniforms.uDustScale!.value = value
-      if (key === 'coreLight') parts.core.uniforms.uIntensity!.value = value / 2
+      if (key === 'coreLight') parts.core.uniforms.uIntensity!.value = (value / 2) * CORE_LIGHT[galaxy.kind]
       if (key === 'starLight') parts.stars.uniforms.uStarLight!.value = value
     },
-    [parts],
+    [parts, galaxy],
   )
   useTweaks('Galaxy', TWEAKS, apply)
 
@@ -569,7 +571,8 @@ export function Galaxy({ galaxy, active, handed }: GalaxyProps) {
     const { radius, thickness } = galaxy.shape
     const away = Math.max(0, Math.abs(cameraLocal.y) - thickness) + Math.max(0, Math.hypot(cameraLocal.x, cameraLocal.z) - radius)
     const t = Math.min(1, Math.max(0, (away - 15) / 125))
-    sky.inside = 1 - t * t * (3 - 2 * t)
+    // An elliptical has no disc: from inside it there is no band, only the swarm's stars.
+    sky.inside = disc ? 1 - t * t * (3 - 2 * t) : 0
 
     // Falling into the disc, the eye adapts: the galaxy's glow, which surrounds the camera
     // there, dims, while its resolved stars keep their light.
@@ -584,7 +587,7 @@ export function Galaxy({ galaxy, active, handed }: GalaxyProps) {
     const f = parts.fog.uniforms
     ;(f.uNear!.value as Vector2).set(reach / 1.5, reach)
     f.uResolve!.value = reach * 0.3
-    layers.fog.visible = away < reach
+    layers.fog.visible = disc && away < reach
     f.uOldLight!.value = parts.emission.old * exposure
     f.uYoungLight!.value = parts.emission.young * exposure
     ;(f.uResolution!.value as Vector2).set(buffer.width, buffer.height)

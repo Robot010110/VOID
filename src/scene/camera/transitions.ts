@@ -53,8 +53,12 @@ const SWAP_DOWN: Partial<Record<Level, number>> = { galaxy: 3 }
 const SWAP_UP: Partial<Record<Level, number>> = { galaxy: 3.2 }
 const SWAP_DOWN_DEFAULT = 1.35
 const SWAP_UP_DEFAULT = 1.5
-/** Share of an approach over which the camera's centre moves onto the target. */
-const CENTRE_SHARE = 0.6
+/**
+ * Share of an approach over which the camera's centre moves onto the target: sooner for the
+ * long falls out of the universe, so the camera heads for its target before it closes in.
+ */
+const CENTRE_SHARE: Partial<Record<Level, number>> = { galaxy: 0.42, hole: 0.42 }
+const CENTRE_SHARE_DEFAULT = 0.6
 /** How fast an ascent creeps on while the level above is still getting ready. */
 const WAITING_PACE = 0.15
 
@@ -253,6 +257,7 @@ export function descend(index: number) {
     direction: arrivalDirection(to, level, camera, parent),
   }
   const swapAt = SWAP_DOWN[level] ?? SWAP_DOWN_DEFAULT
+  const centreShare = CENTRE_SHARE[level] ?? CENTRE_SHARE_DEFAULT
   const duration = prefersReducedMotion() ? REDUCED_DOWN : (DOWN[level] ?? 2.2)
   let t = 0
   let swapped = false
@@ -263,7 +268,7 @@ export function descend(index: number) {
   rig.flight = (pose, step) => {
     t = Math.min(1, t + step / duration)
     scale = anchorOf(to, worldClock.time, anchor, turn)
-    const towards = easeCentre(clamp01(t / CENTRE_SHARE))
+    const towards = easeCentre(clamp01(t / centreShare))
     const along = easeDistance(t)
     centre.copy(startCentre).multiplyScalar(1 - towards)
     const distance = Math.exp(lerp(Math.log(startDistance), Math.log(rest.distance), along))

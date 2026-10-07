@@ -182,7 +182,14 @@ function generateNodes(rng: Rng): WebNode[] {
     const richness = great ? 1 : rng.range(0.25, 0.6)
     nodes.push({ position, richness, radius: 38 + 62 * richness })
   }
-  return nodes
+  // Centred on the web's weight, so the universe's camera turns around the web itself.
+  let total = 0
+  const centre: V = [0, 0, 0]
+  for (const n of nodes) {
+    total += n.richness
+    for (let k = 0; k < 3; k++) centre[k] += n.position[k]! * n.richness
+  }
+  return nodes.map((n) => ({ ...n, position: sub(n.position, scale(centre, 1 / total)) }))
 }
 
 /**
@@ -333,7 +340,7 @@ function generateNebulae(nodes: readonly WebNode[], galaxies: readonly GalaxySit
   const count = rng.int(4, 5)
   const nebulae: UniverseNebula[] = []
   for (let i = 0; i < count; i++) {
-    const size = i === 0 ? 230 : rng.range(150, 240)
+    const size = i === 0 ? 270 : rng.range(190, 300)
     let position: V = [0, 0, 0]
     for (let tries = 0; tries < 400; tries++) {
       position = inBall(rng, UNIVERSE_RADIUS * 0.9, UNIVERSE_RADIUS * 0.45)
@@ -348,18 +355,25 @@ function generateNebulae(nodes: readonly WebNode[], galaxies: readonly GalaxySit
   return nebulae
 }
 
+/** How far off the hole's resting line of sight its nebula's heart lies, radians. */
+const NEBULA_OFFSET = 0.24
+
 /**
  * The black hole sits between the first nebula and the centre of the web, so from its resting
- * view (looking outward from the web) the nebula lies right behind it and bends into arcs.
- * Its disc is seen nearly edge-on, from a little above.
+ * view (looking outward from the web) the nebula lies just behind it, a little to one side, and
+ * bends into a bright arc with a fainter one opposite. Its disc is seen nearly edge-on, from a
+ * little above.
  */
 function generateHole(nebulae: readonly UniverseNebula[], galaxies: readonly GalaxySite[]): HoleSite {
   const nebula = nebulae[0]!
   const inward = normalise(scale(nebula.position, -1))
-  let position = add(nebula.position, scale(inward, nebula.size * 2.6))
+  // The line from the nebula to the hole, turned a little off the line of sight.
+  const aside = normalise(cross(inward, [0, 1, 0]))
+  const line = normalise(add(scale(inward, Math.cos(NEBULA_OFFSET)), scale(aside, Math.sin(NEBULA_OFFSET))))
+  let position = add(nebula.position, scale(line, nebula.size * 2.2))
   // Clear of galaxies: slide along the line if one is too close.
   for (let tries = 0; tries < 20 && galaxies.some((g) => distance(g.position, position) < g.size * 3 + 60); tries++) {
-    position = add(position, scale(inward, 25))
+    position = add(position, scale(line, 25))
   }
   // The camera rests on the side away from the nebula (towards the web).
   const towardsCamera = inward

@@ -105,8 +105,9 @@ describe('the black hole', () => {
     const towardsNebula = [0, 1, 2].map((k) => nebula.position[k]! - hole.position[k]!)
     const length = Math.hypot(...towardsNebula)
     const cosine = (towardsCamera[0] * towardsNebula[0]! + towardsCamera[1] * towardsNebula[1]! + towardsCamera[2] * towardsNebula[2]!) / length
-    // Straight behind the hole, as the camera sees it.
-    expect(cosine).toBeLessThan(-0.99)
+    // Just behind the hole as the camera sees it, a little to one side.
+    expect(cosine).toBeLessThan(-0.95)
+    expect(cosine).toBeGreaterThan(-0.995)
     const axis = rotate(hole.orientation, [0, 1, 0])
     expect(Math.hypot(...axis)).toBeCloseTo(1, 9)
   })

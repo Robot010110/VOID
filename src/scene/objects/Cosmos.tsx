@@ -27,7 +27,7 @@ import {
 } from 'three'
 import { blackbody } from '../../core/blackbody.ts'
 import { deepField, webGas, type Universe } from '../../core/cosmos.ts'
-import { crestPhase, getGalaxyLook, type GalaxyLook } from '../../core/galaxy.ts'
+import { CORE_LIGHT, crestPhase, getGalaxyLook, type GalaxyLook } from '../../core/galaxy.ts'
 import { GalaxyParticleJob, LAYER_SHARE, particleCounts, type ParticleSet } from '../../core/galaxyParticles.ts'
 import { QUALITY } from '../../core/quality.ts'
 import { useVoid } from '../../core/store.ts'
@@ -56,7 +56,7 @@ const TWEAKS: TweakSchema = {
   coreLight: { value: 1.6, min: 0, max: 6, step: 0.01 },
   gas: { value: 0.0045, min: 0, max: 0.1, step: 0.0001 },
   field: { value: 0.9, min: 0, max: 4, step: 0.01 },
-  nebulae: { value: 0.2, min: 0, max: 3, step: 0.01 },
+  nebulae: { value: 0.14, min: 0, max: 3, step: 0.01 },
 }
 
 /** Draw order on screen: the deep field, the soft light over it, then the sharp points. */
@@ -75,6 +75,9 @@ const ADD_KEEPING_ALPHA = {
 
 /** Texels per galaxy in the data texture the particles read their galaxy from. */
 const GALAXY_TEXELS = 7
+
+/** The web's gas is tuned at the Medium tier's count of clouds. */
+const REFERENCE_GAS = 6000
 
 /** The universe is always one rise away: its particles are kept for a long while unused. */
 const POLICY = { keepFor: 600_000, group: 'universe', spare: 1 }
@@ -223,9 +226,7 @@ function createCores(universe: Universe): InstancedBufferGeometry {
     const look = getGalaxyLook(site.index)
     const scale = site.size / look.shape.radius
     centre.set(site.position, i * 3)
-    // An elliptical's heart is part of one smooth swarm; an irregular has none.
-    const intensity = look.irregular ? 0 : look.kind === 'elliptical' ? 0.45 : 1
-    core.set([look.shape.bulge * 0.55 * scale, look.shape.bulge * 2.4 * scale, intensity], i * 3)
+    core.set([look.shape.bulge * 0.55 * scale, look.shape.bulge * 2.4 * scale, CORE_LIGHT[look.kind]], i * 3)
     colour.set(blackbody(look.light.core), i * 3)
   })
   const quad = new PlaneGeometry(2, 2)
@@ -382,6 +383,7 @@ export function Cosmos({ universe }: { universe: Universe }) {
         uMinSigma: { value: 0.75 },
         uMaxSigma: { value: 40 },
         uMaxPointSize: maxPointSize,
+        uSizeScale: { value: Math.sqrt(REFERENCE_GAS / tier.webGas) },
       },
       ...ADD_KEEPING_ALPHA,
       transparent: true,

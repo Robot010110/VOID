@@ -193,8 +193,8 @@ function universeLayersOf(nebula: UniverseNebula): Layer[] {
   // Seen from far across the universe, a cloud is mostly soft billows; wisps and threads are
   // only the faint grain on them, so it never looks combed.
   add(6, { size: [0.5, 0.78], channel: 0, a: billowA, b: billowB, glow: 1.1, dust: 0, threshold: 0.3, shell: 0, spread: 0.13 })
-  add(4, { size: [0.45, 0.75], channel: 2, a: wispA, b: wispB, glow: 0.55, dust: 0, threshold: 0.44, shell: 0, spread: 0.12 })
-  add(2, { size: [0.4, 0.6], channel: 1, a: threadA, b: threadB, glow: 0.35, dust: 0, threshold: 0.44, shell: 0, spread: 0.12 })
+  add(4, { size: [0.45, 0.75], channel: 2, a: wispA, b: wispB, glow: 0.32, dust: 0, threshold: 0.46, shell: 0, spread: 0.1 })
+  add(2, { size: [0.4, 0.6], channel: 1, a: threadA, b: threadB, glow: 0.2, dust: 0, threshold: 0.46, shell: 0, spread: 0.1 })
   add(3, { size: [0.45, 0.7], channel: 0, a: deep, b: dustB, glow: 0.12, dust: 0.2, threshold: 0.38, shell: 0, spread: 0.11 })
   add(1, { size: [0.22, 0.32], channel: 0, a: heartA, b: heartB, glow: 1.5, dust: 0, threshold: 0.28, shell: 0, spread: 0.1, placeSpread: 0.06 })
   return layers

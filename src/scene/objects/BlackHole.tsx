@@ -50,7 +50,7 @@ const STEPS: Record<QualityTier, number> = { high: 88, medium: 76, low: 64 }
 const VISIBLE_BEND = 0.75
 
 const TWEAKS: TweakSchema = {
-  brightness: { value: 9, min: 0, max: 40, step: 0.01 },
+  brightness: { value: 5.5, min: 0, max: 40, step: 0.01 },
   temperature: { value: 11000, min: 3000, max: 25000, step: 10 },
   beaming: { value: 0.72, min: 0, max: 1, step: 0.01 },
 }

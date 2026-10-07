@@ -217,6 +217,12 @@ export function lobedRadius(shape: GalaxyShape, radius: number, phi: number, tur
   return radius * (1 + armStrength(shape, radius) * Math.cos(arms) + barStrength(shape, radius) * Math.cos(bar))
 }
 
+/**
+ * How bright a galaxy's unresolved heart is, by kind: an elliptical's heart is part of one
+ * smooth swarm, and an irregular has none.
+ */
+export const CORE_LIGHT: Record<GalaxyKind, number> = { spiral: 1, barred: 1, elliptical: 0.45, irregular: 0 }
+
 /** What a galaxy's motion depends on. */
 export type GalaxyForm = Pick<GalaxyLook, 'shape' | 'motion'>
 

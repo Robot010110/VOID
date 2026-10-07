@@ -37,7 +37,7 @@ export function isPortrait(): boolean {
  * with room around it. A tall screen stands further back.
  */
 export function universeView(portrait = false): RestView {
-  return { azimuth: 0.62, polar: 1.12, distance: portrait ? 3300 : 2300 }
+  return { azimuth: 0.62, polar: 1.12, distance: portrait ? 2700 : 1850 }
 }
 
 /** Named framings of the universe for `?view=`. */
@@ -58,8 +58,9 @@ export function universeViews(universe: Universe, portrait = false): Record<stri
   }
 }
 
+/** Close enough to pick out a cluster's galaxies, never inside one of them. */
 export function universeLimits(): Limits {
-  return { min: 40, max: 5200 }
+  return { min: 220, max: 5200 }
 }
 
 /**

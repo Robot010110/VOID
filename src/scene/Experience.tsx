@@ -1,10 +1,12 @@
 import { Canvas, useFrame, useThree, type RootState } from '@react-three/fiber'
 import { lazy, Suspense, useRef } from 'react'
 import type { WebGLRendererParameters } from 'three'
+import { galaxySite, type GalaxyKind } from '../core/cosmos.ts'
 import { DEBUG, LEVEL, PLANET } from '../core/env.ts'
 import { isPlanetKind } from '../core/planets.ts'
 import { QUALITY } from '../core/quality.ts'
 import { useVoid } from '../core/store.ts'
+import { HOME } from '../core/universe.ts'
 import { CameraRig } from './camera/CameraRig.tsx'
 import { Levels } from './levels/Levels.tsx'
 import { ShowroomLevel } from './levels/ShowroomLevel.tsx'
@@ -135,15 +137,23 @@ function ReadySignal() {
   return null
 }
 
+/**
+ * How much of a band the sky inside a galaxy shows, by the galaxy's kind: a spiral's disc
+ * crosses its sky; an irregular's thick, patchy disc less clearly; an elliptical has none.
+ */
+const BAND: Record<GalaxyKind, number> = { spiral: 1, barred: 1, irregular: 0.5, elliptical: 0 }
+
 function Sky() {
   const level = useVoid((s) => s.level)
+  const galaxy = useVoid((s) => (s.path.length >= 2 ? s.path[0]! : HOME[0]!))
+  const band = BAND[galaxySite(galaxy).kind]
   if (LEVEL === 'sky') return <Starfield />
-  if (SHOWROOM || level === 'planet') return <Starfield brightness={0.75} band={0.4} />
+  if (SHOWROOM || level === 'planet') return <Starfield brightness={0.75} band={0.4 * band} />
   // Outside a galaxy its band is gone: what is left are a few stars between the galaxies,
   // fewer still out among the clusters.
   if (level === 'galaxy') return <Starfield brightness={0.45} band={0} />
   if (level === 'universe' || level === 'hole') return <Starfield brightness={0.3} band={0} />
-  return <Starfield brightness={0.9} band={0.55} />
+  return <Starfield brightness={0.9} band={0.55 * band} />
 }
 
 /** The single canvas: every level, the camera, and the post pipeline live here. */

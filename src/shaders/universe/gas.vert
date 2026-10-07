@@ -11,6 +11,8 @@ uniform float uPixelsPerUnit;
 uniform float uMinSigma;
 uniform float uMaxSigma;
 uniform float uMaxPointSize;
+// A lower tier draws fewer clouds, each larger, so the web keeps its light and its cover.
+uniform float uSizeScale;
 
 varying vec3 vColour;
 varying float vPeak;
@@ -24,7 +26,7 @@ void main() {
 
   float scale = length(modelMatrix[0].xyz);
   float distance = max(-view.z, 1e-5);
-  float sigmaFar = aPlace.w * scale * uPixelsPerUnit / distance;
+  float sigmaFar = aPlace.w * uSizeScale * scale * uPixelsPerUnit / distance;
   float sigma = clamp(sigmaFar, uMinSigma, uMaxSigma);
   float thin = 1.0 - smoothstep(uMaxSigma * 0.6, uMaxSigma, sigmaFar);
   float near = smoothstep(aPlace.w * 1.5, aPlace.w * 4.0, distance / scale);

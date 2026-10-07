@@ -72,21 +72,23 @@ vec4 disc(vec3 p, float r, vec3 travel) {
   // Thick and bright inside, thinning into ragged wisps outside.
   float inner = smoothstep(uDisc.x * 0.92, uDisc.x * 1.12, r);
   float outer = 1.0 - smoothstep(uDisc.y * 0.45, uDisc.y, r);
-  float gas = inner * outer * smoothstep(0.18, 0.75, clumps * 0.6 + streaks * 0.7 - 0.1 * outward);
+  // The inner disc is dense and nearly smooth; outward it frays into wisps with gaps between.
+  float ragged = smoothstep(0.2, 0.85, clumps * 0.8 + streaks * 0.35 - 0.1 * outward);
+  float gas = inner * outer * mix(0.85 + 0.15 * ragged, ragged, smoothstep(0.1, 0.6, outward));
   float cover = clamp(gas * mix(1.0, 0.55, outward) * 1.6, 0.0, 0.97);
 
   // Hottest at the inner edge, cooling as r^-3/4.
   // Light falls as the gas cools outward (r^-3/4), its colour faster, from white to Ember.
   float heat = pow(r / uDisc.x, -0.75);
   float cooling = pow(heat, 2.6);
-  float colourHeat = pow(r / uDisc.x, -0.95);
+  float colourHeat = pow(r / uDisc.x, -1.2);
   // Doppler beaming: the gas circles the hole's axis; light leaves it against the ray.
   float beta = uBeaming * sqrt(0.5 / max(r - 1.0, 0.25));
   vec3 velocity = normalize(vec3(-p.z, 0.0, p.x));
   float approach = dot(velocity, -travel);
   float g = sqrt(1.0 - beta * beta) / (1.0 - beta * approach) * sqrt(1.0 - 1.0 / r);
   vec3 colour = blackbody(uInnerTemperature * colourHeat * g);
-  float light = uBrightness * cooling * g * g * g * (0.62 + 0.62 * streaks);
+  float light = uBrightness * cooling * g * g * g * (0.7 + 0.5 * streaks);
   return vec4(colour * light * cover, cover);
 }
 
@@ -141,9 +143,12 @@ void main() {
   if (fallsIn) {
     cover = 1.0;
   } else {
-    // The photon ring: light that skimmed the photon sphere, circling it before it escaped.
-    float ring = exp(-(impact / CRITICAL - 1.0) / 0.012);
-    light += (1.0 - cover) * blackbody(uInnerTemperature * 0.85) * ring * uBrightness * 0.9;
+    // The photon ring: light that skimmed the photon sphere, circling it before it escaped. It
+    // is a sliver; drawn no thinner than a pixel here, with its light kept, it never breaks up.
+    float width = 0.008;
+    float spread = max(width, 1.2 * uPixelAngle * distance / CRITICAL);
+    float ring = exp(-(impact / CRITICAL - 1.0) / spread) * (width / spread);
+    light += (1.0 - cover) * blackbody(uInnerTemperature * 0.8) * ring * uBrightness * 0.6;
   }
   gl_FragColor = vec4(light, cover) * uFade;
 }
