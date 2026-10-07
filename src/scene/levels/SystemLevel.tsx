@@ -9,6 +9,7 @@ import { Belt } from '../objects/Belt.tsx'
 import { pixelRadius } from '../objects/body.ts'
 import { Flare, type FlareSource } from '../objects/Flare.tsx'
 import { GasGiant } from '../objects/GasGiant.tsx'
+import { SwarmStructure } from '../objects/Megastructures.tsx'
 import { hiddenBy, starlight } from '../objects/light.ts'
 import { Orbits } from '../objects/Orbits.tsx'
 import { Planet } from '../objects/Planet.tsx'
@@ -175,6 +176,7 @@ export function SystemLevel({ path }: { path: Path }) {
       </group>
       <Orbits planets={system.planets} strength={strength} />
       {belt && beltLight && <Belt belt={belt} light={beltLight} />}
+      {system.swarm && <SwarmStructure swarm={system.swarm} starRadius={system.star.radius} seed={system.seed} />}
       {worlds.map(({ planet, sun }, i) => (
         <group
           key={planet.index}

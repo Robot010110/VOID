@@ -1,8 +1,10 @@
 /**
  * Plain descriptions for the info panel, built from a place's actual properties: two or
  * three short sentences, no poetry. Story fragments are never generated (see the brief);
- * these only say what is there.
+ * these only say what is there, including who lives there, or did, and for how long.
  */
+import { anchorsIn } from '../content/anchors.ts'
+import { isLit, stillThere, type Civilization } from './civilization.ts'
 import { galaxySite, type GalaxyKind, type Universe } from './cosmos.ts'
 import { galacticPosition, type GalaxyData } from './galaxy.ts'
 import { Rng, hashSeed } from './rng.ts'
@@ -29,6 +31,29 @@ function number(n: number): string {
 
 function ordinal(n: number): string {
   return ORDINALS[n] ?? `${n + 1}th`
+}
+
+/** A number of years in words, as people say long times: "about thirty-one thousand years". */
+export function yearsInWords(years: number): string {
+  if (years >= 1_000_000) {
+    const millions = Math.round(years / 1_000_000)
+    return millions === 1 ? 'about a million years' : `about ${number(millions)} million years`
+  }
+  if (years >= 100_000) {
+    const hundreds = Math.floor(years / 100_000)
+    const rest = Math.round((years % 100_000) / 1000)
+    const head = hundreds === 1 ? 'a hundred' : `${number(hundreds)} hundred`
+    return rest === 0 ? `about ${head} thousand years` : `about ${head} and ${number(rest)} thousand years`
+  }
+  if (years >= 1000) return `about ${number(Math.round(years / 1000))} thousand years`
+  const hundreds = Math.max(1, Math.round(years / 100))
+  return hundreds === 1 ? 'about a hundred years' : `about ${number(hundreds)} hundred years`
+}
+
+/** Names in a list: "Vaeth", "Vaeth and Lisi", "Vaeth, Lisi and Seil". */
+function listOf(names: readonly string[]): string {
+  if (names.length <= 1) return names[0] ?? ''
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
 }
 
 function capitalise(text: string): string {
@@ -92,17 +117,19 @@ export function describeHole(): string {
 
 export function describeGalaxy(galaxy: GalaxyData, homeIndex?: number): string {
   const { shape } = galaxy
+  const peoples = peoplesOf(galaxy, homeIndex)
   if (galaxy.kind === 'elliptical') {
     const giant = galaxySite(galaxy.index).size > 23
     return [
       `${giant ? 'A giant elliptical galaxy' : 'An elliptical galaxy'}, a smooth swarm of old golden stars, with no arms and no dust.`,
-      'Its oldest stars gather in tight round clusters that hang around it like sparks.',
+      peoples ?? 'Its oldest stars gather in tight round clusters that hang around it like sparks.',
     ].join(' ')
   }
   if (galaxy.kind === 'irregular') {
     return [
       'A small irregular galaxy, lopsided and ragged, with no arms and no bright core.',
       'Young blue stars and pink clouds of new stars crowd its few bright knots.',
+      ...(peoples ? [peoples] : []),
     ].join(' ')
   }
   const arms = number(shape.arms)
@@ -111,18 +138,38 @@ export function describeGalaxy(galaxy: GalaxyData, homeIndex?: number): string {
     shape.bar > 0
       ? `A barred spiral galaxy, its ${arms} arms trailing from the ends of a ${core} bar.`
       : `A spiral galaxy of ${arms} arms around a bright ${core} core.`,
-    galaxy.light.dust > 0.75
-      ? 'Young blue stars and pink clouds of new stars crowd along its arms, beside dark lanes of dust.'
-      : 'Young blue stars and pink clouds of new stars crowd along its arms.',
   ]
+  // Three sentences at most: where people live matters more than the colour of the arms.
   const home = homeIndex === undefined ? undefined : galaxy.stars[homeIndex]
+  if (!peoples || !home) {
+    sentences.push(
+      galaxy.light.dust > 0.75
+        ? 'Young blue stars and pink clouds of new stars crowd along its arms, beside dark lanes of dust.'
+        : 'Young blue stars and pink clouds of new stars crowd along its arms.',
+    )
+  }
   if (home) {
     const [x, , z] = galacticPosition(galaxy, home.orbit, 0)
     const out = Math.hypot(x, z) / shape.radius
     const where = out < 0.4 ? 'close to its core' : out < 0.7 ? 'a little over halfway out' : 'out towards its edge'
     sentences.push(`${home.star.name}, a ${starColour(home.star.temperature)} star, lies ${where}.`)
   }
+  if (peoples) sentences.push(peoples)
   return sentences.join(' ')
+}
+
+/**
+ * Where people live, or once lived, in a galaxy: the stars of its handcrafted worlds, named so a
+ * visitor can find them. Plain fact, and the only signpost to the stories.
+ */
+function peoplesOf(galaxy: GalaxyData, skip: number | undefined): string | null {
+  const anchors = anchorsIn(galaxy.index).filter((anchor) => anchor.star !== skip)
+  if (anchors.length === 0) return null
+  const names = listOf(anchors.map((anchor) => galaxy.stars[anchor.star]!.star.name))
+  const living = anchors.filter((anchor) => stillThere(anchor.civilization.state)).length
+  const worlds = anchors.length === 1 ? 'a world' : 'worlds'
+  const verb = living === anchors.length ? 'live' : living === 0 ? 'once lived' : 'live, or once lived,'
+  return `People ${verb} on ${worlds} around ${names}.`
 }
 
 export function describeStar(system: SystemData): string {
@@ -135,11 +182,21 @@ export function describeStar(system: SystemData): string {
   if (belt) worlds += `, and a belt of ${belt.icy ? 'ice' : 'stone'} lies beyond the ${ordinal(belt.after)}`
   sentences.push(`${worlds}.`)
 
-  const lit = planets.find((p) => p.preset.lights)
+  const people = planets.find((p) => p.civilization)
   const ringed = planets.find((p) => p.kind === 'ringed')
-  if (lit) sentences.push(`${lit.name} is lit at night.`)
+  if (people) sentences.push(peopleOfStar(system, people))
   else if (ringed) sentences.push(`${ringed.name}, the ${ordinal(ringed.index)}, has wide rings.`)
   return sentences.join(' ')
+}
+
+/** A star's people, from the system's point of view: where they are, or what they left. */
+function peopleOfStar(system: SystemData, planet: PlanetData): string {
+  const civilization = planet.civilization!
+  const which = `${planet.name}, the ${ordinal(planet.index)}`
+  if (isLit(civilization)) return `${which}, is lit at night.`
+  if (civilization.state === 'gone') return `${which}, keeps the ruins of a people long gone.`
+  if (civilization.structures.swarm) return `An unfinished arc of collectors circles ${system.star.name}.`
+  return `${which}, turns inside a lattice of light.`
 }
 
 function planetLook(planet: PlanetData, rng: Rng): string {
@@ -203,8 +260,61 @@ function dayAndMoons(planet: PlanetData): string {
   return `${day}, and ${number(moons)} moons circle it.`
 }
 
+/** Where a people's lights gather, by the kind of world. */
+function lightsOn(planet: PlanetData): string {
+  switch (planet.kind) {
+    case 'desert':
+      return 'At night their lights gather in the valleys'
+    case 'ocean':
+      return 'At night their lights trace the islands'
+    case 'ice':
+      return 'At night their lights gather along the cracks in the ice'
+    case 'toxic':
+      return 'At night their cities glow through the cloud'
+    default:
+      return 'At night their lights trace the coasts'
+  }
+}
+
+/** Two plain sentences about a world's people: who, how long, and what can be seen of them. */
+function describePeople(planet: PlanetData, civilization: Civilization): string[] {
+  const { people, age, since, structures } = civilization
+  const ruinsIn = planet.kind === 'desert' ? 'sand' : planet.kind === 'ice' ? 'ice' : 'ground'
+  switch (civilization.state) {
+    case 'thriving':
+      return [
+        `The ${people} have lived here for ${yearsInWords(age)}.`,
+        structures.ring
+          ? `${lightsOn(planet)}, and a ring of stations circles the world.`
+          : structures.satellites > 100
+            ? `${lightsOn(planet)}, and their satellites cross the sky.`
+            : `${lightsOn(planet)}.`,
+      ]
+    case 'fading':
+      return [
+        `The ${people} have lived here for ${yearsInWords(age)}.`,
+        'Fewer of their lights come on each year, and whole cities go dark for hours at a time.',
+      ]
+    case 'gone':
+      return [
+        `A people called the ${people} lived here for ${yearsInWords(age)}, and have been gone for ${yearsInWords(since)}.`,
+        structures.ring
+          ? `Their cities are lines in the ${ruinsIn}, and their broken ring still circles the world.`
+          : `Their cities are lines in the ${ruinsIn}.`,
+      ]
+    case 'transcended':
+      return [
+        `The ${people} lived here for ${yearsInWords(age)}, until ${yearsInWords(since)} ago.`,
+        structures.swarm
+          ? 'They left no cities, only an unfinished arc of collectors around their star.'
+          : 'They left no cities, only a lattice of light around the world.',
+      ]
+  }
+}
+
 export function describePlanet(system: SystemData, planet: PlanetData): string {
   const rng = new Rng(hashSeed(planet.seed, 0xde5c))
+  if (planet.civilization) return [planetLook(planet, rng), ...describePeople(planet, planet.civilization)].join(' ')
   const sentences = [planetLook(planet, rng), dayAndMoons(planet)]
   if (planet.preset.lights) {
     sentences.push(

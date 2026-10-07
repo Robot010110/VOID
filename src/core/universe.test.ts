@@ -217,7 +217,7 @@ describe('variedPreset', () => {
     expect(a.terrain!.style).toBe('continents')
     expect(a.surface!.seaLevel).toBe(0)
     expect(a.lights).toBeDefined()
-    expect(variedPreset('terrestrial', 11, new Rng(11), { lights: false }).lights).toBeUndefined()
+    expect(variedPreset('terrestrial', 11, new Rng(11), { civilization: null }).lights).toBeUndefined()
   })
 })
 

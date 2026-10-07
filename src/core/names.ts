@@ -6,6 +6,7 @@
  * Target sound: Ithren, Vael, Oru, Saelith, Kethra, Amaru Veil, Nostrim.
  * Minor, unremarkable stars get catalogue designations instead (VX-11).
  */
+import { REAL_WORDS } from './realWords.ts'
 import { Rng } from './rng.ts'
 
 export type FamilyId = 'lir' | 'oru' | 'keth' | 'cael'
@@ -194,7 +195,7 @@ function cleanName(raw: string, maxLength: number): string | null {
   for (const run of clusters)
     if (run.length > 3 || (run.length === 3 && !TRIPLES.has(run))) return null
   for (const banned of BANNED_SUBSTRINGS) if (raw.includes(banned)) return null
-  if (BANNED_NAMES.has(raw)) return null
+  if (BANNED_NAMES.has(raw) || REAL_WORDS.has(raw)) return null
   return raw.charAt(0).toUpperCase() + raw.slice(1)
 }
 

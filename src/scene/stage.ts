@@ -107,3 +107,20 @@ export const motion = { speed: 0 }
 export const marker = {
   element: null as HTMLElement | null,
 }
+
+/**
+ * Where the world in view is on screen, written by the planet level every frame for the
+ * interface to set words beside it without covering it. CSS pixels.
+ */
+export const focus = {
+  /** A world is on stage and settled at its level. */
+  active: false,
+  x: 0,
+  y: 0,
+  /** Radius of everything that belongs to the world: its air, its rings and structures. */
+  radius: 0,
+  /** Where its sun is on screen, if in front of the camera. */
+  sunX: 0,
+  sunY: 0,
+  sunAhead: false,
+}

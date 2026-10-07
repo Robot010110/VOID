@@ -34,6 +34,9 @@ export const SYSTEM = params.get('system')
 /** `?world=<index>` opens close up on one world of that system (the home system by default). */
 export const WORLD = params.get('world')
 
+/** `?anchor=<id>` opens close up on one of the handcrafted worlds (content/anchors.ts). */
+export const ANCHOR = params.get('anchor')
+
 const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
 
 export function prefersReducedMotion(): boolean {

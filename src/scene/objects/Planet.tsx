@@ -12,6 +12,7 @@ import {
 } from 'three'
 import type { PlanetPreset } from '../../core/planets.ts'
 import { QUALITY } from '../../core/quality.ts'
+import { Rng } from '../../core/rng.ts'
 import { useVoid } from '../../core/store.ts'
 import { useTweaks, type TweakSchema, type TweakValue } from '../../core/tweaks.ts'
 import atmosphereFrag from '../../shaders/atmosphere/atmosphere.frag'
@@ -25,11 +26,13 @@ import { worldClock } from '../shared/clock.ts'
 import { icosphere, linear, sphereDetail } from '../shared/gpu.ts'
 import { FULL, useLevel } from '../levels/context.ts'
 import { useAtmosphereTweaks } from './atmosphereTweaks.ts'
+import { LatticeStructure, RingStructure, Satellites } from './Megastructures.tsx'
 import {
   BODY_FADE_IN,
   fadeIn,
   pixelRadius,
   PREMULTIPLIED,
+  seedOffset,
   SOLID,
   toObjectSpace,
   worldRadius,
@@ -67,9 +70,9 @@ export interface WorldProps {
 }
 
 /**
- * A rocky world: baked terrain, a lit surface with oceans and city lights, a churning cloud
- * layer, a scattering atmosphere, optional rings, and its moons. A unit sphere: its parent
- * places and scales it.
+ * A rocky world: baked terrain, a lit surface with oceans and city lights (or the ruins of
+ * them), a churning cloud layer, a scattering atmosphere, optional rings, its moons, and what
+ * its people built around it. A unit sphere: its parent places and scales it.
  */
 export function Planet({ preset, sun, detail = 'close', anchor = false, tweakable = false }: WorldProps) {
   const terrain = preset.terrain!
@@ -102,6 +105,8 @@ export function Planet({ preset, sun, detail = 'close', anchor = false, tweakabl
     if (preset.clouds) defines.CLOUDS = ''
     if (preset.rings) defines.RINGS = ''
     if (preset.lights) defines.LIGHTS = ''
+    if (preset.lights?.flicker) defines.FLICKER = ''
+    if (preset.ruins) defines.RUINS = ''
     if (surface.emissiveStrength > 0) defines.LAVA = ''
 
     const ground = new ShaderMaterial({
@@ -130,6 +135,13 @@ export function Planet({ preset, sun, detail = 'close', anchor = false, tweakabl
       u.uCityDensity!.value = preset.lights.density
       u.uCityIntensity!.value = preset.lights.intensity
       u.uRoads!.value = preset.lights.roads
+    }
+    if (preset.ruins) {
+      ;(u.uRuinColor!.value as Color).set(preset.ruins.color)
+      u.uRuinStrength!.value = preset.ruins.strength
+      u.uRuinRelief!.value = RUIN_RELIEF
+      ;(u.uRuinSeed!.value as Vector3).copy(seedOffset(preset.seed ^ 0x7a1e))
+      roadCircles(preset.seed, u.uRoadNormal!.value as Vector3[], u.uRoadAxis!.value as Vector3[])
     }
     if (preset.clouds) {
       u.uCloudShadow!.value = preset.clouds.shadow
@@ -168,7 +180,7 @@ export function Planet({ preset, sun, detail = 'close', anchor = false, tweakabl
           uDetailOctaves: { value: 2 },
           uCloudRadius: { value: CLOUD_RADIUS },
           uCityColor: { value: linear(preset.lights?.color ?? '#000000') },
-          uCityGlow: { value: preset.lights ? 0.015 : 0 },
+          uCityGlow: { value: preset.lights?.glow ?? 0 },
           uFade: { value: 0 },
         },
       })
@@ -271,6 +283,7 @@ export function Planet({ preset, sun, detail = 'close', anchor = false, tweakabl
     ;(g.uSunObj!.value as Vector3).copy(sunObj)
     ;(g.uCamObj!.value as Vector3).copy(camObj)
     g.uTime!.value = time
+    g.uClock!.value = worldClock.real
     g.uFade!.value = fade.current
 
     if (layers.clouds && cloudMesh.current && preset.clouds) {
@@ -359,7 +372,7 @@ export function Planet({ preset, sun, detail = 'close', anchor = false, tweakabl
             flow: { value: preset.clouds.flow, min: 0, max: 0.2, step: 0.001 },
             color: { value: preset.clouds.color, color: true },
             shadow: { value: preset.clouds.shadow, min: 0, max: 1, step: 0.01 },
-            cityGlow: { value: preset.lights ? 0.015 : 0, min: 0, max: 0.2, step: 0.001 },
+            cityGlow: { value: preset.lights?.glow ?? 0, min: 0, max: 0.2, step: 0.001 },
           }
         : EMPTY,
     [preset.clouds, preset.lights, tweakable],
@@ -416,6 +429,11 @@ export function Planet({ preset, sun, detail = 'close', anchor = false, tweakabl
 
   useAtmosphereTweaks(preset, world.atmosphere, () => world.atmosphere.bake(gl), tweakable)
 
+  const structures = preset.structures
+  const air = preset.atmosphere ? world.atmosphere : null
+  const failing = (preset.lights?.flicker ?? 0) > 0
+  const ring = structures?.ring ?? null
+
   return (
     <group ref={root} visible={false}>
       <group ref={tilt} rotation={[0, 0, preset.tilt]}>
@@ -427,6 +445,9 @@ export function Planet({ preset, sun, detail = 'close', anchor = false, tweakabl
             frustumCulled={false}
             dispose={null}
           />
+          {ring && !ring.derelict && (
+            <RingStructure ring={ring} failing={failing} sun={sun} fade={fade} air={air} seed={preset.seed} />
+          )}
         </group>
         {layers.clouds && (
           <group ref={cloudSpin}>
@@ -458,9 +479,30 @@ export function Planet({ preset, sun, detail = 'close', anchor = false, tweakabl
         {preset.moons.map((moon, index) => (
           <Moon key={index} spec={moon} seed={preset.seed + index * 7919} sun={sun} fade={fade} detail={detail} />
         ))}
+        {ring?.derelict && <RingStructure ring={ring} failing={false} sun={sun} fade={fade} air={air} seed={preset.seed} />}
+        {structures && structures.satellites > 0 && (
+          <Satellites count={structures.satellites} sun={sun} fade={fade} air={air} seed={preset.seed} />
+        )}
+        {structures?.lattice && (
+          <LatticeStructure lattice={structures.lattice} sun={sun} fade={fade} air={air} seed={preset.seed} />
+        )}
       </group>
     </group>
   )
 }
 
 const EMPTY: TweakSchema = {}
+
+/** How far a ruin's walls stand proud of the ground, in planet radii: enough for a low sun. */
+const RUIN_RELIEF = 0.00012
+
+/** Three great circles for a vanished people's roads, each with a direction in its plane. */
+function roadCircles(seed: number, normals: Vector3[], axes: Vector3[]) {
+  const rng = new Rng(seed ^ 0x40ad)
+  for (let k = 0; k < 3; k++) {
+    const n = normals[k]!.set(rng.gauss(0, 1), rng.gauss(0, 1), rng.gauss(0, 1)).normalize()
+    axes[k]!.set(0, 1, 0).cross(n)
+    if (axes[k]!.lengthSq() < 1e-4) axes[k]!.set(1, 0, 0).cross(n)
+    axes[k]!.normalize()
+  }
+}

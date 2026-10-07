@@ -303,3 +303,57 @@ Desktop, at a planet                          Phone, at a planet
 - **Measured on an Intel UHD 620 at 1600x900, DPR 1, production build:**
   - On Low: 60 fps everywhere. This covers the universe overview from the side and from above, a cluster, the home galaxy's group, the black hole at rest (58 close up), an elliptical, an irregular and the home galaxy.
   - On High: 48 fps at the universe overview and 37 at the black hole. High is meant for Iris Xe-class GPUs and up, roughly 2.5-3x faster.
+
+## Phase 5: Civilizations and stories
+
+### Peoples
+
+- **A people may live on the temperate world nearest a system's habitable zone**: always in a featured system, in about half the others (the same draw that lit worlds before, so no world's orbit or look moved). A dry, frozen or clouded world near the zone sometimes keeps the ruins of a people who outlived its climate (16% when the system has no temperate people). About half the systems in the universe hold a people, or what is left of one: exploring should keep turning up signs of life.
+- **States, by weight: thriving 40, fading 22, gone 25, transcended 13.** A people has a name in its galaxy's language, an age, and for the gone and the transcended how long ago they ended, rounded to two figures as people speak of long times ("about thirty-one thousand years").
+- **What each state shows.** Thriving: city lights, satellites, and sometimes a ring of stations. Fading: sparse lights that stutter, and whole cities going dark for a while. Gone: no lights, ruins in the ground, sometimes a broken ring. Transcended: no cities, only a lattice around the world or an unfinished arc of collectors around the star.
+- **A world ringed by its people keeps no rings of its own.** Stations and natural rings would cross.
+- **Descriptions stay plain, and say who.** A peopled world's caption names its people, how long they lived there and what can be seen of them, in two sentences after the world's look. A star names its peopled world. A galaxy names the stars of its handcrafted worlds ("People live, or once lived, on worlds around Saelith, Vaethis and Lisi"): plain fact, and the only signpost to the stories. Galaxy captions drop the colour of their arms to stay at three sentences.
+
+### The handcrafted worlds
+
+- **Twelve anchors in `content/anchors.ts`**, each a place (galaxy, star, world), a kind, a people, a state and one to three fragments. An anchor overrides its world's kind, sometimes its name and moons, and its civilisation; the rest of its system stays as the seed made it, and it holds the only people of its system.
+- **Four are in the home galaxy and eight are spread across the universe:** the giant elliptical at the heart of the great cluster, the largest spiral there, an irregular, the galaxy nearest the black hole, the home galaxy's neighbour, and a spiral far out in the field. Most visitors start in the home galaxy, so its stories are the first to be found; the rest reward going further.
+- **Every anchor's star is named and a keyboard stop**, so Tab reaches it, and its galaxy's caption names it.
+- **The worlds are chosen to match their stories:** the home world Ithasal (thriving), an island world of failing lamps, a desert of ruined cities, an ocean world in a lattice, a world with a ring of stations, a frozen world with a broken ring, a world near the black hole, a desert under a small red sun with an unfinished arc, a young world in an irregular galaxy, a world under yellow cloud, a world whose cities put their lights out to watch the sky, and an ocean world with two moons whose record of tides stops. What a fragment mentions (two moons, the ring, the arc, lights going out) is on screen.
+- **Fragments follow `content/voice.md`**: the brief's guide, plus habits written down while writing them (say what people did, ordinary objects and days, no invented names, end on the image). Tests hold them to it: one to three fragments a world, at most forty words and three sentences each, no exclamation marks, none of the stock words, no names, and lines of at most 42 characters so a fragment fits beside a world on a laptop screen without wrapping.
+- **`?anchor=<id>` opens a handcrafted world directly**, for review and for the drift mode to come.
+
+### Fragments on screen
+
+- **They appear once the camera settles, line by line, at reading pace:** each line about 0.7 s plus 45 ms a character after the one before, with a longer pause between fragments. Lines rise a few pixels out of a slight blur as they fade in. With reduced motion they only fade.
+- **On a wide screen the fragments gather into one short poem; on a narrow one each gives way to the next and the last one stays.** A poem of three stanzas does not fit above a world on a phone.
+- **They sit beside the world, on the side away from the sun, and never over it.** The scene reports the world's circle on screen each frame (including its air, ring or lattice), and the words take the dark side, else the other side, else the space above. The block narrows to the room it has, so a long line hangs onto the next, balanced. When nothing fits (close up, the world fills the screen) the words wait out of sight. The layout is measured again only when the world moves by a few pixels, never with the camera's handheld drift.
+- **They are not interface:** they stay while being read, outside the interface's idle fade, and leave with the visitor. Screen readers hear them once, in a polite live region, after the caption.
+
+### What peoples build
+
+- **Thin structures are ribbons that face the camera, shaded as round tubes**: rails, struts, tethers and the lattice's circles, one instanced draw per structure. A strand never draws narrower than 1.6 pixels; below that it keeps that width and lowers its cover, as stars and city lights do, so a ring far off is a steady thread, not a dashed one. Ribbons are double-sided, since which way a piece runs across the screen decides its winding.
+- **Sunlight on a structure comes through the world's shadow and air.** Each point of metal (and each satellite) looks up the world's transmittance table along its ray to the sun, so a ring reddens to ember at dusk before it goes dark, as the atmosphere's own light does.
+- **A ring of stations is a triangular truss at 1.14 to 1.2 radii, inside the closest the camera comes (1.32).** It turns with its world, tethered to the equator, with a station at each tether and lamps along its crown. Its crown glows faintly at night, so from the night side the ring is a thread of warm light; a fading people's lamps go out for spells. A derelict ring has lost whole runs of itself; the pieces left have sagged and rolled out of line, its stations hang broken tethers, debris drifts in the gaps, its lamps are out, and having come loose it slips a turn an hour against its world.
+- **Satellites fly in a few shells, as real constellations do, moved entirely on the GPU.** Each is a speck of sunlit metal, dark in the world's shadow, and flashes now and then as a panel turns the sun towards the camera. They only show once their world is large on screen.
+- **The lattice is the six great circles of an icosidodecahedron**, meeting at thirty glowing nodes: a world in a cage of triangles and pentagons. It is mostly light (it hides only 30% of what lies behind it), in a pale violet from Aurora, carrying slow pulses round. It turns once in half an hour about its own tilted axis.
+- **The arc around a star is thousands of collectors on Kepler orbits** (6,000, 4,000 or 2,500 by tier) in a band about one tilted plane, thinning towards its unfinished ends and broken by gaps. Around the star they veil it where they cross it and glow faintly ember against the dark. From their world the same collectors are drawn at infinity, a thin band of embers through the sun. One panel in twenty catches the light for a moment every few minutes.
+- **Structures fade in as their world grows on screen** (between 10 and 26 pixels of radius; satellites later, from 36), so across a system they never glitter around a speck.
+
+### Lights and ruins
+
+- **A fading people's lights keep a rhythm in real seconds,** never world time, so they do not strobe when time runs fast. Each light has long spells lit and short spells dark and stutters as it changes; now and then a whole city puts its lights out together and later turns them back on. One fragment explains why.
+- **Ruins are planned cities.** Each district of a coarse grid on the sphere whose middle was settled held a walled rectangle on its own bearing, laid out in avenues far enough apart to be seen from orbit, blocks between them and, up close, streets; some hold a round forum. Lengths of wall have fallen at random and the outskirts have weathered most. Old roads run between cities as great circles across the lowlands, in stretches. The walls stand slightly proud of the ground, so a low sun picks them out. Ruins are only worked out where the sun reaches.
+- **Ruins cost about a millisecond up close on Low.** Patterns too fine to resolve return their average tone at once, and the roads' circles are worked out once on the CPU. A first version cost five to seven.
+- **Cities under thick cloud show mostly as a glow on the cloud's underside.**
+- **Worlds without seas now have people where it is low and liveable**, in basins and valleys. Before, their population map was empty, so the desert's lights never showed.
+
+### Fixes along the way
+
+- **No generated name is a common English word, name or place.** Every galaxy, star, world and people in the universe was checked against public word-frequency lists (English Wikipedia, film and television, first names and surnames, as shipped with Chrome's password-strength estimator). 1,144 collisions are banned in `core/realWords.ts`, among them stars called Mary, Make, Father and Viral. Only names changed: every star and world kept its place and look. The home system's names and every galaxy's name are unchanged.
+- **Snow on worlds without a sea is measured from the ground's middle, not from a sea far below it.** Highlands on every dry world were white, so the desert showroom was mostly snow. It is red dust again, with frost at the poles as its description says.
+- **The debug panel no longer clamps a dry world's sea level to -1**, which rebaked its population and colour whenever `?debug` was open.
+
+### Review and performance
+
+- **Measured on an Intel UHD 620 at 1600x900, DPR 1, production build, on Low:** 60 fps for every handcrafted world at its resting view, the arc's system and the arc in the sky. Close up, with the world filling the screen, 41 to 44 fps, as for any world (the GPU time per frame is the same with or without a people). On High, the ring world runs 54 fps at rest.

@@ -5,8 +5,9 @@ import './styles.css'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
+import { anchorById } from './content/anchors.ts'
 import { getUniverse } from './core/cosmos.ts'
-import { GALAXY, HOLE, PINNED_QUALITY, PLANET, SYSTEM, WORLD } from './core/env.ts'
+import { ANCHOR, GALAXY, HOLE, PINNED_QUALITY, PLANET, SYSTEM, WORLD } from './core/env.ts'
 import { getGalaxy } from './core/galaxy.ts'
 import { isPlanetKind } from './core/planets.ts'
 import { guessTier, probeGpu, readDeviceHints } from './core/quality.ts'
@@ -14,12 +15,15 @@ import { useVoid } from './core/store.ts'
 import { getSystem, HOME, levelOf, type Path } from './core/universe.ts'
 
 /**
- * Where the page opens: the universe; or the black hole (`?hole`), a galaxy (`?galaxy=`), or a
- * system (`?system=`) or world (`?world=`) in that galaxy (the home galaxy by default).
+ * Where the page opens: the universe; or the black hole (`?hole`), one of the handcrafted
+ * worlds (`?anchor=`), a galaxy (`?galaxy=`), or a system (`?system=`) or world (`?world=`) in
+ * that galaxy (the home galaxy by default).
  */
 function openingPath(): Path {
   const universe = getUniverse()
   if (HOLE) return [universe.hole.index]
+  const anchor = ANCHOR ? anchorById(ANCHOR) : undefined
+  if (anchor) return [anchor.galaxy, anchor.star, anchor.world]
   const index = (value: string | null) => (value === null ? -1 : Number.parseInt(value, 10))
   const requested = index(GALAXY)
   const star = index(SYSTEM)

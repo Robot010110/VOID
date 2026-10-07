@@ -10,18 +10,30 @@
  * Units: a system's outermost orbit lies about 200 units from its star, and times are
  * seconds at 1x. Planet presets keep their own units (planet radii).
  */
+import { anchorAt, type Anchor } from '../content/anchors.ts'
+import {
+  generateCivilization,
+  NO_STRUCTURES,
+  RUIN_CHANCE,
+  RUIN_KINDS,
+  type Civilization,
+  type Swarm,
+} from './civilization.ts'
 import { isHole } from './cosmos.ts'
 import { catalogueName, Language } from './names.ts'
 import {
+  CITY_LIGHTS,
   hexToRgb,
   PRESETS,
   type AtmosphereParams,
   type CloudParams,
   type GasParams,
+  type LightsParams,
   type MoonSpec,
   type PlanetKind,
   type PlanetPreset,
   type RingParams,
+  type RuinParams,
   type SurfaceParams,
   type TerrainParams,
 } from './planets.ts'
@@ -142,6 +154,8 @@ export interface PlanetData {
   readonly preset: PlanetPreset
   /** Sunlight relative to the habitable zone: 1 inside it, dimmer further out. */
   readonly light: number
+  /** The people who live here, or did. */
+  readonly civilization: Civilization | null
 }
 
 export interface BeltData {
@@ -165,6 +179,8 @@ export interface SystemData {
   readonly belts: readonly BeltData[]
   /** Distance from the star where water stays liquid on a world's surface. */
   readonly habitable: number
+  /** An unfinished arc of collectors around the star, if one of its peoples built one. */
+  readonly swarm: Swarm | null
 }
 
 /** Radius of the outermost orbit. */
@@ -283,15 +299,34 @@ export function generateSystem(galaxy: number, index: number, options: SystemOpt
   for (const r of radii) kinds.push(kindForZone(r / habitable, rng, kinds))
   if (featured) enforceFeatured(kinds, radii, habitable)
 
-  // Until civilisations arrive (Phase 5), lights burn on at most one temperate world: the
-  // home world of a featured system, and about half the others.
-  let lit = -1
+  // A people may live on the temperate world nearest the habitable zone: always in a featured
+  // system, in about half the others. An anchor's world is chosen by hand, and holds the only
+  // people of its system.
+  let host = -1
   for (let i = 0; i < count; i++) {
     if (kinds[i] !== 'terrestrial' && kinds[i] !== 'ocean') continue
-    if (lit < 0 || Math.abs(Math.log(radii[i]! / habitable)) < Math.abs(Math.log(radii[lit]! / habitable)))
-      lit = i
+    if (host < 0 || Math.abs(Math.log(radii[i]! / habitable)) < Math.abs(Math.log(radii[host]! / habitable)))
+      host = i
   }
-  if (!featured && !rng.chance(0.55)) lit = -1
+  if (!featured && !rng.chance(0.55)) host = -1
+  const anchor = anchorAt(galaxy, index)
+  if (anchor) {
+    kinds[anchor.world] = anchor.kind
+    host = anchor.world
+  }
+  // Without one, a dry or frozen world near the zone sometimes keeps the ruins of a people who
+  // outlived its climate.
+  let ruined = -1
+  if (host < 0) {
+    const chance = new Rng(hashSeed(seed, 0xc1f2))
+    for (let i = 0; i < count; i++) {
+      const zone = radii[i]! / habitable
+      if (RUIN_KINDS.has(kinds[i]!) && zone > 0.7 && zone < 1.7 && chance.chance(RUIN_CHANCE)) {
+        ruined = i
+        break
+      }
+    }
+  }
 
   // Names, unique within the system.
   const used = new Set([star.name])
@@ -316,15 +351,28 @@ export function generateSystem(galaxy: number, index: number, options: SystemOpt
       i > 0 ? orbitRadius - radii[i - 1]! : orbitRadius - radius * 2,
       i < count - 1 ? radii[i + 1]! - orbitRadius : Infinity,
     )
-    const reach = Math.min(8, (gap * 0.4) / size)
-    const preset = variedPreset(kind, planetSeed, planetRng, { moonReach: reach, lights: i === lit })
+    const story = anchor?.world === i ? anchor : undefined
+    // An anchor's moons may need more room than the gap allows; they still clear the neighbours.
+    const reach = story?.moons ? Math.max(6, Math.min(8, (gap * 0.6) / size)) : Math.min(8, (gap * 0.4) / size)
+    const generated = planetName()
+    const name = story?.name ?? generated
+    used.add(name)
+    const civilization = story
+      ? anchorCivilization(story, planetSeed)
+      : i === host
+        ? generateCivilization(planetSeed, language, used, true)
+        : i === ruined
+          ? generateCivilization(planetSeed, language, used, false, 'gone')
+          : null
+    const preset = variedPreset(kind, planetSeed, planetRng, { moonReach: reach, civilization, moons: story?.moons })
     return {
       index: i,
       seed: planetSeed,
-      name: planetName(),
+      name,
       kind,
       radius: size,
       preset,
+      civilization,
       light: Math.min(1, Math.max(0.55, (habitable / orbitRadius) ** 0.35)),
       orbit: {
         radius: orbitRadius,
@@ -361,7 +409,21 @@ export function generateSystem(galaxy: number, index: number, options: SystemOpt
     })
   }
 
-  return { seed, path: [galaxy, index], star, planets, belts, habitable }
+  const swarm = planets.find((p) => p.civilization?.structures.swarm)?.civilization?.structures.swarm ?? null
+  return { seed, path: [galaxy, index], star, planets, belts, habitable, swarm }
+}
+
+/** An anchor's people, exactly as written. */
+function anchorCivilization(anchor: Anchor, worldSeed: number): Civilization {
+  const { people, state, age, since, structures } = anchor.civilization
+  return {
+    people,
+    state,
+    age,
+    since: since ?? 0,
+    structures: { ...NO_STRUCTURES, ...structures },
+    seed: hashSeed(worldSeed, 0xc1f5),
+  }
 }
 
 export function isGiant(kind: PlanetKind): boolean {
@@ -572,7 +634,7 @@ function varyRings(kind: 'ringed' | 'ice' | 'ice-giant', base: RingParams, rng: 
   }
 }
 
-function moonsFor(kind: PlanetKind, preset: PlanetPreset, rng: Rng, reach: number): MoonSpec[] {
+function moonsFor(kind: PlanetKind, preset: PlanetPreset, rng: Rng, reach: number, forced?: number): MoonSpec[] {
   const counts: Record<PlanetKind, readonly number[]> = {
     barren: [70, 30],
     lava: [60, 40],
@@ -586,10 +648,11 @@ function moonsFor(kind: PlanetKind, preset: PlanetPreset, rng: Rng, reach: numbe
     'ice-giant': [0, 60, 40],
   }
   const weights = counts[kind]
-  const count = rng.weighted(
+  const drawn = rng.weighted(
     weights.map((_, i) => i),
     weights,
   )
+  const count = forced ?? drawn
   const giant = isGiant(kind)
   const inner = Math.max(giant ? 2 : 2.6, (preset.rings?.outer ?? 0) + 0.6)
   const moons: MoonSpec[] = []
@@ -614,17 +677,72 @@ function moonsFor(kind: PlanetKind, preset: PlanetPreset, rng: Rng, reach: numbe
 export interface VariationOptions {
   /** Furthest a moon may orbit, in planet radii. */
   readonly moonReach?: number
-  /** Whether city lights burn on the night side. */
-  readonly lights?: boolean
+  /**
+   * The people living there, or who did: their lights, ruins and structures. Without this option
+   * a world keeps its kind's own lights (the showroom's look); with null it has none.
+   */
+  readonly civilization?: Civilization | null
+  /** How many moons, when a story needs a certain number. */
+  readonly moons?: number
+}
+
+/** City lights for kinds whose preset has none of its own (cities under ice, under cloud). */
+const KIND_LIGHTS: Partial<Record<PlanetKind, LightsParams>> = {
+  ice: { ...CITY_LIGHTS, density: 0.3, intensity: 3.4, roads: 0.1, glow: 0.01 },
+  // Under thick cloud the cities show mostly as a glow on the cloud's underside.
+  toxic: { ...CITY_LIGHTS, density: 0.5, intensity: 2.2, roads: 0.1, glow: 0.12 },
+}
+
+/** What is left of cities, by the ground they stood on. */
+const KIND_RUINS: Record<PlanetKind, RuinParams> = {
+  terrestrial: { color: '#b9b29c', strength: 0.4 },
+  ocean: { color: '#b9b29c', strength: 0.4 },
+  desert: { color: '#e4cfa6', strength: 0.35 },
+  ice: { color: '#546a80', strength: 0.4 },
+  toxic: { color: '#9a9364', strength: 0.35 },
+  lava: { color: '#4a4440', strength: 0.3 },
+  barren: { color: '#c4c0b6', strength: 0.4 },
+  gas: { color: '#000000', strength: 0 },
+  ringed: { color: '#000000', strength: 0 },
+  'ice-giant': { color: '#000000', strength: 0 },
+}
+
+/** A people's mark on their world: lights while they live there, ruins once they are gone. */
+function civilizedLook(kind: PlanetKind, base: PlanetPreset, civilization: Civilization): Partial<PlanetPreset> {
+  const lights = base.lights ?? KIND_LIGHTS[kind] ?? CITY_LIGHTS
+  const structures = civilization.structures
+  switch (civilization.state) {
+    case 'thriving': {
+      const rng = new Rng(hashSeed(civilization.seed, 0x11))
+      return { lights: { ...lights, density: lights.density * rng.range(0.95, 1.2) }, structures }
+    }
+    case 'fading':
+      return {
+        lights: {
+          ...lights,
+          density: lights.density * 0.42,
+          intensity: lights.intensity * 0.75,
+          roads: lights.roads * 0.3,
+          flicker: 1,
+          glow: lights.glow * 0.5,
+        },
+        structures,
+      }
+    case 'gone':
+      return { lights: undefined, ruins: KIND_RUINS[kind], structures }
+    case 'transcended':
+      return { lights: undefined, structures }
+  }
 }
 
 /** A kind's preset, varied by a world's seed. Variations stay close to the tuned presets. */
 export function variedPreset(kind: PlanetKind, seed: number, rng: Rng, options: VariationOptions = {}): PlanetPreset {
   const base = PRESETS[kind]
+  const civilization = options.civilization
   let preset: PlanetPreset = {
     ...base,
     seed,
-    lights: options.lights === false ? undefined : base.lights,
+    lights: civilization === undefined ? base.lights : undefined,
     tilt: Math.max(-1.2, Math.min(1.2, base.tilt + rng.gauss(0, isGiant(kind) ? 0.15 : 0.1))),
     dayLength: base.dayLength * rng.range(0.8, 1.3),
   }
@@ -639,7 +757,11 @@ export function variedPreset(kind: PlanetKind, seed: number, rng: Rng, options: 
     const keep = kind === 'ringed' || rng.chance(kind === 'ice' ? 0.4 : 0.6)
     preset = { ...preset, rings: keep ? varyRings(kind, base.rings, rng) : undefined }
   }
-  const moons = moonsFor(kind, preset, rng, options.moonReach ?? 8)
+  if (civilization) preset = { ...preset, ...civilizedLook(kind, base, civilization) }
+  // A world its people have ringed with stations or a lattice keeps no rings of its own: the
+  // two would cross.
+  if (preset.structures?.ring || preset.structures?.lattice) preset = { ...preset, rings: undefined }
+  const moons = moonsFor(kind, preset, rng, options.moonReach ?? 8, options.moons)
   // Rings need room in the frame; a world that lost its preset's rings can come closer.
   const framing = preset.rings
     ? Math.max(base.framing, preset.rings.outer * 2.4)

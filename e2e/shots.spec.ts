@@ -24,6 +24,7 @@ const SYSTEM = 'shot=system&quality=high&system=0'
 const GALAXY = 'shot=galaxy&quality=high&galaxy=0'
 const UNIVERSE = 'shot=universe&quality=high'
 const HOLE = 'shot=hole&quality=high&hole'
+const ANCHOR = 'shot=planet&quality=high&anchor'
 const PHONE = { viewport: { width: 390, height: 844 }, scale: 2 }
 
 const SHOTS: Shot[] = [
@@ -84,6 +85,20 @@ const SHOTS: Shot[] = [
   { name: '4-universe-low', query: 'shot=universe&quality=low' },
   { name: '4-universe-phone', query: 'shot=universe&quality=medium', ...PHONE },
   { name: '4-hole-phone', query: 'shot=hole&quality=medium&hole', ...PHONE },
+  // Phase 5: peoples in every state, what they built, and the fragments of the handcrafted worlds.
+  { name: '5-home-fragment', query: `${ANCHOR}=ithasal&view=home` },
+  { name: '5-ring-night', query: `${ANCHOR}=driram&view=night` },
+  { name: '5-ring-day', query: `${ANCHOR}=driram&view=day` },
+  { name: '5-ring-close', query: `${ANCHOR}=driram&view=close` },
+  { name: '5-fading-night', query: `${ANCHOR}=kandolu&view=night` },
+  { name: '5-cloud-cities', query: `${ANCHOR}=ernae&view=night` },
+  { name: '5-ruins-close', query: `${ANCHOR}=sisaeth&view=close` },
+  { name: '5-derelict-ring', query: `${ANCHOR}=laelien&view=terminator` },
+  { name: '5-lattice', query: `${ANCHOR}=evith&view=day` },
+  { name: '5-arc-sky', query: `${ANCHOR}=kothor&view=home` },
+  { name: '5-arc-system', query: 'shot=system&quality=high&galaxy=1&system=63' },
+  { name: '5-arrival-story', query: 'shot=system&quality=high&system=11', descend: 0, arrive: [0, 11, 0] },
+  { name: '5-fragment-phone', query: 'shot=planet&quality=medium&anchor=sivar&view=home', ...PHONE },
 ]
 
 interface Hooks {

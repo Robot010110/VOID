@@ -20,6 +20,7 @@
  * Units: the disc's radius is about 200, so a galaxy spans about 400. Times are seconds at
  * 1x. A system inside a galaxy is scaled down by SYSTEM_SCALE.
  */
+import { anchorsIn } from '../content/anchors.ts'
 import { galaxySite, type GalaxyKind } from './cosmos.ts'
 import { hashSeed, Rng } from './rng.ts'
 import { HOME_BAND, type Vec3 } from './sky.ts'
@@ -500,13 +501,15 @@ function generateStars(galaxy: GalaxyLook): GalaxyStar[] {
     stars.push({ index, star, orbit, notable: false })
   }
 
-  // The notable few: the home star and the brightest named stars, spread around the disc.
+  // The notable few: the home star, the stars whose worlds hold the stories, and the brightest
+  // named stars, spread around the disc.
   const named = stars
     .filter((s) => !s.star.catalogued && s.index !== HOME[1])
     .sort((a, b) => b.star.luminosity - a.star.luminosity)
     .slice(0, featured ? 11 : 12)
   const notable = new Set(named.map((s) => s.index))
   if (featured) notable.add(HOME[1]!)
+  for (const anchor of anchorsIn(galaxy.index)) notable.add(anchor.star)
   return stars.map((s) => (notable.has(s.index) ? { ...s, notable: true } : s))
 }
 

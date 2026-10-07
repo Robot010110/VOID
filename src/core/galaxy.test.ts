@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { anchorsIn } from '../content/anchors.ts'
 import {
   armAngle,
   crestAngle,
@@ -68,7 +69,9 @@ describe('generateGalaxy', () => {
       })
       const notable = galaxy.stars.filter((s) => s.notable)
       expect(notable.length).toBeGreaterThanOrEqual(8)
-      expect(notable.length).toBeLessThanOrEqual(12)
+      // The brightest dozen, plus any star whose world holds a story.
+      expect(notable.length).toBeLessThanOrEqual(12 + anchorsIn(galaxy.index).length)
+      for (const anchor of anchorsIn(galaxy.index)) expect(galaxy.stars[anchor.star]!.notable).toBe(true)
       for (const s of notable) expect(s.star.catalogued).toBe(false)
     }
   })

@@ -99,6 +99,13 @@ export function surfaceUniforms(surface: SurfaceParams, sun: Sunlight) {
     uCityDensity: { value: 0 },
     uCityIntensity: { value: 0 },
     uRoads: { value: 0 },
+    uClock: { value: 0 },
+    uRuinColor: { value: new Color(0, 0, 0) },
+    uRuinStrength: { value: 0 },
+    uRuinRelief: { value: 0 },
+    uRuinSeed: { value: new Vector3() },
+    uRoadNormal: { value: [new Vector3(0, 1, 0), new Vector3(0, 1, 0), new Vector3(0, 1, 0)] },
+    uRoadAxis: { value: [new Vector3(1, 0, 0), new Vector3(1, 0, 0), new Vector3(1, 0, 0)] },
     uCloudShadow: { value: 0 },
     uCloudHeight: { value: 0 },
     uCloudThreshold: { value: 0.5 },
@@ -112,7 +119,8 @@ export function surfaceUniforms(surface: SurfaceParams, sun: Sunlight) {
 /** Debug controls for a surface: colours and shading apply live to the uniforms. */
 export function surfaceSchema(surface: SurfaceParams): TweakSchema {
   return {
-    seaLevel: { value: surface.seaLevel, min: -1, max: 1, step: 0.01 },
+    // Dry worlds keep their sea far below the ground (-9); the panel must not clamp it up.
+    seaLevel: { value: surface.seaLevel, min: -10, max: 1, step: 0.01 },
     relief: { value: surface.relief, min: 0, max: 1, step: 0.01 },
     detail: { value: surface.detail, min: 0, max: 2, step: 0.01 },
     deepWater: { value: surface.deepWater, color: true },

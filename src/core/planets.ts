@@ -5,6 +5,7 @@
  *
  * Phase 1 shows these one at a time; later the universe generator varies them by seed.
  */
+import type { Structures } from './civilization.ts'
 import { hashSeed, UNIVERSE_SEED } from './rng.ts'
 
 export type PlanetKind =
@@ -74,6 +75,17 @@ export interface LightsParams {
   readonly intensity: number
   readonly color: string
   readonly roads: number
+  /** 0 for steady lights, 1 for a failing grid: lights stutter and whole cities go dark. */
+  readonly flicker: number
+  /** How brightly the cloud base glows over cities at night. */
+  readonly glow: number
+}
+
+/** What is left of a people's cities: lines in the ground, paler (or, under ice, darker). */
+export interface RuinParams {
+  readonly color: string
+  /** How strongly the lines show, 0 to 1. */
+  readonly strength: number
 }
 
 export interface CloudParams {
@@ -159,6 +171,9 @@ export interface PlanetPreset {
   readonly terrain?: TerrainParams
   readonly surface?: SurfaceParams
   readonly lights?: LightsParams
+  readonly ruins?: RuinParams
+  /** A civilisation's rings, satellites and lattices (an arc around a star belongs to the star). */
+  readonly structures?: Structures
   readonly clouds?: CloudParams
   readonly atmosphere?: AtmosphereParams
   readonly rings?: RingParams
@@ -183,7 +198,7 @@ const EARTH_AIR: AtmosphereParams = {
   airglowStrength: 0.012,
 }
 
-const CITY_LIGHTS: LightsParams = { density: 0.44, intensity: 5, color: '#ffb36b', roads: 0.18 }
+export const CITY_LIGHTS: LightsParams = { density: 0.44, intensity: 5, color: '#ffb36b', roads: 0.18, flicker: 0, glow: 0.015 }
 
 const BARREN_SURFACE: SurfaceParams = {
   seaLevel: -9,
