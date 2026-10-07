@@ -1,5 +1,5 @@
 /** What the interface says about a place: its name, its ancestors, and two or three sentences. */
-import { describeGalaxy, describePlanet, describeStar } from '../core/describe.ts'
+import { describeGalaxy, describePlanet, describeStar, starColour } from '../core/describe.ts'
 import { getGalaxy, isHomeGalaxy } from '../core/galaxy.ts'
 import type { PlanetKind } from '../core/planets.ts'
 import { getSystem, HOME, type Path } from '../core/universe.ts'
@@ -38,6 +38,12 @@ export function childName(path: Path, index: number): string {
   if (path.length === 1) return getGalaxy(path[0]!).stars[index]?.star.name ?? ''
   if (path.length === 2) return getSystem(path[0]!, path[1]!).planets[index]?.name ?? ''
   return ''
+}
+
+/** A few words for what a star is, for screen readers choosing among them: "a yellow star". */
+export function starWords(temperature: number): string {
+  const colour = starColour(temperature)
+  return `${/^[aeiou]/.test(colour) ? 'an' : 'a'} ${colour} star`
 }
 
 /** A few words for what a world is, for screen readers choosing among them. */

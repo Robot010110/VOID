@@ -11,7 +11,7 @@ import {
   orbitalSpeed,
   systemOrientation,
 } from './galaxy.ts'
-import { GalaxyParticleJob, particleCounts } from './galaxyParticles.ts'
+import { GalaxyParticleJob, LAYER_SHARE, particleCounts } from './galaxyParticles.ts'
 import { HOME_BAND } from './sky.ts'
 import { generateStar, getSystem, HOME } from './universe.ts'
 
@@ -190,11 +190,35 @@ describe('GalaxyParticleJob', () => {
       steps++
     }
     expect(steps).toBeGreaterThan(10)
-    for (const set of ['light', 'sparkle', 'dust'] as const) {
-      expect(chunked[set].orbit).toEqual(whole[set].orbit)
-      expect(chunked[set].shape).toEqual(whole[set].shape)
-      expect(chunked[set].colour).toEqual(whole[set].colour)
+    // Compared byte for byte: deep equality on typed arrays this long is slow.
+    const same = (a: ArrayBufferView, b: ArrayBufferView) => {
+      const x = new Uint8Array(a.buffer, a.byteOffset, a.byteLength)
+      const y = new Uint8Array(b.buffer, b.byteOffset, b.byteLength)
+      return x.length === y.length && x.every((value, i) => value === y[i])
     }
+    for (const set of ['light', 'sparkle', 'dust'] as const) {
+      expect(same(chunked[set].orbit, whole[set].orbit)).toBe(true)
+      expect(same(chunked[set].shape, whole[set].shape)).toBe(true)
+      expect(same(chunked[set].colour, whole[set].colour)).toBe(true)
+    }
+    expect(chunked.groups).toEqual(whole.groups)
+  })
+
+  it('stores the light in runs below, inside and above the dust layer', () => {
+    const { light, groups } = whole
+    expect(groups).not.toBeNull()
+    const runs = groups!
+    expect(runs.below.count + runs.inside.count + runs.above.count).toBe(light.count)
+    expect(runs.inside.start).toBe(runs.below.count)
+    expect(runs.above.start).toBe(runs.below.count + runs.inside.count)
+    const layer = home.shape.thickness * LAYER_SHARE
+    let wrong = 0
+    for (let i = 0; i < light.count; i++) {
+      const y = light.orbit[i * 4 + 2]!
+      const run = i < runs.inside.start ? 'below' : i < runs.above.start ? 'inside' : 'above'
+      if ((run === 'below' && y >= -layer) || (run === 'above' && y <= layer) || (run === 'inside' && Math.abs(y) > layer)) wrong++
+    }
+    expect(wrong).toBe(0)
   })
 
   it('fills both sides of the plane alike', () => {

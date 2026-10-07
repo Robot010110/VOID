@@ -13,12 +13,15 @@ interface Shot {
   scale?: number
   /** Hover the world with this index before the picture. */
   hover?: number
-  /** Fall into the world with this index and wait until the camera has settled. */
+  /** Fall into the child with this index and wait until the camera has settled there. */
   descend?: number
+  /** Where that fall arrives (by default a world of the home system). */
+  arrive?: number[]
 }
 
 const PLANET = 'shot=planet&quality=high'
-const SYSTEM = 'shot=system&quality=high'
+const SYSTEM = 'shot=system&quality=high&system=0'
+const GALAXY = 'shot=galaxy&quality=high'
 const PHONE = { viewport: { width: 390, height: 844 }, scale: 2 }
 
 const SHOTS: Shot[] = [
@@ -48,8 +51,18 @@ const SHOTS: Shot[] = [
   { name: '2-arrival', query: SYSTEM, descend: 3 },
   { name: '2-ringed-world', query: `${PLANET}&world=6&view=home` },
   { name: '2-gas-world', query: `${PLANET}&world=4&view=day` },
-  { name: '2-system-phone', query: 'shot=system&quality=medium', ...PHONE },
-  { name: '2-arrival-phone', query: 'shot=system&quality=medium', descend: 3, ...PHONE },
+  { name: '2-system-phone', query: 'shot=system&quality=medium&system=0', ...PHONE },
+  { name: '2-arrival-phone', query: 'shot=system&quality=medium&system=0', descend: 3, ...PHONE },
+  // Phase 3: the galaxy from every side, a star to visit, and the fall into its system.
+  { name: '3-galaxy-home', query: GALAXY },
+  { name: '3-galaxy-top', query: `${GALAXY}&view=top` },
+  { name: '3-galaxy-edge', query: `${GALAXY}&view=edge` },
+  { name: '3-galaxy-core', query: `${GALAXY}&view=core` },
+  { name: '3-galaxy-nebula', query: `${GALAXY}&view=nebula` },
+  { name: '3-galaxy-hover', query: GALAXY, hover: 0 },
+  { name: '3-arrival', query: GALAXY, descend: 0, arrive: [0, 0] },
+  { name: '3-galaxy-low', query: 'shot=galaxy&quality=low' },
+  { name: '3-galaxy-phone', query: 'shot=galaxy&quality=medium', ...PHONE },
 ]
 
 interface Hooks {
@@ -106,9 +119,9 @@ for (const shot of SHOTS) {
           timeout: 120_000,
           intervals: [250],
         })
-        .toMatchObject({ phase: 'idle', path: [0, 0, shot.descend] })
-      // Let the caption fade in.
-      await frames(page, 120)
+        .toMatchObject({ phase: 'idle', path: shot.arrive ?? [0, 0, shot.descend] })
+      // Let the caption fade in, and the sky settle after the fall.
+      await frames(page, 150)
     }
 
     await page.screenshot({ path: `screenshots/${shot.name}.png` })

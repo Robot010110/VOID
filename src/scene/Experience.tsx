@@ -14,6 +14,7 @@ import { PostPipeline } from './post/PostPipeline.tsx'
 import { QualityGovernor } from './QualityGovernor.tsx'
 import { bakesPending, currentBake, runBakeQueue } from './shared/bake.ts'
 import { advanceWorldClock } from './shared/clock.ts'
+import { runWork, workPending } from './shared/work.ts'
 import { levelRuntime, marker, pointer } from './stage.ts'
 import { installTestHooks } from './testHooks.ts'
 
@@ -43,6 +44,12 @@ const CAMERA = { fov: 50, near: 0.05, far: 4000, position: [0, 0, 6] as [number,
  */
 const BAKE_MAX_TILES = 48
 
+/**
+ * Milliseconds of CPU work (a galaxy's particles) per frame in the background: a few while
+ * frames are on time, less after a late one.
+ */
+const WORK_BUDGET = 4
+
 function onCreated({ gl }: RootState) {
   // The film grade lifts black to Abyss after tone mapping, so the clear colour is true black.
   gl.setClearColor(0x000000, 1)
@@ -57,12 +64,13 @@ function WorldClock() {
   return null
 }
 
-/** Spends each frame's background-bake budget, adapting it to the frame rate. */
+/** Spends each frame's background budgets (GPU bakes and CPU work), adapting to the frame rate. */
 function BakeDriver() {
   const gl = useThree((s) => s.gl)
   const tiles = useRef(1)
   const pass = useRef<object | null>(null)
   useFrame((_, delta) => {
+    if (workPending()) runWork(delta > 1 / 45 ? WORK_BUDGET / 2 : WORK_BUDGET)
     if (!bakesPending()) {
       pass.current = null
       return

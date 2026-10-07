@@ -75,7 +75,8 @@ const rotation = new Quaternion()
 
 function GalaxyFrame({ path, background }: { path: Path; background: boolean }) {
   const galaxy = getGalaxy(path[0]!)
-  const views = useMemo(() => galaxyViews(galaxy), [galaxy])
+  const portrait = useThree((s) => s.size.width < s.size.height * 0.85)
+  const views = useMemo(() => galaxyViews(galaxy, portrait), [galaxy, portrait])
   const limits = useMemo(() => galaxyLimits(galaxy), [galaxy])
   useOpeningView(views, views.home!.distance!, limits, !background)
   return <GalaxyLevel path={path} />

@@ -33,7 +33,7 @@ uniform float uDust;
 uniform vec3 uDiscColour;
 uniform vec3 uYoungColour;
 
-const int STEPS = 10;
+const int STEPS = 8;
 const float SQRT_TAU = 2.5066283;
 
 float near(float phase, float shift, float width) {

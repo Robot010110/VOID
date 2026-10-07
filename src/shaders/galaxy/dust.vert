@@ -40,6 +40,6 @@ void main() {
   vAlpha = clamp(aShape.y * uDustScale * thin * near * uFade, 0.0, 1.0);
   sigma = min(sigma, uMaxSigma * 2.0);
   vSigma = sigma;
-  vHalf = ceil(sigma * 2.4) + 0.5;
+  vHalf = sigma * 2.1 + 0.5;
   gl_PointSize = vAlpha > 2e-3 && view.z < 0.0 ? min(vHalf * 2.0, uMaxPointSize) : 0.0;
 }

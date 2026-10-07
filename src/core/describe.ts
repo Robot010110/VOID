@@ -41,7 +41,7 @@ function starClass(temperature: number, age: number): string {
 }
 
 /** Words for a star's colour, as the eye would put it. */
-function starColour(temperature: number): string {
+export function starColour(temperature: number): string {
   if (temperature < 3900) return 'red'
   if (temperature < 5200) return 'orange'
   if (temperature < 6000) return 'yellow'

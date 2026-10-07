@@ -29,7 +29,7 @@ import { anchorOf } from '../frames.ts'
 import { worldClock } from '../shared/clock.ts'
 import { handover, levelRuntime, sky } from '../stage.ts'
 import { rig, settleRig, type RigPose } from './rig.ts'
-import { galaxyView, systemView } from './views.ts'
+import { galaxyView, isPortrait, systemView } from './views.ts'
 
 /** Seconds for each fall, by the level fallen into or risen to: a galaxy is the longest drop. */
 const DOWN: Partial<Record<Level, number>> = { system: 3, planet: 2.2 }
@@ -146,7 +146,7 @@ function exists(path: Path): boolean {
 function restDistance(path: Path): number {
   if (path.length === 3) return getSystem(path[0]!, path[1]!).planets[path[2]!]!.preset.framing
   if (path.length === 2) return systemView(getSystem(path[0]!, path[1]!)).distance
-  return galaxyView(getGalaxy(path[0]!)).distance
+  return galaxyView(getGalaxy(path[0]!), isPortrait()).distance
 }
 
 /**
@@ -315,7 +315,7 @@ export function ascend() {
   camera.multiplyScalar(scale).applyQuaternion(turn).add(anchor)
   // Rising out of a world ends on its star, out of a system on its galaxy's centre: still
   // facing the way the camera faced, from the side it was on.
-  const view = level === 'system' ? systemView(getSystem(to[0]!, to[1]!)) : galaxyView(getGalaxy(to[0]!))
+  const view = level === 'system' ? systemView(getSystem(to[0]!, to[1]!)) : galaxyView(getGalaxy(to[0]!), isPortrait())
   const rest = { distance: view.distance, direction: fromAngles(Math.atan2(camera.x, camera.z), view.polar) }
   const swapDistance = restDistance(from) * SWAP_UP * scale
   const duration = prefersReducedMotion() ? REDUCED_UP : (UP_TO[level] ?? 2.6)

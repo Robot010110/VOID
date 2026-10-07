@@ -50,10 +50,11 @@ void main() {
   float disc = aStar.z * uSystemScale * scale * uPixelsPerUnit / distance;
   float point = 1.0 - smoothstep(0.7, 2.2, disc);
 
-  float coreSigma = 0.85 * uPixelRatio;
-  float haloSigma = 3.0 * uPixelRatio;
+  // A little larger and softer than the galaxy's other points, so they can be found.
+  float coreSigma = 1.1 * uPixelRatio;
+  float haloSigma = 3.6 * uPixelRatio;
   float peak = min(light, uPeakMax) * point * uFade;
-  float halo = min(light * 0.05, uPeakMax * 0.1) * uFade;
+  float halo = min(light * 0.085, uPeakMax * 0.12) * uFade;
   float reach = max(
     coreSigma * sqrt(2.0 * log(max(peak / VISIBLE, 1.0))),
     haloSigma * sqrt(2.0 * log(max(halo / VISIBLE, 1.0)))

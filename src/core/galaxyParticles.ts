@@ -60,6 +60,20 @@ export function discEmission(galaxy: GalaxyData) {
   }
 }
 
+/**
+ * The dust layer's half-thickness, as a share of the disc's thickness. The light is stored in
+ * three runs (below the layer, inside it, above it) so each can be drawn on its own: the run
+ * beyond the dust first, then the dust, then the run in front.
+ */
+export const LAYER_SHARE = 0.5
+
+/** Where each run of the light lies in its arrays. */
+export interface LightGroups {
+  readonly below: { readonly start: number; readonly count: number }
+  readonly inside: { readonly start: number; readonly count: number }
+  readonly above: { readonly start: number; readonly count: number }
+}
+
 export interface ParticleSet {
   readonly count: number
   /** Per particle: mean orbit radius, angle at time zero, height, radial scatter. */
@@ -186,6 +200,7 @@ function write(
 }
 
 interface Knot {
+  readonly id: number
   /** Centre at time zero, in the galaxy's plane. */
   readonly x: number
   readonly z: number
@@ -204,19 +219,28 @@ function knotsOf(galaxy: GalaxyData): Knot[] {
     const arm = Math.floor(unit(seed, k, 0) * shape.arms)
     const r = discRadius(seed, k, 1, shape.radius * 0.42, shape.armStart * 1.2, shape.radius * 0.95)
     const phi = armAngle(shape, r) + (arm * Math.PI * 2 + KNOT_PLACE + gauss(seed, k, 20) * 0.3) / shape.arms
-    return { x: r * Math.cos(phi), z: -r * Math.sin(phi), size: 0.7 * Math.exp(gauss(seed, k, 22) * 0.5) }
+    return { id: k, x: r * Math.cos(phi), z: -r * Math.sin(phi), size: 0.7 * Math.exp(gauss(seed, k, 22) * 0.5) }
   })
 }
 
 /**
- * Builds a galaxy's particles a chunk at a time: light, then sparkle, then dust. `step` fills
- * the next particles; `run` fills them all.
+ * Builds a galaxy's particles a chunk at a time: the light (counted into its runs first, then
+ * written straight into them), then sparkle, then dust. `step` does the next chunk; `run`
+ * does it all.
  */
 export class GalaxyParticleJob {
   readonly light: ParticleSet
   readonly sparkle: ParticleSet
   readonly dust: ParticleSet
+  /** The light's runs, known once it has been counted. */
+  groups: LightGroups | null = null
   private next = 0
+  private readonly counts = [0, 0, 0]
+  private readonly filled = [0, 0, 0]
+  private readonly orbit: [number, number, number, number] = [0, 0, 0, 0]
+  private readonly look: [number, number, number, number] = [0, 0, 0, 0]
+  private colour: readonly [number, number, number] = [1, 1, 1]
+  private readonly layer: number
   private readonly galaxy: GalaxyData
   private readonly seed: number
   private readonly knots: Knot[]
@@ -235,6 +259,7 @@ export class GalaxyParticleJob {
     this.seed = hashSeed(galaxy.seed, 0x9a41)
     this.knots = knotsOf(galaxy)
     this.emission = discEmission(galaxy)
+    this.layer = galaxy.shape.thickness * LAYER_SHARE
     const laneSeed = hashSeed(galaxy.seed, 0x1a7e)
     const { shape } = galaxy
     this.lanes = Array.from({ length: shape.arms }, (_, arm) => ({
@@ -259,7 +284,7 @@ export class GalaxyParticleJob {
   }
 
   private get total(): number {
-    return this.light.count + this.sparkle.count + this.dust.count
+    return this.light.count * 2 + this.sparkle.count + this.dust.count
   }
 
   get done(): boolean {
@@ -271,25 +296,63 @@ export class GalaxyParticleJob {
     return this.next / this.total
   }
 
-  /** Fill up to `count` more particles, never crossing from one set into the next. */
+  /** Do up to `count` more particles, never crossing from one phase into the next. */
   step(count: number) {
     if (this.done) return
-    const sets: Array<[ParticleSet, (i: number) => void]> = [
-      [this.light, (i) => this.fillLight(i)],
-      [this.sparkle, (i) => this.fillSparkle(i)],
-      [this.dust, (i) => this.fillDust(i)],
+    const phases: Array<[number, (i: number) => void]> = [
+      [this.light.count, (i) => this.countLight(i)],
+      [this.light.count, (i) => this.fillLight(i)],
+      [this.sparkle.count, (i) => this.fillSparkle(i)],
+      [this.dust.count, (i) => this.fillDust(i)],
     ]
     let offset = 0
-    for (const [set, fill] of sets) {
-      if (this.next < offset + set.count) {
+    for (const [length, work] of phases) {
+      if (this.next < offset + length) {
         const start = this.next - offset
-        const end = Math.min(set.count, start + count)
-        for (let i = start; i < end; i++) fill(i)
+        const end = Math.min(length, start + count)
+        for (let i = start; i < end; i++) work(i)
         this.next = offset + end
+        if (offset === 0 && end === length) this.settleGroups()
         return
       }
-      offset += set.count
+      offset += length
     }
+  }
+
+  /** Which run a light particle belongs to: below the dust layer, inside it, or above it. */
+  private group(y: number): number {
+    return y < -this.layer ? 0 : y > this.layer ? 2 : 1
+  }
+
+  private countLight(i: number) {
+    this.drawLight(i)
+    this.counts[this.group(this.orbit[2])]!++
+  }
+
+  private settleGroups() {
+    const [below, inside, above] = this.counts as [number, number, number]
+    this.groups = {
+      below: { start: 0, count: below },
+      inside: { start: below, count: inside },
+      above: { start: below + inside, count: above },
+    }
+  }
+
+  private fillLight(i: number) {
+    this.drawLight(i)
+    const group = this.group(this.orbit[2])
+    const runs = this.groups!
+    const start = group === 0 ? runs.below.start : group === 1 ? runs.inside.start : runs.above.start
+    write(this.light, start + this.filled[group]!++, this.orbit, this.look, this.colour)
+  }
+
+  /** Set the orbit, look and colour of the light's i-th particle, for whichever pass wants it. */
+  private set(orbit: readonly number[], look: readonly number[], colour: readonly [number, number, number]) {
+    for (let k = 0; k < 4; k++) {
+      this.orbit[k] = orbit[k]!
+      this.look[k] = look[k]!
+    }
+    this.colour = colour
   }
 
   /** Everything at once (tests, and a galaxy opened as the first thing seen). */
@@ -311,7 +374,7 @@ export class GalaxyParticleJob {
     return shape.thickness * (1.15 - 0.55 * Math.min(1, a / shape.radius))
   }
 
-  private fillLight(i: number) {
+  private drawLight(i: number) {
     const { galaxy, knots } = this
     const seed = this.seed
     const { shape, light } = galaxy
@@ -326,9 +389,7 @@ export class GalaxyParticleJob {
       const r = shape.bulge * Math.abs(gauss(seed, i, 1)) * (0.8 + 0.4 * unit(seed, i, 7))
       const cosTheta = unit(seed, i, 3) * 2 - 1
       const sinTheta = Math.sqrt(1 - cosTheta * cosTheta)
-      write(
-        this.light,
-        i,
+      this.set(
         [r * sinTheta, unit(seed, i, 4) * Math.PI * 2, side * Math.abs(r * cosTheta * shape.flattening), 0],
         [1.1 * size * (0.8 + 0.5 * unit(seed, i, 5)) * (0.8 + 0.7 * (r / shape.bulge)), 1.0 * brightness, 0, 0],
         blackbody(light.core + gauss(seed, i, 6) * 300),
@@ -338,10 +399,8 @@ export class GalaxyParticleJob {
       // the disc thins (like a smoothing length), so its outskirts are a haze that fades out.
       const scale = this.emission.oldScale
       const a = discRadius(seed, i, 1, scale, shape.radius * 0.02, shape.radius * 1.1)
-      const sparse = Math.min(2.2, Math.max(0.8, Math.exp((a - shape.radius * 0.3) / (2 * scale))))
-      write(
-        this.light,
-        i,
+      const sparse = Math.min(1.9, Math.max(0.8, Math.exp((a - shape.radius * 0.3) / (2 * scale))))
+      this.set(
         [a, unit(seed, i, 20) * Math.PI * 2, side * Math.abs(gauss(seed, i, 21)) * this.thickness(a), gauss(seed, i, 23) * (0.4 + 0.025 * a)],
         [OLD_SIZE * size * sparse * (0.75 + 0.5 * unit(seed, i, 26)), OLD_LIGHT * brightness * this.edge(a), 0, 0],
         blackbody(light.disc + gauss(seed, i, 27) * 450),
@@ -350,9 +409,7 @@ export class GalaxyParticleJob {
       // Young stars: born in the arms, bright only while they pass through one.
       const a = discRadius(seed, i, 1, this.emission.youngScale, shape.armStart * 0.9, shape.radius * 1.08)
       const sparse = Math.min(2, Math.max(0.85, Math.exp((a - shape.radius * 0.45) / (shape.radius * 0.8))))
-      write(
-        this.light,
-        i,
+      this.set(
         [a, unit(seed, i, 20) * Math.PI * 2, side * Math.abs(gauss(seed, i, 21)) * this.thickness(a) * 0.4, gauss(seed, i, 23) * (0.3 + 0.022 * a)],
         [0.9 * size * sparse * (0.75 + 0.5 * unit(seed, i, 26)), YOUNG_LIGHT * brightness * this.edge(a), 2, 0],
         blackbody(light.young * Math.exp(gauss(seed, i, 27) * 0.25)),
@@ -362,16 +419,14 @@ export class GalaxyParticleJob {
       const knot = knots[Math.floor(unit(seed, i, 1) * knots.length)]!
       const clump = Math.floor(unit(seed, i, 8) * 3)
       const offset = knot.size * 1.6
-      const cx = knot.x + (unit(seed, clump, knot.size * 1e4) - 0.5) * offset * 2
-      const cz = knot.z + (unit(seed, clump + 3, knot.size * 1e4) - 0.5) * offset * 2
+      const cx = knot.x + (unit(seed, knot.id, 40 + clump) - 0.5) * offset * 2
+      const cz = knot.z + (unit(seed, knot.id, 50 + clump) - 0.5) * offset * 2
       const spread = knot.size * 0.6 * Math.sqrt(-2 * Math.log(1 - unit(seed, i, 2)))
       const angle = unit(seed, i, 3) * Math.PI * 2
       const x = cx + Math.cos(angle) * spread
       const z = cz + Math.sin(angle) * spread
       const [a, phi, scatter] = placed(shape, Math.hypot(x, z), Math.atan2(-z, x))
-      write(
-        this.light,
-        i,
+      this.set(
         [a, phi, side * Math.abs(gauss(seed, i, 21)) * shape.thickness * 0.2, scatter],
         [0.6 * size * (0.75 + 0.5 * unit(seed, i, 26)), 0.6 * brightness * (0.5 + unit(seed, i, 28)), 0, 1],
         mixColour(KNOT_PINK, KNOT_VIOLET, unit(seed, i, 27) * 0.5),

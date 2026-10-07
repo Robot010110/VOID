@@ -1,14 +1,19 @@
-import type { GalaxyData } from '../../core/galaxy.ts'
+import { nebulaPosition, type GalaxyData } from '../../core/galaxy.ts'
 import type { PlanetPreset } from '../../core/planets.ts'
 import type { Vec3 } from '../../core/sky.ts'
 import { SYSTEM_EXTENT, type SystemData } from '../../core/universe.ts'
 
-/** A named framing: orbit angles (three.js spherical convention) and optional distance. */
+/** A named framing: orbit angles (three.js spherical convention), distance and centre. */
 export interface OrbitView {
   azimuth: number
   polar: number
   distance?: number
+  /** What the camera orbits, if not the level's centre. */
+  center?: readonly [number, number, number]
 }
+
+/** A level's resting framing: around its centre, at a set distance. */
+export type RestView = Required<Omit<OrbitView, 'center'>>
 
 export interface Limits {
   min: number
@@ -21,24 +26,38 @@ export function lookingAlong(direction: Vec3): OrbitView {
   return { azimuth: Math.atan2(-x, -z), polar: Math.acos(Math.max(-1, Math.min(1, -y))) }
 }
 
+/** A tall screen, where a wide subject needs the camera further back. */
+export function isPortrait(): boolean {
+  return window.innerWidth < window.innerHeight * 0.85
+}
+
 /**
  * A galaxy at rest: seen from well above its plane and a little turned, so its arms read as
- * a spiral with depth and the whole disc fills the frame with room to spare.
+ * a spiral with depth and the whole disc fills the frame with room to spare. A tall screen
+ * stands further back, to keep the disc's width in view.
  */
-export function galaxyView(galaxy: GalaxyData): Required<OrbitView> {
-  return { azimuth: 0.35, polar: 0.9, distance: galaxy.shape.radius * 2.3 }
+export function galaxyView(galaxy: GalaxyData, portrait = false): RestView {
+  return { azimuth: 0.35, polar: 0.9, distance: galaxy.shape.radius * (portrait ? 3.4 : 2.3) }
 }
 
 /** Named framings of a galaxy for `?view=`. */
-export function galaxyViews(galaxy: GalaxyData): Record<string, OrbitView> {
-  const home = galaxyView(galaxy)
+export function galaxyViews(galaxy: GalaxyData, portrait = false): Record<string, OrbitView> {
+  const home = galaxyView(galaxy, portrait)
   return {
     home,
     top: { azimuth: home.azimuth, polar: 0.12, distance: home.distance * 1.08 },
     edge: { azimuth: home.azimuth, polar: 1.53, distance: home.distance },
     core: { azimuth: home.azimuth + 0.5, polar: 1.12, distance: galaxy.shape.radius * 0.75 },
     wide: { azimuth: home.azimuth, polar: 1.05, distance: home.distance * 1.7 },
+    nebula: nebulaView(galaxy),
   }
+}
+
+/** Close to the galaxy's brightest emission nebula, for looking at one. */
+function nebulaView(galaxy: GalaxyData): OrbitView {
+  const nebula = galaxy.nebulae.filter((n) => n.kind === 'emission').sort((a, b) => b.size - a.size)[0] ?? galaxy.nebulae[0]
+  if (!nebula) return galaxyView(galaxy)
+  return { azimuth: 0.9, polar: 1.05, distance: nebula.size * 5, center: nebulaPosition(galaxy, nebula, 0) }
 }
 
 export function galaxyLimits(galaxy: GalaxyData): Limits {
@@ -50,7 +69,7 @@ export function galaxyLimits(galaxy: GalaxyData): Limits {
  * orbits, far enough out that the inner worlds and the habitable zone fill the frame and
  * the outer orbits sweep past its edges.
  */
-export function systemView(system: SystemData): Required<OrbitView> {
+export function systemView(system: SystemData): RestView {
   return {
     azimuth: 0.62,
     polar: 1.13,

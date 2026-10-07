@@ -1,4 +1,4 @@
-import { Bloom, EffectComposer, SMAA, ToneMapping, Vignette } from '@react-three/postprocessing'
+import { Bloom, EffectComposer, FXAA, SMAA, ToneMapping, Vignette } from '@react-three/postprocessing'
 import { ToneMappingMode, type BloomEffect, type VignetteEffect } from 'postprocessing'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useCallback, useRef } from 'react'
@@ -31,14 +31,19 @@ const TWEAKS: TweakSchema = {
  */
 const LEVEL_BLOOM: Record<string, number> = { universe: 0.6, galaxy: 0.45, system: 1, planet: 1 }
 
-/** At or above this pixel ratio, edges are fine enough that SMAA costs more than it gives. */
+/**
+ * At or above this pixel ratio, edges are fine enough that antialiasing costs more than it
+ * gives. Below it, High uses SMAA; Medium and Low use FXAA, which looks the same on VOID's
+ * soft edges and points and costs a quarter as much (SMAA took 5 to 7 ms a frame on an Intel
+ * UHD 620 at 1600x900).
+ */
 const SMAA_MAX_DPR = 1.75
 
 /**
- * HDR scene → SMAA → bloom → AgX tone mapping → vignette → film grade (look, floor, grain).
- * Everything merges into one full-screen pass (plus SMAA's and bloom's own small passes).
- * SMAA goes first because it re-samples the raw input buffer at edges; anything merged
- * ahead of it in the same pass would be discarded there.
+ * HDR scene → antialiasing → bloom → AgX tone mapping → vignette → film grade (look, floor,
+ * grain). Everything merges into one full-screen pass (plus the antialiasing's and bloom's
+ * own small passes). Antialiasing goes first because it re-samples the raw input buffer at
+ * edges; anything merged ahead of it in the same pass would be discarded there.
  */
 export function PostPipeline() {
   const quality = useVoid((s) => s.quality)
@@ -74,7 +79,7 @@ export function PostPipeline() {
 
   return (
     <EffectComposer multisampling={0} frameBufferType={HalfFloatType} enableNormalPass={false}>
-      {antialias ? <SMAA /> : <></>}
+      {antialias ? quality === 'high' ? <SMAA /> : <FXAA /> : <></>}
       <Bloom
         ref={bloom}
         mipmapBlur

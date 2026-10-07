@@ -199,3 +199,52 @@ Desktop, at a planet                          Phone, at a planet
   - Star close-up: about 56 fps.
   - Descents and ascents on Low (where this GPU starts): p95 frame time 16.7-33 ms.
   - On High the crossfade frames run 50-100 ms on this GPU, because both levels draw at full detail. Iris Xe is roughly 2.5-3x faster.
+
+## Phase 3: The galaxy
+
+### The galaxy itself
+
+- **Arms are density waves, not drawn spirals.** Every star moves on a slightly lobed orbit whose lobes turn with radius, so neighbouring orbits crowd into logarithmic spirals. Stars move at their own speed from a flat rotation curve (inner stars faster) and pass through the arms, while the arms keep their shape and turn slowly as a whole. A spiral drawn into the particles would wind itself up under differential rotation within minutes at 1x, and instantly at the time control's 10,000x.
+- **Arms are as strong as orbits allow without crossing.** The lobe size is set from the crowding it produces (0.68 to 0.86 of the point where orbits would cross), so arms are bold but never collapse into a hard line.
+- **Young light, knots and dust are placed against the crest at a star's actual radius.** Placing them by their orbit's radius squeezed the gap between dust lane and young stars to almost nothing, because a lobe moves stars in or out depending on where they are in the arm. Dust lanes sit upstream, on the arm's inner edge. Knots sit just downstream.
+- **Knots and dust lanes turn with the arms; stars move through them.** Gas is squeezed into lanes and forms stars as it passes, so lanes and knots are always there while their material changes. Lanes wander, thicken and break along each arm and throw off feathered spurs.
+- **The home galaxy is a barred two-armed spiral named Valath Drift.** Its name was picked by ear from the first few its language offered. The first one, "Feliss Reach", echoes *Felis*. More real words joined the banned list after a star came out as "This", "Ithil" and "Sakura".
+- **About 300 stars can be visited, and each is its system's own star.** A star's identity (name, colour, size) is generated before its worlds, so the galaxy shows them without building 300 systems. Unremarkable stars carry catalogue designations (WH-93); featured, hot and bright ones keep names. A golden test pins the home system's names.
+
+### Drawing it
+
+- **The soft light and dust render into their own buffer at reduced resolution and are laid over the scene.** A diffuse glow needs no retina resolution, and blending tens of thousands of sprites is what a weak GPU pays for. The buffer is sized in CSS pixels by tier: 0.6 of the screen on High, 0.48 on Medium, 0.34 on Low. Up close, where the glow covers the screen, its resolution drops further, to half at most, until frames are on time, and climbs back when there's room.
+- **Sharp point stars draw at full resolution on top.** The galaxy's resolved stars and the stars that can be visited stay crisp; the soft glow doesn't need to be.
+- **The dust has depth.** The light is stored in three runs (below the dust layer, inside it, above it), and the run beyond the plane draws before the dust, the run in front after it. Each run is its own draw over shared buffers: drawing one buffer three times and discarding the wrong points cost more than the points themselves on this GPU.
+- **Particles are sized like a smoothing length.** Particles are larger where the galaxy is sparse, so its outskirts and the edge of the bulge are a haze rather than a spray of blobs. Their surface brightness is the same from any distance. Lower tiers draw a prefix of the same particles, each larger and brighter.
+- **Up close, the soft light thins away and an analytic glow gives it back.** Each pixel integrates the disc along its ray through the same model the particles sample, over just the distances where particles have thinned. Its coefficients come from the particles' own counts and light, so the two match in brightness.
+- **Light nearer than a resolving distance isn't glow.** An eye that close sees those stars one by one. So falling into the disc ends in a dark, starry sky with the galaxy's band along the horizon, like the Milky Way from Earth, not a bright fog.
+- **The eye adapts inside the disc.** The galaxy's glow dims by about half as the camera enters it, while its resolved stars keep their light.
+- **Nebulae are a few camera-facing layers each, sampling one shared baked noise atlas.** The atlas has four kinds of noise, one per channel. Layers sit at different depths, sizes and slow turns, so no side is flat, and they thin away before the camera can pass through one. They're larger than life (8 to 15 units for an emission nebula) so they read as clouds from across the galaxy. They glow brighter than the disc, as real star-forming regions do in hydrogen light.
+- **Bloom intensity follows the level.** A galaxy is extended light that can fill the screen, so it blooms at 45% of a system's strength, easing through transitions.
+
+### Galaxy and system
+
+- **A system's frame is turned inside its galaxy so its sky's band is the real galactic plane.** Every system shows the band composed for the earlier phases (so their framings are unchanged), turned so its bright core faces the galaxy's centre. Systems end up tilted about 25 degrees against the galactic plane, as real ones are. Seen from inside, the galaxy's light and the sky's band are one thing.
+- **The camera banks into the system's plane as it falls.** The rig now has an up basis. Flights move the camera's direction and its up along shortest arcs, planned in the frame where they end, so nothing swings round. The sky turns early in the fall, while its band is still too faint to see turning.
+- **Inside the disc, the sky's band takes over from the galaxy's particles.** The galaxy reports how far inside its disc the camera is, and the starfield fades its band in to match, whatever the level.
+- **The star is handed over whole.** The galaxy's star becomes a small limb-darkened sun as its disc resolves, sized and tinted like the system's star. At the swap the real star appears at full strength and the galaxy's copy steps aside. A crossfade showed the real star's sphere, which writes depth, as a dark ball against the galaxy's glow.
+- **A system is 0.0025 galaxy units per unit.** Its outer orbit is half a galaxy unit across, far smaller than the gaps between the galaxy's particles.
+- **Falls into a galaxy's star take 3 s; rises out to a galaxy take 3.2 s.** These are the longest drops in VOID. The breadcrumb climbs several levels by chaining rises.
+- **A galaxy's particles are generated in chunks on the CPU, in a few milliseconds per frame.** Rising into a galaxy never stalls. Every particle's randomness is a pure function of the seed and its index, so chunking changes nothing. They upload while the level is still hidden.
+
+### Interface
+
+- **Tab reaches a galaxy's notable stars, not all 300.** Those are the home star and its eleven brightest named stars, in order around the galaxy starting from home. A few hundred tab stops would be a chore, and every star is a pointer's reach away. Hover and focus show the same ring and name, so hover never gates anything.
+- **The page now opens on the home galaxy.** `?system=<index>` opens a system of the home galaxy (0 is the home system), and `?world=<index>` still opens a world of it. `?view=` takes home, top, edge, core, wide or nebula at the galaxy level.
+
+### Review and performance
+
+- **Medium and Low use FXAA; only High uses SMAA.** GPU timer queries showed SMAA alone costing 5 to 7 ms a frame on an Intel UHD 620 at 1600x900, a third of the budget, while FXAA costs about 1.5 ms. On VOID's soft edges and points the two look the same.
+- **The galaxy's own passes are cheap.** Timed with GPU queries, the soft-light buffer costs about 2 ms a frame at the overview and 2.6 ms close up on Low. What remains is the post pipeline every level shares.
+- **Measured on an Intel UHD 620 at 1600x900, DPR 1, production build:**
+  - Galaxy overview: about 59 fps on Low (where this GPU starts).
+  - Close over the disc or a nebula: 40-47 fps on Low, as the glow covers the screen.
+  - High on this GPU: 20-37 fps. High is meant for Iris Xe-class GPUs and up, roughly 2.5-3x faster.
+  - Against Phase 2's build in the same run: a world on Low went from 44 to 60 fps, and a system on Low from 54 to 61, thanks to FXAA.
+- **Measurements on this laptop drift by up to 15% over a long session as it heats.** Comparisons were made as A/B runs of two builds in one session, and timings with GPU timer queries.

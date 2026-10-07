@@ -353,8 +353,9 @@ function generateNebulae(shape: GalaxyShape, seed: number, rng: Rng, featured: b
   const count = featured ? 9 : rng.int(5, 11)
   return Array.from({ length: count }, (_, i) => {
     const kind = rng.weighted<NebulaKind>(['emission', 'reflection', 'remnant'], [60, 25, 15])
+    // Larger than life, so they read as clouds from across the galaxy, not as specks.
     const size =
-      kind === 'emission' ? rng.range(3.5, 7.5) : kind === 'reflection' ? rng.range(2.5, 5) : rng.range(2, 3.6)
+      kind === 'emission' ? rng.range(8, 15) : kind === 'reflection' ? rng.range(6, 10) : rng.range(4.5, 7)
     return {
       seed: hashSeed(seed, 0x4eb0, i),
       kind,

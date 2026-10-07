@@ -37,7 +37,7 @@ import {
   REFERENCE_LIGHT,
   type ParticleCounts,
 } from '../../core/galaxyParticles.ts'
-import { QUALITY } from '../../core/quality.ts'
+import { QUALITY, type QualityTier } from '../../core/quality.ts'
 import { useVoid } from '../../core/store.ts'
 import { num, useTweaks, type TweakSchema, type TweakValue } from '../../core/tweaks.ts'
 import compositeFrag from '../../shaders/galaxy/composite.frag'
@@ -52,28 +52,46 @@ import lightVert from '../../shaders/galaxy/light.vert'
 import starsFrag from '../../shaders/galaxy/stars.frag'
 import starsVert from '../../shaders/galaxy/stars.vert'
 import { useLevel } from '../levels/context.ts'
+import { cancelBake, enqueueBake } from '../shared/bake.ts'
 import { useShared, type Disposable } from '../shared/cache.ts'
 import { worldClock } from '../shared/clock.ts'
 import { FULLSCREEN_TRIANGLE } from '../shared/gpu.ts'
 import { cancelWork, enqueueWork, type Work } from '../shared/work.ts'
 import { handover, sky } from '../stage.ts'
+import { ATLAS_POLICY, createNebulae, NebulaAtlas } from './Nebula.ts'
 
 const TWEAKS: TweakSchema = {
-  exposure: { value: 0.2, min: 0, max: 1, step: 0.001 },
+  exposure: { value: 0.14, min: 0, max: 1, step: 0.001 },
   sparkle: { value: 0.03, min: 0, max: 0.3, step: 0.001 },
   coreLight: { value: 1.6, min: 0, max: 6, step: 0.01 },
-  starLight: { value: 2.2, min: 0, max: 10, step: 0.01 },
+  starLight: { value: 2.8, min: 0, max: 10, step: 0.01 },
   dust: { value: 1, min: 0, max: 3, step: 0.01 },
   softness: { value: 0.75, min: 0.3, max: 2, step: 0.01 },
   spread: { value: 3.6, min: 0.8, max: 10, step: 0.01 },
   youngShift: { value: 0.25, min: -1.5, max: 1.5, step: 0.01 },
 }
 
-/** The soft light is drawn at this share of the screen's resolution, then laid over it. */
-const BUFFER_SCALE = 0.5
+/**
+ * The soft light is drawn at this share of the screen's size in CSS pixels, then laid over
+ * it: a diffuse glow needs no retina resolution, and blending its many sprites is what a
+ * weak GPU pays for.
+ */
+const BUFFER_SCALE: Record<QualityTier, number> = { high: 0.6, medium: 0.48, low: 0.34 }
+
+/**
+ * Close up, a galaxy's glow covers the screen and can cost more than a frame allows. Its
+ * buffer's resolution then steps down (to half at most) until frames are on time again, and
+ * back up when there is room: the glow is soft enough that the change never shows. Steps are
+ * coarse and slow, so the buffer is rarely reallocated and the resolution never oscillates.
+ */
+const ADAPT_STEP = 0.1
+const ADAPT_MIN = 0.5
+const ADAPT_SLOW = 1 / 52
+const ADAPT_FAST = 1 / 58
+const ADAPT_HOLD = 0.8
 
 /** Draw order inside the light buffer, with the camera above the plane (mirrored below). */
-const BUFFER_ORDER = { fog: -1, back: 0, coreBack: 1, middle: 2, dust: 3, front: 4, coreFront: 5 } as const
+const BUFFER_ORDER = { fog: -1, back: 0, coreBack: 1, middle: 2, dust: 3, front: 4, coreFront: 5, nebulae: 6 } as const
 /** Draw order on screen: the soft light behind, then the sharp stars over it. */
 const SCREEN_ORDER = { light: -12, sparkle: -9, stars: -8 } as const
 
@@ -85,6 +103,9 @@ const ADD_KEEPING_ALPHA = {
   blendSrcAlpha: ZeroFactor,
   blendDstAlpha: OneFactor,
 } as const
+
+/** How bright the nebulae glow, at the tuned exposure. */
+const NEBULA_GLOW = 1.6
 
 /** How far the galaxy's glow dims once the camera is inside its disc. */
 const ADAPTATION = 0.55
@@ -106,18 +127,34 @@ function orbitUniforms(galaxy: GalaxyData): Record<string, IUniform> {
   }
 }
 
-/** A galaxy's particles on the GPU, shared like a planet's maps. */
+/**
+ * A galaxy's particles on the GPU, shared like a planet's maps. The light is one set of
+ * buffers drawn as three runs (below the dust layer, inside it, above it), each its own
+ * geometry over the same attributes, so every draw touches only its own particles.
+ */
 class GalaxyBuffers implements Disposable, Work {
   readonly job: GalaxyParticleJob
-  readonly light = new BufferGeometry()
+  readonly below = new BufferGeometry()
+  readonly inside = new BufferGeometry()
+  readonly above = new BufferGeometry()
   readonly sparkle = new BufferGeometry()
   readonly dust = new BufferGeometry()
   ready = false
+  private counts: ParticleCounts
 
   constructor(galaxy: GalaxyData, total: number) {
     this.job = new GalaxyParticleJob(galaxy, total)
+    this.counts = particleCounts(total)
+    const light = this.job.light
+    const orbit = new BufferAttribute(light.orbit, 4)
+    const shape = new BufferAttribute(light.shape, 4)
+    const colour = new BufferAttribute(light.colour, 4, true)
+    for (const geometry of [this.below, this.inside, this.above]) {
+      geometry.setAttribute('aOrbit', orbit)
+      geometry.setAttribute('aShape', shape)
+      geometry.setAttribute('aColour', colour)
+    }
     const pairs = [
-      [this.light, this.job.light],
       [this.sparkle, this.job.sparkle],
       [this.dust, this.job.dust],
     ] as const
@@ -126,29 +163,45 @@ class GalaxyBuffers implements Disposable, Work {
       geometry.setAttribute('aShape', new BufferAttribute(set.shape, 4))
       geometry.setAttribute('aColour', new BufferAttribute(set.colour, 4, true))
     }
-    this.draw(particleCounts(total))
+    this.draw(this.counts)
   }
 
-  /** Draw a prefix of each set: particles are independent, so a prefix is a fair sample. */
+  /** Draw a prefix of each run: particles are independent, so a prefix is a fair sample. */
   draw(counts: ParticleCounts) {
-    this.light.setDrawRange(0, Math.min(counts.light, this.job.light.count))
+    this.counts = counts
+    const share = Math.min(1, counts.light / this.job.light.count)
+    const runs = this.job.groups
+    const pairs = [
+      [this.below, runs?.below],
+      [this.inside, runs?.inside],
+      [this.above, runs?.above],
+    ] as const
+    for (const [geometry, run] of pairs) geometry.setDrawRange(run?.start ?? 0, run ? Math.round(run.count * share) : 0)
     this.sparkle.setDrawRange(0, Math.min(counts.sparkle, this.job.sparkle.count))
     this.dust.setDrawRange(0, Math.min(counts.dust, this.job.dust.count))
   }
 
   step(deadline: number): boolean {
     while (!this.job.done && performance.now() < deadline) this.job.step(4096)
-    this.ready = this.job.done
+    this.finish()
     return this.ready
   }
 
   run() {
     this.job.run()
+    this.finish()
+  }
+
+  private finish() {
+    if (this.ready || !this.job.done) return
     this.ready = true
+    this.draw(this.counts)
   }
 
   dispose() {
-    this.light.dispose()
+    this.below.dispose()
+    this.inside.dispose()
+    this.above.dispose()
     this.sparkle.dispose()
     this.dust.dispose()
   }
@@ -210,8 +263,11 @@ export function Galaxy({ galaxy, active, handed }: GalaxyProps) {
   const quality = useVoid((s) => s.quality)
   const [total] = useState(() => QUALITY[useVoid.getState().quality].galaxyParticles)
   const buffers = useShared(`galaxy:${galaxy.index}:${total}`, () => new GalaxyBuffers(galaxy, total), POLICY)
+  const [atlasSize] = useState(() => (useVoid.getState().quality === 'low' ? 512 : 1024))
+  const atlas = useShared(`nebula-atlas:${atlasSize}`, () => new NebulaAtlas(atlasSize), ATLAS_POLICY)
   const root = useRef<Group>(null)
   const warmed = useRef(false)
+  const adapt = useRef({ share: 1, frame: 1 / 60, hold: 0 })
   const tuned = useRef({
     exposure: num(TWEAKS, 'exposure'),
     softness: num(TWEAKS, 'softness'),
@@ -228,6 +284,15 @@ export function Galaxy({ galaxy, active, handed }: GalaxyProps) {
     }
     buffers.run()
   }, [buffers, level.background])
+
+  useLayoutEffect(() => {
+    if (atlas.job.ready) return
+    if (level.background) {
+      enqueueBake(atlas.job)
+      return () => cancelBake(atlas.job)
+    }
+    atlas.job.run(gl)
+  }, [atlas, gl, level.background])
 
   const orbit = useMemo(() => orbitUniforms(galaxy), [galaxy])
 
@@ -249,7 +314,6 @@ export function Galaxy({ galaxy, active, handed }: GalaxyProps) {
       uNear: { value: 1.2 },
       uSizeScale: { value: 1 },
       uLightScale: { value: 1 },
-      uLayer: { value: galaxy.shape.thickness * 0.5 },
       uResolve: { value: 0 },
     }
     const lightUniforms = {
@@ -259,20 +323,16 @@ export function Galaxy({ galaxy, active, handed }: GalaxyProps) {
       uPeakMax: { value: 6 },
       uYoungShift: { value: num(TWEAKS, 'youngShift') },
     }
-    const lightMaterial = (group: number) =>
-      new ShaderMaterial({
-        name: 'galaxy-light',
-        vertexShader: lightVert,
-        fragmentShader: lightFrag,
-        uniforms: { ...lightUniforms, uGroup: { value: group } },
-        ...ADD_KEEPING_ALPHA,
-        transparent: true,
-        depthTest: false,
-        depthWrite: false,
-      })
-    const below = lightMaterial(-1)
-    const inside = lightMaterial(0)
-    const above = lightMaterial(1)
+    const light = new ShaderMaterial({
+      name: 'galaxy-light',
+      vertexShader: lightVert,
+      fragmentShader: lightFrag,
+      uniforms: lightUniforms,
+      ...ADD_KEEPING_ALPHA,
+      transparent: true,
+      depthTest: false,
+      depthWrite: false,
+    })
     const dust = new ShaderMaterial({
       name: 'galaxy-dust',
       vertexShader: dustVert,
@@ -323,9 +383,7 @@ export function Galaxy({ galaxy, active, handed }: GalaxyProps) {
         uNear: { value: 0.8 },
         uSizeScale: { value: 1 },
         uLightScale: { value: 1 },
-        uLayer: soft.uLayer,
         uResolve: { value: 1 },
-        uGroup: { value: 2 },
         uExposure: { value: num(TWEAKS, 'sparkle') },
         uPeakMax: { value: 10 },
         uYoungShift: lightUniforms.uYoungShift,
@@ -388,6 +446,8 @@ export function Galaxy({ galaxy, active, handed }: GalaxyProps) {
       depthWrite: false,
     })
 
+    const nebulae = createNebulae(galaxy, orbit, soft.uFade, atlas)
+
     const composite = new ShaderMaterial({
       name: 'galaxy-composite',
       vertexShader: compositeVert,
@@ -406,13 +466,14 @@ export function Galaxy({ galaxy, active, handed }: GalaxyProps) {
     scene.add(holder)
     const quad = new PlaneGeometry(2, 2)
     const layers = {
-      below: new Points(buffers.light, below),
-      inside: new Points(buffers.light, inside),
-      above: new Points(buffers.light, above),
+      below: new Points(buffers.below, light),
+      inside: new Points(buffers.inside, light),
+      above: new Points(buffers.above, light),
       dust: new Points(buffers.dust, dust),
       coreBack: new Mesh(quad, core),
       coreFront: new Mesh(quad, core),
       fog: new Mesh(FULLSCREEN_TRIANGLE, fog),
+      nebulae: nebulae.mesh,
     }
     for (const object of Object.values(layers)) {
       object.frustumCulled = false
@@ -423,6 +484,7 @@ export function Galaxy({ galaxy, active, handed }: GalaxyProps) {
     layers.coreBack.renderOrder = BUFFER_ORDER.coreBack
     layers.coreFront.renderOrder = BUFFER_ORDER.coreFront
     layers.fog.renderOrder = BUFFER_ORDER.fog
+    layers.nebulae.renderOrder = BUFFER_ORDER.nebulae
 
     const starGeometry = createStars(galaxy)
     const screen = {
@@ -435,7 +497,7 @@ export function Galaxy({ galaxy, active, handed }: GalaxyProps) {
     screen.stars.renderOrder = SCREEN_ORDER.stars
     for (const object of Object.values(screen)) object.frustumCulled = false
 
-    const materials = [below, inside, above, dust, core, sparkle, stars, composite, fog]
+    const materials = [light, dust, core, sparkle, stars, composite, fog]
     return {
       target,
       soft,
@@ -454,8 +516,9 @@ export function Galaxy({ galaxy, active, handed }: GalaxyProps) {
       composite,
       fog,
       emission,
+      nebulae,
     }
-  }, [galaxy, buffers, orbit])
+  }, [galaxy, buffers, orbit, atlas])
 
   // Leaving the stage, the sky stops being this galaxy's band.
   useEffect(
@@ -468,6 +531,7 @@ export function Galaxy({ galaxy, active, handed }: GalaxyProps) {
   useEffect(
     () => () => {
       for (const material of parts.materials) material.dispose()
+      parts.nebulae.dispose()
       parts.target.dispose()
       parts.quad.dispose()
       parts.starGeometry.dispose()
@@ -519,10 +583,22 @@ export function Galaxy({ galaxy, active, handed }: GalaxyProps) {
   )
   useTweaks('Galaxy', TWEAKS, apply)
 
-  useFrame((state) => {
+  useFrame((state, delta) => {
     const group = root.current
     if (!group) return
     const ready = buffers.ready
+
+    // Resolution follows the frame rate while the galaxy is on screen.
+    const a = adapt.current
+    a.frame += (Math.min(delta, 0.1) - a.frame) * 0.08
+    a.hold = Math.max(0, a.hold - delta)
+    if (a.hold === 0 && a.frame > ADAPT_SLOW && a.share > ADAPT_MIN) {
+      a.share = Math.max(ADAPT_MIN, a.share - ADAPT_STEP)
+      a.hold = ADAPT_HOLD
+    } else if (a.hold === 0 && a.frame < ADAPT_FAST && a.share < 1) {
+      a.share = Math.min(1, a.share + ADAPT_STEP)
+      a.hold = ADAPT_HOLD * 2
+    }
     const { soft, screen, layers, target } = parts
     screen.sparkle.visible = ready
     screen.composite.visible = false
@@ -533,8 +609,9 @@ export function Galaxy({ galaxy, active, handed }: GalaxyProps) {
     const dpr = state.viewport.dpr
     const width = Math.max(1, Math.round(state.size.width * dpr))
     const height = Math.max(1, Math.round(state.size.height * dpr))
-    const bufferWidth = Math.max(1, Math.round(width * BUFFER_SCALE))
-    const bufferHeight = Math.max(1, Math.round(height * BUFFER_SCALE))
+    const share = BUFFER_SCALE[useVoid.getState().quality] * a.share
+    const bufferWidth = Math.max(1, Math.round(state.size.width * share))
+    const bufferHeight = Math.max(1, Math.round(state.size.height * share))
     if (target.width !== bufferWidth || target.height !== bufferHeight) target.setSize(bufferWidth, bufferHeight)
     ;(parts.composite.uniforms.uResolution!.value as Vector2).set(width, height)
     const focal = 1 / (2 * Math.tan((cam.fov * Math.PI) / 360))
@@ -563,12 +640,14 @@ export function Galaxy({ galaxy, active, handed }: GalaxyProps) {
     // there, dims, while its resolved stars keep their light.
     const exposure = tuned.current.exposure * (1 - ADAPTATION * sky.inside)
     parts.lightUniforms.uExposure.value = exposure
+    parts.nebulae.material.uniforms.uGlow!.value = NEBULA_GLOW * (exposure / num(TWEAKS, 'exposure'))
+    layers.nebulae.visible = atlas.job.ready
 
     // The near glow covers the distances where the disc's particles have thinned away.
     const typical = OLD_SIZE * Math.sqrt(REFERENCE_LIGHT / buffers.job.light.count) * (soft.uSizeScale.value as number)
     const reach = (typical * (soft.uPixelsPerUnit.value as number)) / tuned.current.spread
     const f = parts.fog.uniforms
-    ;(f.uNear!.value as Vector2).set(reach * 0.5, reach)
+    ;(f.uNear!.value as Vector2).set(reach / 1.5, reach)
     f.uResolve!.value = reach * 0.3
     layers.fog.visible = away < reach
     f.uOldLight!.value = parts.emission.old * exposure

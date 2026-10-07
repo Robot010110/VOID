@@ -98,12 +98,26 @@ body {
   right: max(var(--gutter), env(safe-area-inset-right));
   bottom: max(calc(var(--gutter) * 1.1), env(safe-area-inset-bottom));
   max-width: 34rem;
+  isolation: isolate;
   text-shadow: var(--halo);
   opacity: 0;
   transform: translateY(6px);
   transition:
     opacity 0.5s ease,
     transform 0.5s ease;
+}
+
+/*
+ * A soft pool of darkness behind the caption, so it reads over a bright galaxy or a sunlit
+ * world as well as over the sky. No edges: it is shade, not a panel.
+ */
+.caption::before {
+  content: '';
+  position: absolute;
+  inset: -55% -45% -70% -60%;
+  z-index: -1;
+  background: radial-gradient(closest-side at 38% 58%, rgb(3 4 11 / 0.55), rgb(3 4 11 / 0.3) 50%, transparent);
+  pointer-events: none;
 }
 
 .caption[data-shown='true'] {

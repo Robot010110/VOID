@@ -61,6 +61,30 @@ export function bakeCube(gl: WebGLRenderer, target: WebGLCubeRenderTarget, mater
   }
 }
 
+/** Render one rectangle of a 2D target; mipmaps are built only with the last one. */
+export function bakeTile(
+  gl: WebGLRenderer,
+  target: WebGLRenderTarget,
+  material: ShaderMaterial,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  last: boolean,
+) {
+  const mipmaps = target.texture.minFilter !== LinearFilter
+  renderWith(gl, material, () => {
+    const whole = x === 0 && y === 0 && width === target.width && height === target.height
+    target.scissor.set(x, y, width, height)
+    target.scissorTest = !whole
+    target.texture.generateMipmaps = mipmaps && last
+    gl.setRenderTarget(target)
+    gl.render(bakeScene, bakeCamera)
+    target.scissorTest = false
+    target.texture.generateMipmaps = mipmaps
+  })
+}
+
 /**
  * Render one rectangle of one cube face. three regenerates a target's whole mip chain after
  * every render into it, so mipmaps are only built on the pass that completes the map.

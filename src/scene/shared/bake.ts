@@ -1,16 +1,21 @@
 /**
- * Baking procedural cube maps, either all at once (when a scene first loads, hidden by its
- * fade-in) or a few tiles per frame within a budget (while the camera is flying, where a
- * long bake would freeze the motion). Tiles are scissored rectangles of one face, so the
- * bake shaders, which work from gl_FragCoord, need no changes. Passes differ in cost by an
- * order of magnitude, so the background budget is counted in tiles of the pass being baked.
+ * Baking procedural maps (cube maps for worlds, flat maps for nebulae), either all at once
+ * (when a scene first loads, hidden by its fade-in) or a few tiles per frame within a budget
+ * (while the camera is flying, where a long bake would freeze the motion). Tiles are
+ * scissored rectangles of one face, so the bake shaders, which work from gl_FragCoord, need
+ * no changes. Passes differ in cost by an order of magnitude, so the background budget is
+ * counted in tiles of the pass being baked.
  */
-import type { ShaderMaterial, WebGLCubeRenderTarget, WebGLRenderer } from 'three'
-import { bakeCubeTile } from './gpu.ts'
+import { WebGLCubeRenderTarget, type ShaderMaterial, type WebGLRenderer, type WebGLRenderTarget } from 'three'
+import { bakeCubeTile, bakeTile } from './gpu.ts'
 
 export interface BakePass {
-  readonly target: WebGLCubeRenderTarget
+  readonly target: WebGLCubeRenderTarget | WebGLRenderTarget
   readonly material: ShaderMaterial
+}
+
+function isCube(target: WebGLCubeRenderTarget | WebGLRenderTarget): target is WebGLCubeRenderTarget {
+  return target instanceof WebGLCubeRenderTarget
 }
 
 /** Largest tile side baked in one go. */
@@ -70,19 +75,23 @@ export class BakeJob {
     const pass = this.pass
     while (this.pass === pass && baked < tiles) {
       const { target, material } = this.passes[this.pass]!
-      const size = target.width
-      const tile = Math.min(TILE, size)
-      const perRow = Math.ceil(size / tile)
+      const cube = isCube(target)
+      const faces = cube ? 6 : 1
+      const tile = Math.min(TILE, target.width)
+      const perRow = Math.ceil(target.width / tile)
+      const perColumn = Math.ceil(target.height / tile)
       const x = (this.tile % perRow) * tile
       const y = Math.floor(this.tile / perRow) * tile
-      const width = Math.min(tile, size - x)
-      const height = Math.min(tile, size - y)
-      const lastTile = this.tile === perRow * perRow - 1
-      bakeCubeTile(gl, target, material, this.face, x, y, width, height, lastTile && this.face === 5)
+      const width = Math.min(tile, target.width - x)
+      const height = Math.min(tile, target.height - y)
+      const lastTile = this.tile === perRow * perColumn - 1
+      const last = lastTile && this.face === faces - 1
+      if (cube) bakeCubeTile(gl, target, material, this.face, x, y, width, height, last)
+      else bakeTile(gl, target, material, x, y, width, height, last)
       baked++
       if (!lastTile) {
         this.tile++
-      } else if (this.face < 5) {
+      } else if (this.face < faces - 1) {
         this.tile = 0
         this.face++
       } else {

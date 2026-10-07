@@ -28,10 +28,6 @@ uniform float uSizeScale;
 uniform float uLightScale;
 // 1 for point stars, which brighten close up; 0 for the soft glow, which thins away.
 uniform float uResolve;
-// Which particles this draw takes: those below the dust layer (-1), inside it (0), above it
-// (1), or all (2). The layer's half-thickness is uLayer.
-uniform float uGroup;
-uniform float uLayer;
 
 varying vec3 vColour;
 varying float vPeak;
@@ -39,12 +35,6 @@ varying float vSigma;
 varying float vHalf;
 
 void main() {
-  float group = aOrbit.z > uLayer ? 1.0 : (aOrbit.z < -uLayer ? -1.0 : 0.0);
-  if (uGroup < 1.5 && abs(group - uGroup) > 0.5) {
-    gl_Position = vec4(0.0, 0.0, 2.0, 1.0);
-    gl_PointSize = 0.0;
-    return;
-  }
   float phase;
   float presence;
   vec3 local = galacticPosition(aOrbit, aShape.w, phase, presence);
@@ -62,19 +52,22 @@ void main() {
   if (uResolve > 0.5) {
     sigma = min(sigma, uMaxSigma);
   } else {
-    thin = 1.0 - smoothstep(uMaxSigma, uMaxSigma * 2.0, sigmaFar);
-    sigma = min(sigma, uMaxSigma * 2.0);
+    // Thinning sprites are nearly transparent: they fade quickly and are never drawn large.
+    thin = 1.0 - smoothstep(uMaxSigma, uMaxSigma * 1.5, sigmaFar);
+    sigma = min(sigma, uMaxSigma * 1.5);
   }
 
   // Young light lives in the arms; beyond them (the outskirts) only a little of it shines.
   float gate = aShape.z > 0.0 ? mix(0.15, pow(crest(phase, uYoungShift), aShape.z), presence) : 1.0;
   float near = smoothstep(uNear, uNear * 3.0, distance / scale);
   float peak = uExposure * aShape.y * uLightScale / (size * size) * (sigmaFar * sigmaFar) / (sigma * sigma);
+
   peak = min(peak * gate, uPeakMax) * thin * near * uFade;
 
   vColour = aColour.rgb;
   vPeak = peak;
   vSigma = sigma;
-  vHalf = ceil(sigma * 2.3) + 0.5;
+  // Sized exactly: rounding up to whole pixels would add a third to small sprites' cost.
+  vHalf = sigma * 2.0 + 0.5;
   gl_PointSize = peak > 2e-4 && view.z < 0.0 ? min(vHalf * 2.0, uMaxPointSize) : 0.0;
 }
