@@ -2,6 +2,7 @@
  * Hooks for the screenshot script and for profiling (`?shot=` or `?debug` only): trigger
  * transitions and find targets on screen without simulating a hunt with the mouse.
  */
+import { getUniverse } from '../core/cosmos.ts'
 import { DEBUG, SHOT } from '../core/env.ts'
 import { useVoid } from '../core/store.ts'
 import { ascend, back, descend } from './camera/transitions.ts'
@@ -26,6 +27,8 @@ export function installTestHooks() {
     /** Frames still to run from the last advance. */
     pending: () => stepping.frames,
     locate: (index: number) => levelRuntime(useVoid.getState().path).locate?.(index) ?? null,
+    /** The black hole's index among the universe's children. */
+    hole: () => getUniverse().hole.index,
     state: () => {
       const { path, level, transition, hoverTarget } = useVoid.getState()
       return {

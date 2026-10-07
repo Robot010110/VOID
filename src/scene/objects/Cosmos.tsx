@@ -56,7 +56,7 @@ const TWEAKS: TweakSchema = {
   coreLight: { value: 1.6, min: 0, max: 6, step: 0.01 },
   gas: { value: 0.0045, min: 0, max: 0.1, step: 0.0001 },
   field: { value: 0.9, min: 0, max: 4, step: 0.01 },
-  nebulae: { value: 0.14, min: 0, max: 3, step: 0.01 },
+  nebulae: { value: 0.11, min: 0, max: 3, step: 0.01 },
 }
 
 /** Draw order on screen: the deep field, the soft light over it, then the sharp points. */
@@ -82,10 +82,21 @@ const REFERENCE_GAS = 6000
 /** The universe is always one rise away: its particles are kept for a long while unused. */
 const POLICY = { keepFor: 600_000, group: 'universe', spare: 1 }
 
-/** One set of particles for every galaxy, each tagged with its galaxy's row. */
+/**
+ * One set of particles for every galaxy, each tagged with its galaxy's row plus its place among
+ * that galaxy's particles (0 to 1), for drawing a galaxy small on screen from fewer of them.
+ */
 interface Combined extends ParticleSet {
   readonly galaxy: Float32Array
 }
+
+/**
+ * Particles a galaxy draws per square pixel of its disc in the soft buffer, and the fewest it
+ * ever draws. Far galaxies are a few pixels across: thousands of particles there would only
+ * cost points (each one dear on some GPUs) without adding anything to see.
+ */
+const DETAIL_DENSITY = 8
+const DETAIL_MIN = 160
 
 function combined(count: number): Combined {
   return {
@@ -135,6 +146,10 @@ class UniverseGalaxies implements Disposable, Work {
   readonly sparkle = new BufferGeometry()
   readonly dust = new BufferGeometry()
   readonly data: DataTexture
+  /** Per galaxy: the share of its particles drawn this frame. */
+  readonly detail: DataTexture
+  /** Per galaxy: how many particles its light holds. */
+  readonly lights: readonly number[]
   ready = false
   private readonly sets: { light: Combined; sparkle: Combined; dust: Combined }
   private readonly looks: GalaxyLook[]
@@ -167,6 +182,11 @@ class UniverseGalaxies implements Disposable, Work {
       geometry.setDrawRange(0, 0)
     }
     this.data = galaxyTexture(universe, this.looks)
+    this.detail = new DataTexture(new Float32Array(this.looks.length * 4).fill(1), this.looks.length, 1, RGBAFormat, FloatType)
+    this.detail.minFilter = NearestFilter
+    this.detail.magFilter = NearestFilter
+    this.detail.needsUpdate = true
+    this.lights = this.looks.map((look) => particleCounts(perGalaxy, look.kind).light)
   }
 
   step(deadline: number): boolean {
@@ -195,7 +215,7 @@ class UniverseGalaxies implements Disposable, Work {
       into.orbit.set(from.orbit, at * 4)
       into.shape.set(from.shape, at * 4)
       into.colour.set(from.colour, at * 4)
-      into.galaxy.fill(galaxy, at, at + from.count)
+      for (let k = 0; k < from.count; k++) into.galaxy[at + k] = galaxy + k / from.count
       this.offsets[name] = at + from.count
     }
   }
@@ -213,6 +233,7 @@ class UniverseGalaxies implements Disposable, Work {
     this.sparkle.dispose()
     this.dust.dispose()
     this.data.dispose()
+    this.detail.dispose()
   }
 }
 
@@ -266,6 +287,7 @@ function shown(object: Object3D): boolean {
 }
 
 const cameraLocal = new Vector3()
+const centre = new Vector3()
 
 /**
  * The universe's content: its galaxies, the faint gas of the cosmic web, its nebulae, the deep
@@ -315,6 +337,7 @@ export function Cosmos({ universe }: { universe: Universe }) {
     const lightUniforms = (side: number): Record<string, IUniform> => ({
       uTime: time,
       uGalaxies: { value: galaxies.data },
+      uDetail: { value: galaxies.detail },
       uFade: fade,
       uCamera: camera,
       uSide: { value: side },
@@ -347,6 +370,7 @@ export function Cosmos({ universe }: { universe: Universe }) {
       uniforms: {
         uTime: time,
         uGalaxies: { value: galaxies.data },
+        uDetail: { value: galaxies.detail },
         uFade: fade,
         uPixelsPerUnit: softPixels,
         uMinSigma: { value: 0.75 },
@@ -524,6 +548,17 @@ export function Cosmos({ universe }: { universe: Universe }) {
     parts.sparkle.uniforms.uMinSigma!.value = 0.6 * dpr
     parts.sparkle.uniforms.uMaxSigma!.value = 1.3 * dpr
     parts.field.uniforms.uMinSigma!.value = 0.65 * dpr
+
+    // Each galaxy draws as many of its particles as its size in the soft buffer needs.
+    const shares = galaxies.detail.image.data as Float32Array
+    const pixels = parts.softPixels.value as number
+    const scale = group.matrixWorld.getMaxScaleOnAxis()
+    universe.galaxies.forEach((site, i) => {
+      centre.set(site.position[0], site.position[1], site.position[2]).applyMatrix4(group.matrixWorld)
+      const radius = (site.size * scale * pixels) / Math.max(cam.position.distanceTo(centre), 1e-6)
+      shares[i * 4] = Math.min(1, Math.max(DETAIL_MIN, DETAIL_DENSITY * radius * radius) / galaxies.lights[i]!)
+    })
+    galaxies.detail.needsUpdate = true
 
     const visible = shown(group) && level.fade.current > 0
     screen.composite.visible = false

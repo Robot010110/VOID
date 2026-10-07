@@ -56,8 +56,12 @@ export function PostPipeline() {
   useEffect(() => () => lensing.dispose(), [lensing])
 
   // After the scene's own frame callbacks (the hole writes `lens`), before the composer renders.
+  // The pass also runs, bending nothing, for the first frames: its program then compiles while
+  // the page loads, never mid-flight on the way up to the universe.
+  const frames = useRef(0)
   useFrame(() => {
-    lensing.enabled = lens.active
+    frames.current++
+    lensing.enabled = lens.active || frames.current <= 3
   }, 0.5)
   const bloom = useRef<BloomEffect>(null)
   const vignette = useRef<VignetteEffect>(null)

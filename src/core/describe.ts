@@ -93,7 +93,7 @@ export function describeHole(): string {
 export function describeGalaxy(galaxy: GalaxyData, homeIndex?: number): string {
   const { shape } = galaxy
   if (galaxy.kind === 'elliptical') {
-    const giant = galaxySite(galaxy.index).size > 17
+    const giant = galaxySite(galaxy.index).size > 23
     return [
       `${giant ? 'A giant elliptical galaxy' : 'An elliptical galaxy'}, a smooth swarm of old golden stars, with no arms and no dust.`,
       'Its oldest stars gather in tight round clusters that hang around it like sparks.',

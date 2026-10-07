@@ -19,6 +19,13 @@ varying float vSigma;
 varying float vHalf;
 
 void main() {
+  float share;
+  float kept = detail(aGalaxy, share);
+  if (kept <= 0.0) {
+    gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+    gl_PointSize = 0.0;
+    return;
+  }
   loadGalaxy(aGalaxy);
   float phase;
   float presence;
@@ -30,10 +37,11 @@ void main() {
 
   float scale = length(modelMatrix[0].xyz) * gScale;
   float distance = max(-view.z, 1e-5);
-  float sigmaFar = aShape.x * scale * uPixelsPerUnit / distance;
+  // Fewer dust clouds are drawn larger, as a lower tier does.
+  float sigmaFar = aShape.x * inversesqrt(share) * scale * uPixelsPerUnit / distance;
   float sigma = max(sigmaFar, uMinSigma);
   float thin = (sigmaFar * sigmaFar) / (sigma * sigma) * (1.0 - smoothstep(uMaxSigma, uMaxSigma * 2.0, sigmaFar));
-  vAlpha = clamp(aShape.y * uDustScale * thin * uFade, 0.0, 1.0);
+  vAlpha = clamp(aShape.y * uDustScale * thin * kept * uFade, 0.0, 1.0);
   sigma = min(sigma, uMaxSigma * 2.0);
   vSigma = sigma;
   vHalf = sigma * 2.1 + 0.5;

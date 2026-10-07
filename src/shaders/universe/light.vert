@@ -31,6 +31,13 @@ varying float vSigma;
 varying float vHalf;
 
 void main() {
+  float share;
+  float kept = detail(aGalaxy, share);
+  if (kept <= 0.0) {
+    gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+    gl_PointSize = 0.0;
+    return;
+  }
   loadGalaxy(aGalaxy);
   float phase;
   float presence;
@@ -54,7 +61,7 @@ void main() {
 
   float scale = length(modelMatrix[0].xyz) * gScale;
   float distance = max(-view.z, 1e-5);
-  float size = aShape.x;
+  float size = aShape.x * inversesqrt(share);
   float sigmaFar = size * scale * uPixelsPerUnit / distance;
   float sigma = max(sigmaFar, uMinSigma);
   float thin = 1.0;
@@ -66,8 +73,8 @@ void main() {
   }
 
   float gate = aShape.z > 0.0 ? mix(0.15, pow(crest(phase, uYoungShift), aShape.z), presence) : 1.0;
-  float peak = uExposure * aShape.y / (size * size) * (sigmaFar * sigmaFar) / (sigma * sigma);
-  peak = min(peak * gate, uPeakMax) * thin * uFade;
+  float peak = uExposure * aShape.y / share / (size * size) * (sigmaFar * sigmaFar) / (sigma * sigma);
+  peak = min(peak * gate, uPeakMax) * thin * kept * uFade;
 
   vColour = aColour.rgb;
   vPeak = peak;

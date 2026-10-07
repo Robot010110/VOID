@@ -243,11 +243,15 @@ function generateFilaments(nodes: readonly WebNode[], rng: Rng): Filament[] {
   return threads
 }
 
+/**
+ * Galaxies' radii in the universe, larger than life against the web (as the nebulae are), so
+ * from across the universe a spiral still reads as a spiral.
+ */
 const SIZES: Record<GalaxyKind, [number, number]> = {
-  spiral: [10, 16],
-  barred: [10, 15],
-  elliptical: [9, 15],
-  irregular: [4.5, 7.5],
+  spiral: [14, 21],
+  barred: [14, 20],
+  elliptical: [12, 20],
+  irregular: [6.5, 10],
 }
 
 /** What kinds of galaxy live where: ellipticals crowd the cluster, spirals the threads. */
@@ -261,7 +265,7 @@ const KIND_WEIGHTS: Record<'cluster' | 'group' | 'filament' | 'field', readonly 
 const KINDS: readonly GalaxyKind[] = ['spiral', 'barred', 'elliptical', 'irregular']
 
 /** The home galaxy is a barred spiral of this size, in a modest group (like our Local Group). */
-const HOME_SIZE = 14
+const HOME_SIZE = 19
 
 function generateGalaxies(nodes: readonly WebNode[], filaments: readonly Filament[], rng: Rng): GalaxySite[] {
   const total = rng.int(56, 66)
@@ -277,7 +281,7 @@ function generateGalaxies(nodes: readonly WebNode[], filaments: readonly Filamen
   }
   const sized = (kind: GalaxyKind, dwarf = false) => {
     const [min, max] = SIZES[kind]
-    return dwarf && kind === 'elliptical' ? rng.range(5.5, 8) : rng.range(min, max)
+    return dwarf && kind === 'elliptical' ? rng.range(7.5, 11) : rng.range(min, max)
   }
 
   // Home: the group whose richness is most modest-but-not-least, a little off its centre.
@@ -292,7 +296,7 @@ function generateGalaxies(nodes: readonly WebNode[], filaments: readonly Filamen
   }
 
   // The great cluster's heart: a giant elliptical.
-  place('elliptical', rng.range(19, 23), 0, () => add(nodes[0]!.position, gaussian(rng, 8)))
+  place('elliptical', rng.range(25, 30), 0, () => add(nodes[0]!.position, gaussian(rng, 8)))
 
   // The rest, node by node, then along the threads, then alone.
   const slots: Array<{ node: number; filament: number }> = []

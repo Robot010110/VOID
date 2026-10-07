@@ -13,15 +13,17 @@ interface Shot {
   scale?: number
   /** Hover the world with this index before the picture. */
   hover?: number
-  /** Fall into the child with this index and wait until the camera has settled there. */
-  descend?: number
+  /** Fall into the child with this index (or the black hole) and wait until it settles. */
+  descend?: number | 'hole'
   /** Where that fall arrives (by default a world of the home system). */
   arrive?: number[]
 }
 
 const PLANET = 'shot=planet&quality=high'
 const SYSTEM = 'shot=system&quality=high&system=0'
-const GALAXY = 'shot=galaxy&quality=high'
+const GALAXY = 'shot=galaxy&quality=high&galaxy=0'
+const UNIVERSE = 'shot=universe&quality=high'
+const HOLE = 'shot=hole&quality=high&hole'
 const PHONE = { viewport: { width: 390, height: 844 }, scale: 2 }
 
 const SHOTS: Shot[] = [
@@ -61,13 +63,33 @@ const SHOTS: Shot[] = [
   { name: '3-galaxy-nebula', query: `${GALAXY}&view=nebula` },
   { name: '3-galaxy-hover', query: GALAXY, hover: 0 },
   { name: '3-arrival', query: GALAXY, descend: 0, arrive: [0, 0] },
-  { name: '3-galaxy-low', query: 'shot=galaxy&quality=low' },
-  { name: '3-galaxy-phone', query: 'shot=galaxy&quality=medium', ...PHONE },
+  { name: '3-galaxy-low', query: 'shot=galaxy&quality=low&galaxy=0' },
+  { name: '3-galaxy-phone', query: 'shot=galaxy&quality=medium&galaxy=0', ...PHONE },
+  // Phase 4: the universe, its kinds of galaxy, the black hole, and the falls into them.
+  { name: '4-universe-home', query: UNIVERSE },
+  { name: '4-universe-top', query: `${UNIVERSE}&view=top` },
+  { name: '4-universe-cluster', query: `${UNIVERSE}&view=cluster` },
+  { name: '4-universe-local', query: `${UNIVERSE}&view=local` },
+  { name: '4-universe-nebula', query: `${UNIVERSE}&view=nebula` },
+  { name: '4-universe-hover', query: UNIVERSE, hover: 0 },
+  { name: '4-arrival-galaxy', query: UNIVERSE, descend: 0, arrive: [0] },
+  { name: '4-elliptical', query: 'shot=galaxy&quality=high&galaxy=1' },
+  { name: '4-irregular', query: 'shot=galaxy&quality=high&galaxy=8' },
+  { name: '4-spiral', query: 'shot=galaxy&quality=high&galaxy=15' },
+  { name: '4-hole', query: HOLE },
+  { name: '4-hole-close', query: `${HOLE}&view=close` },
+  { name: '4-hole-edge', query: `${HOLE}&view=edge` },
+  { name: '4-hole-top', query: `${HOLE}&view=top` },
+  { name: '4-arrival-hole', query: UNIVERSE, descend: 'hole' },
+  { name: '4-universe-low', query: 'shot=universe&quality=low' },
+  { name: '4-universe-phone', query: 'shot=universe&quality=medium', ...PHONE },
+  { name: '4-hole-phone', query: 'shot=hole&quality=medium&hole', ...PHONE },
 ]
 
 interface Hooks {
   locate(index: number): { x: number; y: number } | null
   descend(index: number): void
+  hole(): number
   state(): { path: number[]; phase: string }
 }
 
@@ -113,13 +135,15 @@ for (const shot of SHOTS) {
     }
 
     if (shot.descend !== undefined) {
-      await page.evaluate((i) => (window as unknown as HookedWindow).__VOID__.descend(i), shot.descend)
+      const index =
+        shot.descend === 'hole' ? await page.evaluate(() => (window as unknown as HookedWindow).__VOID__.hole()) : shot.descend
+      await page.evaluate((i) => (window as unknown as HookedWindow).__VOID__.descend(i), index)
       await expect
         .poll(() => page.evaluate(() => (window as unknown as HookedWindow).__VOID__.state()), {
           timeout: 120_000,
           intervals: [250],
         })
-        .toMatchObject({ phase: 'idle', path: shot.arrive ?? [0, 0, shot.descend] })
+        .toMatchObject({ phase: 'idle', path: shot.arrive ?? (shot.descend === 'hole' ? [index] : [0, 0, index]) })
       // Let the caption fade in, and the sky settle after the fall.
       await frames(page, 150)
     }

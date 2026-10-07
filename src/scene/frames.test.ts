@@ -1,5 +1,7 @@
 import { Matrix4, Quaternion, Vector3 } from 'three'
 import { describe, expect, it } from 'vitest'
+import { getUniverse } from '../core/cosmos.ts'
+import { getGalaxyLook } from '../core/galaxy.ts'
 import { HOME_BAND } from '../core/sky.ts'
 import { anchorOf, frameTransform } from './frames.ts'
 
@@ -45,6 +47,32 @@ describe('frameTransform', () => {
     const core = new Vector3(...HOME_BAND.core).applyQuaternion(rotation)
     const towards = anchor.clone().setY(0).negate().normalize()
     expect(core.dot(towards)).toBeCloseTo(1, 6)
+  })
+
+  it("undoes a galaxy's anchor in the universe exactly, turn and scale", () => {
+    for (const galaxy of [0, 1, 2, 7]) {
+      const childInParent = transform([galaxy], [], 5)
+      const parentInChild = transform([], [galaxy], 5)
+      expectIdentity(childInParent.multiply(parentInChild))
+    }
+  })
+
+  it('scales a galaxy down into the universe to its size there', () => {
+    const site = getUniverse().galaxies[1]!
+    const scale = anchorOf([1], 0, new Vector3(), new Quaternion())
+    expect(scale * getGalaxyLook(1).shape.radius).toBeCloseTo(site.size, 9)
+  })
+
+  it("keeps the universe's own units at the black hole, turned to its disc", () => {
+    const { hole } = getUniverse()
+    const anchor = new Vector3()
+    const rotation = new Quaternion()
+    expect(anchorOf([hole.index], 0, anchor, rotation)).toBe(1)
+    expect(anchor.toArray()).toEqual([...hole.position])
+    const axis = new Vector3(0, 1, 0).applyQuaternion(rotation)
+    const expected = new Vector3(0, 1, 0).applyQuaternion(new Quaternion(...hole.orientation))
+    expect(axis.distanceTo(expected)).toBeLessThan(1e-9)
+    expectIdentity(transform([hole.index], [], 0).multiply(transform([], [hole.index], 0)))
   })
 
   it('leaves a world unturned within its system', () => {
