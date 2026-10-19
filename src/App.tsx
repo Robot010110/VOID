@@ -8,8 +8,10 @@ import { opening } from './intro/opening.ts'
 import { Experience } from './scene/Experience.tsx'
 import { Hint } from './ui/Hint.tsx'
 import { CompanionWords } from './ui/CompanionWords.tsx'
+import { GraphicsBoundary } from './ui/GraphicsBoundary.tsx'
 import { Hud } from './ui/Hud.tsx'
 import { Intro } from './ui/Intro.tsx'
+import { Outage } from './ui/Outage.tsx'
 import { SecretCounter } from './ui/SecretCounter.tsx'
 import { SecretScreen } from './ui/SecretScreen.tsx'
 import { Shortcuts } from './ui/Shortcuts.tsx'
@@ -23,6 +25,8 @@ const DebugPanel = DEBUG ? lazy(() => import('./debug/DebugPanel.tsx')) : null
  */
 export default function App() {
   const opened = useVoid((s) => s.intro === 'done')
+  // A new canvas each time the graphics are lost and the scene starts again.
+  const epoch = useVoid((s) => s.canvasEpoch)
   // Only a visitor who has seen the opening is shown the hint after it.
   const [hinted, setHinted] = useState(() => opening.mode === 'none' || readFlag('hint', false))
   const hintDone = useCallback(() => setHinted(true), [])
@@ -37,7 +41,9 @@ export default function App() {
         infrared, radio), and D lets VOID drift through its stories on its own. In a galaxy, hold
         Shift and choose stars to join them into a constellation.
       </p>
-      <Experience />
+      <GraphicsBoundary>
+        <Experience key={epoch} />
+      </GraphicsBoundary>
       {!devView && <SecretScreen />}
       {!devView && opened && hinted && <Hud />}
       {!devView && opened && <CompanionWords />}
@@ -46,6 +52,7 @@ export default function App() {
       {!devView && opened && !hinted && <Hint onDone={hintDone} />}
       {!devView && <Terminal />}
       <Intro />
+      <Outage />
       <AudioDirector />
       {DebugPanel && (
         <Suspense fallback={null}>

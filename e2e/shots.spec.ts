@@ -30,8 +30,13 @@ interface Shot {
   touch?: boolean
   /** Typed once the page is ready, a line at a time (each after the first followed by Enter). */
   keys?: string
-  /** A secret played out before the picture: the fall into the black hole, the dark past the edge, the old code. */
-  act?: 'hole' | 'edge' | 'old-code'
+  /**
+   * Played out before the picture: the fall into the black hole, the dark past the edge, the
+   * old code; or the graphics lost and brought back (the scene must start again, cleanly).
+   */
+  act?: 'hole' | 'edge' | 'old-code' | 'lose-context'
+  /** What shows the page is ready, if not the scene (the page shown without WebGL2). */
+  ready?: string
 }
 
 /** A visitor's constellation in the home galaxy, as stored: drawn today, or on an earlier day. */
@@ -158,6 +163,11 @@ const SHOTS: Shot[] = [
   { name: '8-interior', query: HOLE, act: 'hole' },
   { name: '8-edge', query: UNIVERSE, act: 'edge' },
   { name: '8-old-code', query: GALAXY, act: 'old-code' },
+  // Phase 9: where VOID cannot run, the graphics lost and brought back, the black hole on Low.
+  { name: '9-fallback', query: 'fallback', ready: '.fallback-line' },
+  { name: '9-fallback-phone', query: 'fallback', ready: '.fallback-line', ...PHONE },
+  { name: '9-recovered', query: GALAXY, act: 'lose-context' },
+  { name: '9-hole-low', query: 'shot=hole&quality=low&hole' },
 ]
 
 interface Hooks {
@@ -251,8 +261,29 @@ for (const shot of SHOTS) {
       expect(problems).toEqual([])
       return
     }
+    if (shot.ready) {
+      await page.waitForSelector(shot.ready, { timeout: 60_000 })
+      await page.waitForTimeout(500)
+      await page.screenshot({ path: `screenshots/${shot.name}.png` })
+      await context.close()
+      expect(problems).toEqual([])
+      return
+    }
     await page.waitForSelector('html[data-void-ready="true"]', { timeout: 240_000 })
     await frames(page, 12)
+
+    if (shot.act === 'lose-context') {
+      await page.evaluate(() => {
+        const lose = document.querySelector('canvas')!.getContext('webgl2')!.getExtension('WEBGL_lose_context')!
+        lose.loseContext()
+        window.setTimeout(() => lose.restoreContext(), 800)
+      })
+      await expect(page.locator('.outage')).toHaveAttribute('data-shown', 'true')
+      await expect(page.locator('.outage')).toHaveAttribute('data-shown', 'false', { timeout: 120_000 })
+      // The dark lifts, and the sky settles.
+      await page.waitForTimeout(2200)
+      await frames(page, 30)
+    }
 
     if (shot.hover !== undefined) {
       const spot = await page.evaluate((i) => (window as unknown as HookedWindow).__VOID__.locate(i), shot.hover)

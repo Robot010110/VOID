@@ -461,6 +461,21 @@ export function stepSecrets(step: number, limit: number) {
   watchPaleDot(step, state)
 }
 
+/** End any secret playing out, at once (the scene is starting again after its graphics were lost). */
+export function resetSecretScreen() {
+  const state = useVoid.getState()
+  if (state.secretScene === 'interior') audioEngine()?.hush(false, 1)
+  if (state.secretScene !== null) state.setSecretScene(null)
+  interior.returning = false
+  follow.stage = 'turning'
+  signalScene.steady = 0
+  signalScene.swell = 1
+  edge.open = false
+  setVeil(0)
+  setWords(null, 0)
+  markPage('')
+}
+
 /** Escape during a secret: the fall into the black hole goes straight to the way back out. */
 export function skipSecretScene() {
   if (useVoid.getState().secretScene !== 'interior' || interior.returning) return

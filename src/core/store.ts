@@ -94,6 +94,13 @@ export interface VoidState {
    * camera is not the visitor's, and the interface stays away until it ends.
    */
   secretScene: SecretScene | null
+  /**
+   * The graphics were lost (the GPU reset, or the browser reclaimed the context): the scene is
+   * being started again behind a quiet dark.
+   */
+  outage: boolean
+  /** Bumped to start the scene again from nothing, in a new canvas. */
+  canvasEpoch: number
   setQuality: (quality: QualityTier) => void
   lockQuality: () => void
   setPlanet: (planet: PlanetKind) => void
@@ -113,6 +120,8 @@ export interface VoidState {
   markFound: (id: string) => void
   setTerminalOpen: (open: boolean) => void
   setSecretScene: (scene: SecretScene | null) => void
+  setOutage: (outage: boolean) => void
+  renewCanvas: () => void
 }
 
 function keep(constellations: readonly Constellation[]) {
@@ -153,6 +162,8 @@ export const useVoid = create<VoidState>()(
     foundSecrets: parseFound(readText('secrets')),
     terminalOpen: false,
     secretScene: null,
+    outage: false,
+    canvasEpoch: 0,
     setQuality: (quality) => set({ quality }),
     lockQuality: () => set({ qualityLocked: true }),
     setPlanet: (planet) => set({ planet }),
@@ -196,6 +207,8 @@ export const useVoid = create<VoidState>()(
       }),
     setTerminalOpen: (terminalOpen) => set({ terminalOpen }),
     setSecretScene: (secretScene) => set({ secretScene }),
+    setOutage: (outage) => set({ outage }),
+    renewCanvas: () => set((state) => ({ canvasEpoch: state.canvasEpoch + 1 })),
   })),
 )
 

@@ -2,7 +2,7 @@
  * Listening Station 9: the terminal behind the developer's door. A handful of commands over a
  * few files (content/station.ts), and two that touch the universe: `scan` listens to where the
  * visitor is, and `goto` flies anywhere, given coordinates as the station writes them, two
- * digits in sixteens for each step down (galaxy, star, world: `2f·a1·01`). The keepers' note
+ * digits in sixteens for each step down (galaxy, star, world: `2f.a1.01`). The keepers' note
  * gives the coordinates of their home.
  *
  * Pure: a command and where the visitor is go in, lines and what to do come out. The terminal
@@ -35,12 +35,12 @@ const HELP: readonly string[] = [
   'exit            close the station',
 ]
 
-/** A place written as the station writes it: `2f·a1·01`. */
+/** A place written as the station writes it: `2f.a1.01`. */
 export function coordinates(path: Path): string {
-  return path.map((index) => index.toString(16).padStart(2, '0')).join('·')
+  return path.map((index) => index.toString(16).padStart(2, '0')).join('.')
 }
 
-/** A place read as typed (`2f a1 01`, `2f·a1·1`, `0x2f.0xa1`), or null if it is not one. */
+/** A place read as typed (`2f a1 01`, `2f.a1.1`, `0x2f:0xa1`), or null if it is not one. */
 export function parsePlace(text: string): Path | null {
   const parts = text
     .trim()

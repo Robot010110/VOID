@@ -16,14 +16,14 @@ export interface StationDirectory {
 }
 
 /** What the station prints when it wakes. */
-export const STATION_GREETING: readonly string[] = ['LISTENING STATION 9', 'Listening. Type help for what it understands.']
+export const STATION_GREETING: readonly string[] = ['Listening Station 9.', 'Listening. Type help for what it understands.']
 
 /** Files at the top of the station: shown by `ls`, the hidden one only by `ls -a`. */
 export const STATION_FILES: readonly StationFile[] = [
   {
     name: 'readme',
     lines: [
-      'LISTENING STATION 9',
+      'Listening Station 9.',
       '',
       'Unattended since the last keeper went home.',
       'The station listens, keeps its log, and sends home one word a day.',
@@ -36,7 +36,7 @@ export const STATION_FILES: readonly StationFile[] = [
     name: '.keeper',
     lines: [
       'If anyone ever reads this: we are not far.',
-      'Home is at 2f·a1·01. The station counts in sixteens.',
+      'Home is at 2f.a1.01. The station counts in sixteens.',
       'Tell it: goto 2f a1 01',
       'We would be glad of the company.',
     ],

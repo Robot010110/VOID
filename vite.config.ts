@@ -22,6 +22,11 @@ export default defineConfig({
           groups: [
             { name: 'three', test: /node_modules[\\/]three[\\/]/ },
             { name: 'react', test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/ },
+            // The scene's libraries change far less often than VOID's own code: cached apart.
+            {
+              name: 'scene',
+              test: /node_modules[\\/](@react-three|postprocessing|react-reconciler|its-fine|suspend-react|zustand|gsap|simplex-noise)[\\/]/,
+            },
           ],
         },
       },

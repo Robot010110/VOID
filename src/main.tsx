@@ -7,7 +7,22 @@ import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import { anchorById } from './content/anchors.ts'
 import { getUniverse } from './core/cosmos.ts'
-import { ANCHOR, GALAXY, HOLE, INTRO, LEVEL, PINNED_QUALITY, PLANET, prefersReducedMotion, SHOT, SPECTRUM, SYSTEM, TIME, WORLD } from './core/env.ts'
+import {
+  ANCHOR,
+  FALLBACK,
+  GALAXY,
+  HOLE,
+  INTRO,
+  LEVEL,
+  PINNED_QUALITY,
+  PLANET,
+  prefersReducedMotion,
+  SHOT,
+  SPECTRUM,
+  SYSTEM,
+  TIME,
+  WORLD,
+} from './core/env.ts'
 import { getGalaxy } from './core/galaxy.ts'
 import { isPlanetKind } from './core/planets.ts'
 import { guessTier, probeGpu, readDeviceHints } from './core/quality.ts'
@@ -15,6 +30,7 @@ import { SPECTRA, TIME_STEPS, useVoid, type Spectrum, type TimeStep } from './co
 import { getSystem, HOME, levelOf, type Path } from './core/universe.ts'
 import { planOpening, type OpeningMode } from './intro/opening.ts'
 import { greetConsole } from './secrets/console.ts'
+import { Fallback } from './ui/Fallback.tsx'
 
 // Tone.js greets the console when it loads; VOID's console is kept for other things.
 ;(window as Window & { TONE_SILENCE_LOGGING?: boolean }).TONE_SILENCE_LOGGING = true
@@ -53,12 +69,16 @@ function openingMode(linked: boolean): OpeningMode {
   return linked || prefersReducedMotion() ? 'fade' : 'film'
 }
 
+// Without WebGL2 there is no universe to fall into: the page shows a still sky instead.
+const gpu = probeGpu()
+const supported = gpu.webgl2 && !FALLBACK
+
 const linkedPath = openingPath()
 const mode = openingMode(linkedPath.length > 0)
 const path = planOpening(mode, linkedPath)
 
 useVoid.setState({
-  quality: PINNED_QUALITY ?? guessTier(probeGpu(), readDeviceHints()),
+  quality: PINNED_QUALITY ?? guessTier(gpu, readDeviceHints()),
   qualityLocked: PINNED_QUALITY !== null,
   planet: isPlanetKind(PLANET) ? PLANET : 'terrestrial',
   path,
@@ -68,11 +88,7 @@ useVoid.setState({
   timeStep: TIME_STEPS.includes(Number(TIME) as TimeStep) && TIME !== null ? (Number(TIME) as TimeStep) : 1,
 })
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-)
+createRoot(document.getElementById('root')!).render(<StrictMode>{supported ? <App /> : <Fallback />}</StrictMode>)
 
 // For whoever opens the console: a riddle (see secrets/console.ts).
-greetConsole()
+if (supported) greetConsole()

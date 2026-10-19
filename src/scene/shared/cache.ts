@@ -88,6 +88,18 @@ export function release(key: string) {
   }
 }
 
+/**
+ * Drop every shared resource at once, in use or not: the graphics context they lived in is
+ * gone, and a new scene must make (and bake) them again rather than be handed empty maps.
+ */
+export function forgetShared() {
+  for (const entry of entries.values()) {
+    if (entry.timer !== null) window.clearTimeout(entry.timer)
+    entry.value.dispose()
+  }
+  entries.clear()
+}
+
 /** The resource under `key` if it exists, without keeping it alive. */
 export function peek<T extends Disposable>(key: string): T | undefined {
   return entries.get(key)?.value as T | undefined

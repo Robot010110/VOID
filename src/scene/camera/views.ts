@@ -156,7 +156,8 @@ export function planetLimits(preset: PlanetPreset): Limits {
 /**
  * Named framings around a planet, relative to its sun. `home` is the opening shot: the
  * planet in front of its star, which sits just beyond the limb: beside it on a wide screen,
- * rising below it on a tall one, where the planet also stands a little further back.
+ * rising below it on a tall one, where the planet also stands a little further back and the
+ * sun stays clear of the caption at the foot of the screen.
  */
 export function planetViews(sun: Vec3, framing: number, portrait: boolean): Record<string, OrbitView> {
   const sunAzimuth = Math.atan2(sun[0], sun[2])
@@ -164,7 +165,7 @@ export function planetViews(sun: Vec3, framing: number, portrait: boolean): Reco
   const awayAzimuth = sunAzimuth + Math.PI
   const awayPolar = Math.PI - sunPolar
   const home = portrait
-    ? { azimuth: awayAzimuth - 0.06, polar: awayPolar + 0.42, distance: framing * 1.25 }
+    ? { azimuth: awayAzimuth - 0.06, polar: awayPolar + 0.3, distance: framing * 1.25 }
     : { azimuth: awayAzimuth - 0.42, polar: awayPolar + 0.08, distance: framing }
   return {
     home,

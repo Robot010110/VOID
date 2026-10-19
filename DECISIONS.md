@@ -549,3 +549,62 @@ All nine secrets are described, with where they are, in SECRETS.md (spoilers). T
   - the universe, the universe by radio, Bonyr Wake by radio and the home galaxy with a companion all hold 60 fps;
   - the worst frame is 16.8 ms;
   - the fall into the black hole stays between 40 and 59 fps.
+
+## Phase 9: Polish and ship
+
+### Performance
+
+- **Measured on the UHD 620 at 1600x900, production build, every tier at eleven kinds of place** (the universe, the black hole, a spiral, an elliptical and an irregular galaxy, two systems, four worlds).
+  - Low holds 60 fps everywhere.
+  - Medium holds 60 everywhere except the universe (54), the irregular galaxy (57) and the black hole (44).
+  - High runs at 31 to 58.
+  - This GPU is about half the speed of the brief's reference laptops (M1, Iris Xe). It is guessed as Low, and the governor steps any machine down when frames drop, so what a visitor sees runs smoothly. High at 60 fps on the reference hardware is extrapolated, not measured.
+- **The black hole was the one place over budget on Low**: 17.5 ms of GPU time a frame against 16.7, measured A/B in one session because heat drifts readings by more than the effect.
+  - The lensing pass costs 2.3 ms. It is a full-screen read and write of a half-float buffer, so its cost is bandwidth.
+  - Halving the trace's resolution or its steps saved nothing measurable.
+  - Lensing cannot shrink to a region: weak bending stays visible across half the screen even from among the galaxies.
+  - It cannot merge into the grading pass either, because bloom must see the disc it lays down.
+- **So, on Low only, the black hole is drawn at a pixel ratio of 0.85 once the camera has settled there**, and at full again as the next flight begins (`holeDpr`). The camera is all but still at both moments, so the resize, at most one dropped frame, is not seen in motion. It now holds 60 fps, with no frame over 16.8 ms. Its light is soft and the words are page text, so the lower resolution barely shows.
+- **No per-frame allocations in `useFrame`**, checked by scanning every callback: the few are one-off (a compile job, a camera copy) or the strings that place page elements while they are shown.
+- **The build is split so nothing warns:**
+  - three.js (710 kB);
+  - React;
+  - the scene's other libraries (R3F, postprocessing, GSAP; 438 kB);
+  - the sound engine, loaded during the opening;
+  - VOID's own code (466 kB), which changes most, so returning visitors re-fetch only that.
+
+### When VOID cannot run
+
+- **Without WebGL2, a still sky in the same light** (`ui/Fallback.tsx`): an SVG starfield with a soft band, drawn from a seed (the same every time, coloured by temperature, mostly cool stars), the warm glow, the wordmark as the title sets it, and one line: "VOID needs a browser with WebGL2."
+  - `main.tsx` decides before anything renders, from the GPU probe the quality guess already makes, so no second context is opened.
+  - If the canvas still fails to start, an error boundary shows the same page.
+  - `?fallback` previews it.
+- **A lost context never leaves a frozen frame.** The old renderer can only be restored with its baked maps empty, so the scene starts again in a new canvas (`scene/recovery.ts`):
+  1. The opening's dark and its breathing point cover the page at once.
+  2. Recovery waits for the browser to give the context back, or 2.5 s if it never says.
+  3. Anything under way (a flight, a journey, drift, a secret) stops where it is, and the shared GPU cache and the bake queue are dropped so everything is baked afresh.
+  4. The canvas is remounted where the visitor was. The dark lifts once the new canvas has drawn the place, ready.
+- **Two details keep the console clean:**
+  - A context the browser gave back is lost again on purpose before it goes, since freeing old objects in a restored context only draws warnings, and in a lost one it is silently nothing.
+  - The old renderer is not asked to lose a context that is already lost.
+
+  If the context is lost before the opening has ended, the page simply loads again.
+
+### Identity and sharing
+
+- **The favicon is a small glowing dot on Abyss**, with its core enlarged so it reads at 16 px. It also comes as a 32 px `.ico` and a full-bleed 180 px touch icon (iOS rounds it).
+- **The link preview is a real frame**: the black hole at rest, 1200x630, with the interface hidden. It was chosen from six candidates because it reads as one strong shape at thumbnail size.
+- **Open Graph and Twitter tags need absolute addresses.** They come from `VITE_SITE_URL` (default in `.env`, the Render site), so another host only sets one variable.
+- **The README gives the controls, how to run it and how to deploy, and says only that some things are not on any map.** SECRETS.md holds the rest.
+- **Render stays the live host**; the user chose it to share the link.
+  - `vercel.json` makes the same build deployable on Vercel, as the brief asks, with year-long caching for the hashed assets.
+  - `engines` pins Node 22 or newer for both hosts.
+
+### Accessibility and mobile
+
+- **axe-core found no violations** (WCAG 2.2 AA plus best practice) on the title, the universe, a world with its fragments, the open station and the fallback page.
+  - Tab goes through the three controls, then the galaxies, stars or worlds by name, each with its ring and name shown.
+  - The interface wakes on focus.
+- **The station's title is sentence case and its coordinates use plain dots** (`2f.a1.01`), per the brief's rule against tracked capitals and middle-dot strings. It still reads dots, spaces or colons as typed.
+- **Touch, re-checked after Phase 8's changes:** taps fall into things, a long press begins a constellation, taps join and finish it, holding bends the stars, and the up control rises. The companion's words now choose their side by their measured width, so they never run off a narrow screen.
+- **Every phone screenshot was reviewed side by side for fixed elements in each other's way.** One was: a world opened directly on a tall screen set its sun low, behind the breadcrumb and the world's name. The sun now rises just below the planet's limb (0.3 rad off the view rather than 0.42), between the world and the caption.

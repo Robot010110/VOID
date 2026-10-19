@@ -47,6 +47,9 @@ export const INTRO = params.get('intro')
 export const SPECTRUM = params.get('spectrum')
 export const TIME = params.get('time')
 
+/** `?fallback` shows the page a browser without WebGL2 sees. */
+export const FALLBACK = params.has('fallback')
+
 /** `?signal`: in a screenshot run, the signal is shown at the height of a flash. */
 export const SIGNAL = params.has('signal')
 

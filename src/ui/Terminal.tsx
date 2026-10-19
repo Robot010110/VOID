@@ -130,7 +130,7 @@ function Station() {
   return (
     <section className="terminal" role="dialog" aria-label="Listening Station 9" data-leaving={leaving}>
       <header className="terminal-title">
-        <span>Station 9</span>
+        <span>Listening Station 9</span>
         <button type="button" className="terminal-close" onClick={close}>
           Close
         </button>

@@ -5,12 +5,34 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="color-scheme" content="dark" />
     <meta name="theme-color" content="#03040B" />
-    <meta name="description" content="An interactive universe you can fall into." />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>VOID</title>
+    <meta name="description" content="An interactive universe you can fall into." />
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="canonical" href="%VITE_SITE_URL%/" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="VOID" />
+    <meta property="og:title" content="VOID" />
+    <meta property="og:description" content="An interactive universe you can fall into." />
+    <meta property="og:url" content="%VITE_SITE_URL%/" />
+    <meta property="og:image" content="%VITE_SITE_URL%/og.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="A black hole with a glowing disc, a spiral galaxy and a violet nebula beyond it." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="VOID" />
+    <meta name="twitter:description" content="An interactive universe you can fall into." />
+    <meta name="twitter:image" content="%VITE_SITE_URL%/og.jpg" />
   </head>
   <body>
     <div id="root"></div>
+    <noscript>
+      <p style="margin: 40vh auto 0; max-width: 30rem; padding: 0 24px; text-align: center; font: 300 15px/1.6 system-ui, sans-serif; color: rgb(244 235 221 / 0.7)">
+        VOID needs JavaScript and a browser with WebGL2.
+      </p>
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

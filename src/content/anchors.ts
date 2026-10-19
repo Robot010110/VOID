@@ -305,7 +305,7 @@ export const HIDDEN: readonly Handcrafted[] = [
   },
   {
     // Home, for the keepers of the listening station in the terminal: its coordinates are in
-    // their note, 2f·a1·01 in the station's sixteens.
+    // their note, 2f.a1.01 in the station's sixteens.
     id: 'keepers',
     galaxy: 47,
     star: 161,

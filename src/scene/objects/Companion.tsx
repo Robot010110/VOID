@@ -31,6 +31,9 @@ void main() {
 
 /** Seconds its words must have been in view before the persistence counts as found. */
 const READ = 3
+/** Space between the new star and its words, and kept from the screen's edge, CSS pixels. */
+const GAP = 16
+const EDGE = 12
 
 const point: [number, number, number] = [0, 0, 0]
 const world = new Vector3()
@@ -118,10 +121,12 @@ function NewStar({ galaxy, star, active }: { galaxy: GalaxyData; star: number; a
       read.current = 0
       return
     }
-    // Beside the new star, on whichever side has the room.
-    const left = x > state.size.width - 300
+    // Beside the new star, on whichever side has the room for the words.
+    const room = element.offsetWidth + GAP + EDGE
+    const left = x + room > state.size.width && x - room >= 0
     element.dataset.side = left ? 'left' : 'right'
-    element.style.transform = `translate3d(${(x + (left ? -16 : 16)).toFixed(1)}px, ${y.toFixed(1)}px, 0)`
+    const at = left ? x - GAP : Math.min(x + GAP, state.size.width - room + GAP)
+    element.style.transform = `translate3d(${at.toFixed(1)}px, ${y.toFixed(1)}px, 0)`
     read.current += Math.min(delta, 0.1)
     if (read.current >= (SHOT ? 0 : READ)) findSecret('persistence')
   })

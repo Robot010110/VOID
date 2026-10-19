@@ -9,12 +9,12 @@ const lines = (input: string, here: readonly number[] = UNIVERSE) => runCommand(
 
 describe('coordinates', () => {
   it('are written in sixteens, two digits a step', () => {
-    expect(coordinates([47, 161, 1])).toBe('2f·a1·01')
+    expect(coordinates([47, 161, 1])).toBe('2f.a1.01')
     expect(coordinates([])).toBe('')
   })
 
   it('are read however they are typed', () => {
-    for (const typed of ['2f a1 01', '2f·a1·1', '0x2f.0xA1.0x1', '2F:A1:01', ' 2f  a1  1 ']) expect(parsePlace(typed)).toEqual([47, 161, 1])
+    for (const typed of ['2f a1 01', '2f.a1.1', '0x2f.0xA1.0x1', '2F:A1:01', ' 2f  a1  1 ']) expect(parsePlace(typed)).toEqual([47, 161, 1])
     expect(parsePlace('0')).toEqual([0])
     expect(parsePlace('')).toBeNull()
     expect(parsePlace('home')).toBeNull()
@@ -42,7 +42,7 @@ describe('the station', () => {
   })
 
   it('shows files, and says so when there is none', () => {
-    expect(lines('cat readme')).toContain('LISTENING STATION 9')
+    expect(lines('cat readme')).toContain('Listening Station 9')
     expect(lines('cat logs/4111.log')).toContain('two, three, five')
     expect(lines('cat logs')).toContain('is a directory')
     expect(lines('cat 4111.log')).toContain('no such file')

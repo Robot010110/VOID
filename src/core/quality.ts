@@ -10,6 +10,12 @@ export const TIERS: readonly QualityTier[] = ['low', 'medium', 'high']
 export interface QualitySettings {
   /** Upper bound for the device pixel ratio. */
   readonly maxDpr: number
+  /**
+   * The pixel ratio at the black hole, once the camera has settled there, where it is lower
+   * than usual: the hole is the one place that is traced, and on the weakest GPUs it alone runs
+   * over a frame's budget. Its light is soft; a little fewer pixels barely show.
+   */
+  readonly holeDpr: number
   /** Share of the star catalogue drawn, brightest first (30k / 15k / 6k). */
   readonly starFraction: number
   /** Film grain strength. Low keeps only the dither that prevents banding. */
@@ -41,9 +47,9 @@ export const STAR_CATALOGUE_SIZE = 30000
 
 // prettier-ignore
 export const QUALITY: Record<QualityTier, QualitySettings> = {
-  high: { maxDpr: 2, starFraction: 1, grain: 1, bandWidth: 2048, planetFace: 1024, moonFace: 384, atmosphereSteps: 14, detailOctaves: 3, galaxyParticles: 400000, universeParticles: 6000, deepField: 6000, webGas: 9000, swarmCollectors: 6000 },
-  medium: { maxDpr: 1.5, starFraction: 0.5, grain: 1, bandWidth: 2048, planetFace: 768, moonFace: 256, atmosphereSteps: 10, detailOctaves: 2, galaxyParticles: 200000, universeParticles: 3600, deepField: 4000, webGas: 6000, swarmCollectors: 4000 },
-  low: { maxDpr: 1, starFraction: 0.2, grain: 0, bandWidth: 1024, planetFace: 512, moonFace: 192, atmosphereSteps: 5, detailOctaves: 1, galaxyParticles: 80000, universeParticles: 2200, deepField: 2500, webGas: 3500, swarmCollectors: 2500 },
+  high: { maxDpr: 2, holeDpr: 2, starFraction: 1, grain: 1, bandWidth: 2048, planetFace: 1024, moonFace: 384, atmosphereSteps: 14, detailOctaves: 3, galaxyParticles: 400000, universeParticles: 6000, deepField: 6000, webGas: 9000, swarmCollectors: 6000 },
+  medium: { maxDpr: 1.5, holeDpr: 1.5, starFraction: 0.5, grain: 1, bandWidth: 2048, planetFace: 768, moonFace: 256, atmosphereSteps: 10, detailOctaves: 2, galaxyParticles: 200000, universeParticles: 3600, deepField: 4000, webGas: 6000, swarmCollectors: 4000 },
+  low: { maxDpr: 1, holeDpr: 0.85, starFraction: 0.2, grain: 0, bandWidth: 1024, planetFace: 512, moonFace: 192, atmosphereSteps: 5, detailOctaves: 1, galaxyParticles: 80000, universeParticles: 2200, deepField: 2500, webGas: 3500, swarmCollectors: 2500 },
 }
 
 export interface GpuInfo {

@@ -23,7 +23,7 @@ and the `HIDDEN` worlds in `src/content/anchors.ts`.
   flash).
 - **What happens:** the camera turns to it, its light swells over everything, then dims to dark.
   The visitor comes up out of the dark at the world it comes from: Ellolin, a red dwarf's world
-  at the rim of Ethae (`34·2·0`). The Senael have kept the light counting for nine thousand
+  at the rim of Ethae (`34.2.0`). The Senael have kept the light counting for nine thousand
   years. The secret counts once the world is in view.
 - **Code:** `objects/SignalStar.tsx` and `followSignal` in `sequences.ts`. The click is caught in
   `CameraRig.tsx`, before the galaxies are picked.
@@ -91,8 +91,8 @@ The station understands `help`, `ls [-a] [dir]`, `cat <file>`, `whoami`, `scan`,
 **The trail:**
 1. `cat readme` says the keepers kept their notes "out of sight".
 2. `ls -a` shows `.keeper`.
-3. `cat .keeper` gives their home, `2f·a1·01`, "in sixteens", and says `goto 2f a1 01`.
-4. `goto` closes the station and flies there, level by level, to Gothrok in Kosko (`47·161·1`).
+3. `cat .keeper` gives their home, `2f.a1.01`, "in sixteens", and says `goto 2f a1 01`.
+4. `goto` closes the station and flies there, level by level, to Gothrok in Kosko (`47.161.1`).
    The Nuren are fading there, and the station has sent home the word "nothing" every day.
 
 **Found by:** arriving there by `goto`.

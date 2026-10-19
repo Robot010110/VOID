@@ -129,6 +129,11 @@ export function cancelBake(job: BakeJob) {
   if (index >= 0) queue.splice(index, 1)
 }
 
+/** Drop everything waiting to bake (its graphics context is gone). */
+export function clearBakes() {
+  queue.length = 0
+}
+
 /** True while anything is waiting to bake. */
 export function bakesPending(): boolean {
   return queue.length > 0

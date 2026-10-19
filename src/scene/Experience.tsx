@@ -27,6 +27,7 @@ import { universeLimits } from './camera/views.ts'
 import { runWork, workPending } from './shared/work.ts'
 import { levelRuntime, marker, pointer } from './stage.ts'
 import { installTestHooks } from './testHooks.ts'
+import { recovery, watchContext } from './recovery.ts'
 
 const DebugProbe = DEBUG ? lazy(() => import('../debug/DebugProbe.tsx')) : null
 
@@ -68,6 +69,8 @@ const WORK_BUDGET = 4
 function onCreated({ gl }: RootState) {
   // The film grade lifts black to Abyss after tone mapping, so the clear colour is true black.
   gl.setClearColor(0x000000, 1)
+  // A lost context starts the scene again in a new canvas (see recovery.ts).
+  watchContext(gl)
   // Reading back compile logs stalls the pipeline on a program's first use. Production
   // builds skip it; shader errors are caught in development and by the screenshot run.
   gl.debug.checkShaderErrors = import.meta.env.DEV
@@ -153,7 +156,10 @@ function ReadySignal() {
       return
     }
     frames.current++
-    if (frames.current === 8) document.documentElement.dataset.voidReady = 'true'
+    if (frames.current === 8) {
+      document.documentElement.dataset.voidReady = 'true'
+      recovery.readyEpoch = useVoid.getState().canvasEpoch
+    }
   })
   return null
 }
@@ -180,10 +186,15 @@ function Sky() {
 /** The single canvas: every level, the camera, and the post pipeline live here. */
 export function Experience() {
   const quality = useVoid((s) => s.quality)
+  // Settled at the black hole, the canvas may draw fewer pixels (see QualitySettings.holeDpr).
+  // It changes once the fall has ended and again as the next flight begins, when the camera is
+  // all but still, so the resize is never seen mid-flight.
+  const atHole = useVoid((s) => s.level === 'hole' && s.transition.phase === 'idle')
+  const { maxDpr, holeDpr } = QUALITY[quality]
   return (
     <Canvas
       className="void-canvas"
-      dpr={[1, QUALITY[quality].maxDpr]}
+      dpr={atHole && holeDpr < maxDpr ? holeDpr : [1, maxDpr]}
       gl={GL}
       camera={CAMERA}
       onCreated={onCreated}
