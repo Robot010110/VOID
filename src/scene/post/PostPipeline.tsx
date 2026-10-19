@@ -42,8 +42,8 @@ const LEVEL_BLOOM: Record<string, number> = { universe: 0.6, galaxy: 0.45, hole:
 const SMAA_MAX_DPR = 1.75
 
 /**
- * HDR scene â†’ the black hole's lensing (only while a hole is in view) â†’ antialiasing â†’ bloom â†’
- * AgX tone mapping â†’ vignette â†’ film grade (look, floor, grain). Everything after the
+ * HDR scene → the black hole's lensing (only while a hole is in view) → antialiasing → bloom →
+ * AgX tone mapping → vignette → film grade (look, floor, grain). Everything after the
  * antialiasing merges into one full-screen pass (plus bloom's own small passes). Lensing and
  * antialiasing re-sample their input at other places, so each runs in a pass of its own; the
  * lensing goes first, so bloom sees the black hole's disc.

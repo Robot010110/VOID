@@ -12,7 +12,7 @@ Non-obvious calls, one or two lines each, with the reason. Newest phase last.
 - **three is pinned to r182.** R3F 9.8.1 (the latest) still constructs `THREE.Clock`, which logs a deprecation warning from r183 on. Revisit when R3F moves to `THREE.Timer`.
 - **LF line endings everywhere**, via `.gitattributes` and repo-local `core.autocrlf=false`, so shaders and configs are byte-identical on every OS.
 - **Imports carry explicit `.ts` extensions**, as the Vite template does. Pure modules in `src/core` also run directly in Node for quick checks.
-- **`npm run shots` uses SwiftShader**, as the brief suggests. `VOID_GPU=1 npm run shots` uses the real GPU through ANGLE and runs about 5أ— faster. Any console warning or error fails a shot, so the script doubles as a smoke test. `/screenshots` is git-ignored.
+- **`npm run shots` uses SwiftShader**, as the brief suggests. `VOID_GPU=1 npm run shots` uses the real GPU through ANGLE and runs about 5× faster. Any console warning or error fails a shot, so the script doubles as a smoke test. `/screenshots` is git-ignored.
 - **URL parameters for review:** `?debug` (tuning panel and frame readout), `?quality=low|medium|high` (pins the tier), `?view=home|core|pole` (opening framing), `?tone=agx|aces|neutral` (tone mapper), `?shot=` (screenshot run: no fade-in, no drift).
 - **leva only loads with `?debug`, from a lazy chunk.** Components describe their tunables in a small registry (`core/tweaks.ts`) whose values are the production defaults, so app code never imports leva. `?debug` also works on production builds, for profiling on real devices.
 
@@ -36,7 +36,7 @@ Non-obvious calls, one or two lines each, with the reason. Newest phase last.
 - **All stars share one point-spread function**: a gaussian core, a faint wide halo, and spikes on the brightest 0.5%. Brighter stars light more of it, so apparent size grows with brightness as on a real sensor. Sprites end where the light drops below visibility, so faint stars cost a few pixels.
 - **Spikes share one orientation across the sky**, as through a single telescope, and are deliberately faint.
 - **The starfield draws first, in the opaque queue, at the far plane**, with additive light and no depth test. Opaque planets cover it; anything transparent glows over it.
-- **The home sky has a galactic band**, baked once on the GPU into a 2048أ—512 half-float strip (1024 wide on Low). Its dust dims and reddens the stars behind it, and faint stars brighten inside its glow, so dust lanes and star gaps always line up. The band is meant to fade at the Galaxy and Universe levels, where the view is from outside any galaxy.
+- **The home sky has a galactic band**, baked once on the GPU into a 2048×512 half-float strip (1024 wide on Low). Its dust dims and reddens the stars behind it, and faint stars brighten inside its glow, so dust lanes and star gaps always line up. The band is meant to fade at the Galaxy and Universe levels, where the view is from outside any galaxy.
 - **The band's glow is a ring mesh at infinity with per-vertex UVs**, not a full-screen ray pass. There is no per-pixel trigonometry, and it costs nothing when the band is out of view.
 - **The opening framing is composed:** the band rises from lower left, the warm core sits on the right third, and the upper left is quiet.
 - **Parallax comes from accumulated camera travel divided by distance**, not absolute position. It feels the same at every scale, and jumps (a level swap re-centring the camera) can be ignored.
@@ -60,10 +60,10 @@ Non-obvious calls, one or two lines each, with the reason. Newest phase last.
 
 ### Atmosphere and light
 
-- **The raymarched single-scattering atmosphere won over the fresnel rim approximation.** It gives the blue limb, the warm terminator and a bright backlit rim. Sunlight transmittance comes from a 256أ—64 precomputed table, which also carries the planet's soft shadow, so each sample costs one texture read. Units are planet radii. The atmosphere is drawn about 6أ— thicker than Earth's, with coefficients scaled down to keep Earth-like optical depth.
+- **The raymarched single-scattering atmosphere won over the fresnel rim approximation.** It gives the blue limb, the warm terminator and a bright backlit rim. Sunlight transmittance comes from a 256×64 precomputed table, which also carries the planet's soft shadow, so each sample costs one texture read. Units are planet radii. The atmosphere is drawn about 6× thicker than Earth's, with coefficients scaled down to keep Earth-like optical depth.
 - **Samples follow the path.** A short drop to the ground gets 4 samples, bunched towards the dense air near the surface. Long grazing paths along the limb get up to 14 / 10 / 5 by tier. This cut the close-view atmosphere cost by more than half.
 - **Low keeps a minimal march instead of dropping it, a deliberate deviation from the brief.** With adaptive sampling most of the planet already uses 4 samples. The fresnel fallback would lose the warm terminator for a small saving. Revisit in the Phase 9 performance pass.
-- **Sun irradiance is set so a white sunlit surface sits just under the bloom threshold** (د€ أ— 0.95). Only real light sources bloom: the sun, ocean glint, city lights and lava.
+- **Sun irradiance is set so a white sunlit surface sits just under the bloom threshold** (π × 0.95). Only real light sources bloom: the sun, ocean glint, city lights and lava.
 - **The warm terminator is lifted slightly.** Ground light uses transmittance^0.8, clouds ^0.7. The exact values read as dirty brown instead of a sunset glow.
 
 ### Layers
@@ -80,21 +80,21 @@ Non-obvious calls, one or two lines each, with the reason. Newest phase last.
 - **City lights never shrink below about a pixel.** Like the stars, they keep part of their energy as they shrink. Overlapping lights roll off exponentially, so distant cities read as clusters and dense metros glow without burning out.
 - **Population is baked:** coastal, low, temperate, liveable land, gathered unevenly by noise. Metropolitan areas are its densest parts. The cloud base glows faintly above them at night.
 - **Gas giants bake their band field once; all motion happens at lookup time.** Each latitude turns at its own rate and storms swirl the lookup, so storms ride their bands and nothing is re-baked per frame.
-- **Ring density comes from a 1024أ—1 profile** built from radial waves and smooth gaps, with mipmaps for distance. The planet shadows the rings by a ray-sphere test with penumbra; the rings shadow the planet by a ray-plane test.
+- **Ring density comes from a 1024×1 profile** built from radial waves and smooth gaps, with mipmaps for distance. The planet shadows the rings by a ray-sphere test with penumbra; the rings shadow the planet by a ray-plane test.
 
 ### Framing
 
-- **Tall screens widen the view instead of cropping it.** The vertical field of view is 50آ° on landscape screens. On portrait screens it widens to keep at least 42آ° across, up to 72آ°, where perspective starts to stretch the planet's edges.
+- **Tall screens widen the view instead of cropping it.** The vertical field of view is 50° on landscape screens. On portrait screens it widens to keep at least 42° across, up to 72°, where perspective starts to stretch the planet's edges.
 - **The opening shot is composed for the screen's shape.** On a wide screen the sun sits beside the planet. On a tall one it rises below it, and the planet stands a quarter further back so the whole crescent fits.
 
 ### Review and performance
 
 - **`?level=sky` shows the Phase 0 sky until levels connect in Phase 2.** `?planet=<kind>` picks a preset, and `?debug` can switch it live.
 - **`npm run shots` now uses the real GPU and falls back to software automatically.** `npm run shots:soft` forces SwiftShader as the brief describes. One high-quality planet shot takes about 2.3 minutes on SwiftShader against about 15 seconds on the GPU.
-- **Measured on an Intel UHD 620 at 1600أ—900, DPR 1:**
+- **Measured on an Intel UHD 620 at 1600×900, DPR 1:**
   - Planet filling the screen: 37 fps on Low (where this GPU starts) and 29 on High.
   - The normal framing: 60 fps on Low and about 52 on High.
-  - Iris Xe is roughly 2.5â€“3أ— faster; the governor steps weaker GPUs down a tier.
+  - Iris Xe is roughly 2.5–3× faster; the governor steps weaker GPUs down a tier.
 
 ## Phase 2: The star system
 
@@ -161,7 +161,7 @@ Desktop, at a planet                          Phone, at a planet
 - **The home system is star 0 of galaxy 0, and featured.** It always has a sun-like star, at least six worlds, a lit temperate home world nearest the habitable zone, a banded and a ringed giant, and a belt.
 - **World kinds follow temperature zones.** Zones are measured against the habitable distance, which grows with the square root of the star's luminosity. Kinds already used are less likely, for variety. Presets vary within their tuned ranges, and giants pick from curated palettes, so every world looks as good as the showroom's.
 - **Until civilisations arrive in Phase 5, at most one temperate world per system is lit.**
-- **Sunlight doesn't fall off as 1/rآ².** It dims gently beyond the habitable zone (power 0.35, floor 0.55), so outer worlds stay readable. Its colour is the star's blackbody.
+- **Sunlight doesn't fall off as 1/r².** It dims gently beyond the habitable zone (power 0.35, floor 0.55), so outer worlds stay readable. Its colour is the star's blackbody.
 - **Orbits follow Kepler's third law.** At 1x the innermost world takes about 10 minutes and the outermost about 5 hours, so the system is calm but alive.
 
 ### Levels and transitions
@@ -280,10 +280,10 @@ Desktop, at a planet                          Phone, at a planet
 ### The black hole
 
 - **The hole is drawn by the universe around it, and the two share one stage.** The hole's level is the universe's own units, centred on the hole and turned to its disc. The universe stays mounted beneath it, so a fall between them changes only the frame and the framing, and nothing fades.
-- **It is ray traced.** This is the brief's stretch goal, and it fit the budget. Each pixel near the hole follows its ray through the hole's gravity: the exact shape of a light ray's path in Schwarzschild spacetime, written as a force (-1.5 hآ² x / râپµ) and integrated with steps that shrink near the hole. The trace runs into its own buffer (0.85, 0.7 or 0.55 of the screen, 88, 76 or 64 steps by tier), only where the traced sphere lands on screen. Disc crossings are composited front to back, so the far side of the disc arches over the shadow and under it, as in the classic render.
+- **It is ray traced.** This is the brief's stretch goal, and it fit the budget. Each pixel near the hole follows its ray through the hole's gravity: the exact shape of a light ray's path in Schwarzschild spacetime, written as a force (-1.5 h² x / r⁵) and integrated with steps that shrink near the hole. The trace runs into its own buffer (0.85, 0.7 or 0.55 of the screen, 88, 76 or 64 steps by tier), only where the traced sphere lands on screen. Disc crossings are composited front to back, so the far side of the disc arches over the shadow and under it, as in the classic render.
 - **The shadow's edge and the photon ring come from each ray's exact impact parameter, not from the march.** Rays near the critical impact parameter circle the photon sphere and need hundreds of steps. Treating rays that ran out of steps as fallen in made the shadow too large and left the ring inside it. The ring is drawn no thinner than a pixel, with its light kept, so it never breaks into dashes on a phone.
-- **Lensing is a post pass of its own, ahead of bloom, so bloom sees the disc.** Each pixel's ray is turned towards the hole by the real deflection for its impact parameter. That is Darwin's exact result in elliptic integrals, tabulated over log(b / b_c - 1) in a half-float texture, with the strong-field limit below the table and the weak-field series above it. A camera's finite distance is accounted for by (1 + cos خ¸) / 2. The pass is skipped when nothing on screen bends by more than three quarters of a pixel. Lensing's exact physics gives arcs, an Einstein ring, and the dark lens the hole makes against the web from afar.
-- **The disc is white-hot at its inner edge (11,000 K) and cools to Ember outward.** Its colour falls as r^-1.2 and its light more steeply. Doppler beaming (gآ³, with speeds scaled to 0.72) brightens and blues the side coming towards the camera, and gravitational redshift dims gas near the hole. Its turbulence is a baked, seamless noise carried round at Keplerian speeds. Two layers half a cycle apart crossfade, so the pattern streams without winding up. The noise is filtered to each pixel's footprint, stretched where the disc is seen edge-on, so the disc never sparkles.
+- **Lensing is a post pass of its own, ahead of bloom, so bloom sees the disc.** Each pixel's ray is turned towards the hole by the real deflection for its impact parameter. That is Darwin's exact result in elliptic integrals, tabulated over log(b / b_c - 1) in a half-float texture, with the strong-field limit below the table and the weak-field series above it. A camera's finite distance is accounted for by (1 + cos θ) / 2. The pass is skipped when nothing on screen bends by more than three quarters of a pixel. Lensing's exact physics gives arcs, an Einstein ring, and the dark lens the hole makes against the web from afar.
+- **The disc is white-hot at its inner edge (11,000 K) and cools to Ember outward.** Its colour falls as r^-1.2 and its light more steeply. Doppler beaming (g³, with speeds scaled to 0.72) brightens and blues the side coming towards the camera, and gravitational redshift dims gas near the hole. Its turbulence is a baked, seamless noise carried round at Keplerian speeds. Two layers half a cycle apart crossfade, so the pattern streams without winding up. The noise is filtered to each pixel's footprint, stretched where the disc is seen edge-on, so the disc never sparkles.
 
 ### Falls
 
