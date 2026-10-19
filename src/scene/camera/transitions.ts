@@ -82,6 +82,17 @@ export interface FlightProfile {
   readonly ease: (t: number) => number
 }
 
+/** A flight at its usual easing, only slower or faster: `seconds` long. */
+export function paced(seconds: number): FlightProfile {
+  return { seconds, ease: easeDistance }
+}
+
+/** How long a fall into a level, or a rise to one, usually takes. */
+export function usualSeconds(direction: 'down' | 'up', level: Level): number {
+  if (prefersReducedMotion()) return direction === 'down' ? REDUCED_DOWN : REDUCED_UP
+  return direction === 'down' ? (DOWN[level] ?? 2.2) : (UP_TO[level] ?? 2.6)
+}
+
 interface Running {
   /** Escape before the swap: fly back to where the approach began. */
   retreat?: () => void
@@ -225,8 +236,8 @@ function arrivalDirection(
   return fromAngles(Math.atan2(camera.x, camera.z), polar)
 }
 
-/** Fly into one of the current level's children and swap to its level. */
-export function descend(index: number) {
+/** Fly into one of the current level's children and swap to its level (`seconds` to override its pace). */
+export function descend(index: number, seconds?: number) {
   const state = useVoid.getState()
   if (state.transition.phase !== 'idle') return
   const from = state.path
@@ -246,7 +257,7 @@ export function descend(index: number) {
   goal = null
   profiles = []
   state.setHoverTarget(null)
-  const duration = prefersReducedMotion() ? REDUCED_DOWN : (DOWN[level] ?? 2.2)
+  const duration = seconds ?? usualSeconds('down', level)
   setTransition({ phase: 'approaching', direction: 'down', from, to, seconds: duration })
 
   // Where the flight began, in the parent's frame, for turning back.

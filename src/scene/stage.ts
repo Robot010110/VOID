@@ -119,6 +119,11 @@ export const lens = {
 /** Camera speed through scale, for the post effects (log distance per second, smoothed). */
 export const motion = { speed: 0 }
 
+/** Names of the visitor's constellations on the page, by id, placed by the scene every frame. */
+export const constellationLabels = {
+  elements: new Map<string, HTMLElement>(),
+}
+
 /** The interface's hover ring, positioned by the scene every frame (no React state). */
 export const marker = {
   element: null as HTMLElement | null,

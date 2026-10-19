@@ -54,6 +54,15 @@ const camera = new Vector3()
 const world = new Vector3()
 const point: [number, number, number] = [0, 0, 0]
 
+/**
+ * How fast the system's warm layer pulses: with the nearest world's orbit, quickening as time
+ * is sped up and all but still while it is paused.
+ */
+function pulseFor(path: Path): number {
+  const scale = worldClock.scale
+  return scale < 0.01 ? 0.02 : orbitPulse(nearestPeriod(path) / Math.max(scale, 1))
+}
+
 /** The orbital period of the world nearest the camera in a system. */
 function nearestPeriod(path: Path): number {
   const { pose } = rig
@@ -103,7 +112,7 @@ export function AudioDirector() {
       engine.setLevel(level)
       if (level === 'planet') engine.setPlace(windOf(path), humOf(path))
       else engine.setPlace(0, 'none')
-      if (level === 'system') engine.setPulse(orbitPulse(nearestPeriod(path)))
+      if (level === 'system') engine.setPulse(pulseFor(path))
     }
     const syncAudible = () => {
       audioEngine()?.setAudible(useVoid.getState().audioEnabled && document.visibilityState === 'visible')
@@ -145,7 +154,7 @@ export function AudioDirector() {
     // A system's pulse follows whichever world the camera is nearest, checked now and then.
     const pulse = window.setInterval(() => {
       const { level, path } = useVoid.getState()
-      if (level === 'system') audioEngine()?.setPulse(orbitPulse(nearestPeriod(path)))
+      if (level === 'system') audioEngine()?.setPulse(pulseFor(path))
     }, 2000)
 
     document.addEventListener('visibilitychange', onVisibility)

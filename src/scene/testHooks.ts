@@ -51,12 +51,17 @@ export function installTestHooks() {
     /** The sound engine's state, once Enter has started it. */
     audio: () => audioEngine()?.inspect() ?? null,
     state: () => {
-      const { path, level, transition, hoverTarget } = useVoid.getState()
+      const { path, level, transition, hoverTarget, sketch, naming, driftMode, timeStep, spectrum } = useVoid.getState()
       return {
         path,
         level,
         phase: transition.phase,
         hoverTarget,
+        sketch: sketch?.stars ?? null,
+        naming,
+        driftMode,
+        timeStep,
+        spectrum,
         ready: levelRuntime(path).ready,
         real: Number(worldClock.real.toFixed(3)),
       }

@@ -6,6 +6,7 @@ import { samePath, useVoid, type Transition } from '../../core/store.ts'
 import type { Path } from '../../core/universe.ts'
 import { galaxyLimits } from '../camera/views.ts'
 import { pixelRadius } from '../objects/body.ts'
+import { Constellations } from '../objects/Constellations.tsx'
 import { Galaxy } from '../objects/Galaxy.tsx'
 import { worldClock } from '../shared/clock.ts'
 import { levelRuntime, type Pick } from '../stage.ts'
@@ -80,6 +81,7 @@ export function GalaxyLevel({ path }: { path: Path }) {
   return (
     <group ref={root}>
       <Galaxy galaxy={galaxy} active={active} handed={handed} />
+      <Constellations galaxy={galaxy} active={active} />
     </group>
   )
 }

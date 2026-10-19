@@ -538,6 +538,118 @@ body {
   transition: opacity 0.4s ease;
 }
 
+/* Drifting, VOID shows only itself: the interface and the pointer step away. */
+html[data-drift='true'] .hud {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 2.4s ease;
+}
+
+html[data-drift='true'] .hud button {
+  pointer-events: none;
+}
+
+html[data-drift='true'] .void-canvas {
+  cursor: none;
+}
+
+/* The visitor's constellations: a name beneath each, quiet, placed by the scene. */
+.constellation-label {
+  position: fixed;
+  left: 0;
+  top: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.6s ease;
+}
+
+.constellation-label[data-shown='true'] {
+  opacity: 1;
+}
+
+.hud .constellation-label[data-shown='true'] button,
+.constellation-label[data-shown='true'] input {
+  pointer-events: auto;
+}
+
+/* Out of sight, a name catches nothing. */
+.hud .constellation-label[data-shown='false'] button {
+  pointer-events: none;
+}
+
+.constellation-name {
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 0;
+  background: none;
+  font-family: var(--font-literary);
+  font-weight: 300;
+  font-style: italic;
+  font-variation-settings: 'SOFT' 100;
+  font-size: 0.9375rem;
+  color: var(--text-prose);
+  text-shadow: var(--halo);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.25s ease;
+}
+
+.constellation-name:hover {
+  color: var(--text-name);
+}
+
+.constellation-name[data-unnamed='true'] {
+  color: var(--text-quiet);
+}
+
+.constellation-editor {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.constellation-input {
+  width: 15ch;
+  padding: 4px 2px;
+  border: 0;
+  border-bottom: 1px solid rgb(244 235 221 / 0.35);
+  background: none;
+  font-family: var(--font-literary);
+  font-weight: 300;
+  font-style: italic;
+  font-size: 1rem;
+  text-align: center;
+  color: var(--text-name);
+  text-shadow: var(--halo);
+  caret-color: var(--starlight);
+  outline: none;
+}
+
+.constellation-input::placeholder {
+  color: var(--text-quiet);
+}
+
+.constellation-input:focus-visible {
+  border-bottom-color: var(--starlight);
+}
+
+.constellation-forget {
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 0.75rem;
+  color: var(--text-quiet);
+  text-shadow: var(--halo);
+  cursor: pointer;
+}
+
+.constellation-forget:hover {
+  color: var(--text-prose);
+}
+
 /* The one hint, once: bottom centre, quiet, then gone. */
 .hint {
   position: fixed;

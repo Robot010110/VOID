@@ -398,3 +398,54 @@ Desktop, at a planet                          Phone, at a planet
 
 - **Measured on an Intel UHD 620 at 1600x900, DPR 1, production build.** Loading: the title after about 13 s on a first visit and 2 to 3 s after, the longest pause in the breathing point about a second. The film on Low: 60 fps through the whole pull-back, with five short hitches in its first second (the AudioContext, then the sound's stages) while the camera still holds on the eclipse. On High (meant for Iris Xe-class GPUs and up) 33 to 60 fps, as the universe on High was already.
 - **Sound, measured at the output (the screenshot browser has no speakers):** the bloom is heard within half a second; every level sits between -23 and -26 dBFS RMS; peaks stay under -13 dBFS; the right layer is up at every level, a world's wind and hum follow it, and hovering rings a note. How it sounds needs ears.
+
+## Phase 7: Interaction and environment
+
+### Controls
+
+- **Three controls, top right, each a single line:** time is a world on its orbit (still when paused, trailing an arc as long as its pace); what the eye sees by is a point that radiates further (one ring for infrared, two for radio); sound is a wave that lies flat when off. A word appears beside them for a moment after one changes ("100 times faster", "Radio"), so a glyph is never a puzzle; screen readers hear it too.
+- **Keys work anywhere:** T for time, S for the spectrum, M for sound, D to drift. In a galaxy, Shift with a click or with Enter joins stars into a constellation.
+- **On a touch screen, a way up a level sits top left**, where a way back is looked for. The breadcrumb's ancestors still work too.
+
+### Time
+
+- **Paused, 1x, 100x, 10,000x, each step easing over about a second** (in log(1 + scale), so 1x to 10,000x is as smooth as 1x to 100x).
+- **Nearer levels cap the pace at what still reads as motion:** a system at 1,000x, a world at 150x. At 10,000x a system's inner world would lap its star five times a second and a world would spin thirty times; a galaxy and the universe take the full 10,000x, which is what makes a galaxy visibly turn. A fall between two levels takes the slower cap.
+- **Fading cities keep flickering in real seconds**, and the system's sound pulses faster as time is sped up and all but stops when it is paused.
+
+### Seeing by heat and by radio
+
+- **Each material turns its own light up or down for each way of seeing, and the post effect then re-colours the picture.** `lens(infrared, radio)` multipliers on the starfield, the galaxy's light, stars, dust and nebulae, the universe's galaxies, cores, web gas and deep field, the stars and a world's cities; then `SpectrumLens`, merged into the existing grading pass, maps the tone-mapped picture through a heat palette (black, crimson, ember, pale gold, by how warm each part is) or a cold, nearly colourless radio palette (deep blue-grey to a pale Tide white, by energy). The weights crossfade over most of a second.
+- **Infrared:** stars dim; dust lanes glow ember instead of darkening, and thin out (infrared sees through dust); nebulae and the galactic band brighten; a world's cities glow warm.
+- **Radio:** stars all but vanish; the cosmic web's gas comes out (the hidden structure); galaxies' hearts stay bright; and wherever a people are still there, their signals give them away: a galaxy's stars with living peoples outshine every other star, and from inside a system such a world wears a cold glow with a faint ring carrying outward every few seconds. A people's cities shine three times as bright. Which stars hold a people is worked out the first time a galaxy is seen by radio, two dozen stars a frame (the whole galaxy takes about 80 ms).
+- **`?spectrum=` and `?time=` open in a spectrum or at a pace**, for screenshots and links.
+
+### Gravity touch
+
+- **Holding the pointer still on empty space in a galaxy or among the galaxies for a third of a second makes a well there** (a long press on a touch screen). It gathers over most of a second; dragging moves it instead of turning the view; letting go releases it over a second and a half.
+- **Particles bend towards it in their vertex shaders and are swept a little round it**, the more the nearer, never past its centre (`shaders/common/well.glsl`): a galaxy's light, dust and visitable stars, and every galaxy seen from the universe. In a galaxy the well sits where the pointer's ray meets the disc (things turn about the disc's axis); among the galaxies, on a plane facing the camera through the universe's centre. Its reach is about a third of a galaxy's disc, or a cluster and the threads beside it.
+- **The black hole has no well:** it is one already.
+
+### Constellations
+
+- **Drawn star by star in the galaxy the visitor is in**: Shift and click (or Shift and Enter on a focused star), letting go of Shift to finish; on a touch screen, a long press on a star begins, a tap on each further star joins it, a tap on empty sky finishes. Escape lets a drawing go and Backspace takes back its last star. A line needs two stars; a sky's worth (24) is the most.
+- **Thin glowing lines, a little space left round each star as on a star chart**, moving with the stars as the galaxy turns (positions worked out on the CPU each frame from the same orbits as the shaders). Kept constellations are faint; one being drawn is brighter, with a tether from its last star to the pointer.
+- **Its name is asked for as soon as it is finished**, in a line to write on beneath it. A name is a quiet italic button that opens the same line to rename it or forget it. Unnamed ones say so in the quiet tier.
+- **Kept in localStorage** (`void.constellations`, at most 64), and read back defensively: anything malformed is dropped rather than trusted.
+- **They show only in their own galaxy**, where their stars are drawn as stars; elsewhere those stars are not points on screen.
+
+### Drift mode
+
+- **D, or a minute without input (not for a visitor who prefers reduced motion), and VOID tours its stories on its own:** the twelve handcrafted worlds in order, beginning with one in the galaxy the camera is in, and the black hole as one stop. It rises and falls a level at a time at 1.7 times a visitor's pace, pausing four seconds or so at each level on the way, eight at a galaxy or system that is a stop, and twenty-four at a world, long enough to read its fragment.
+- **The interface and the pointer step away; the fragments stay**, as they are the story, not interface. The camera turns slowly round what it looks at, slowest at a world so its light stays three-quarter while its words are read.
+- **Any input ends it, and does nothing else**: a key, a press, the wheel, or the pointer travelling more than six pixels (a desk is never quite still).
+
+### Fixes along the way
+
+- **A just-opened name field keeps its focus**: on a touch screen, the tap that finishes a constellation is followed by mouse events that took focus away at once and closed the field.
+- **`half` is reserved in GLSL ES**; a variable of that name broke a shader.
+
+### Review and performance
+
+- **On the UHD 620 at 1600x900, Low, production build:** a galaxy and the universe hold 60 fps in visible light, in infrared and in radio, and with a well held. The spectrum lens costs nothing extra (it joins the grading pass); the well adds a few instructions per particle.
+- **Known risk:** world time is sent to shaders as a 32-bit float. After a long stay at 10,000x it grows large enough that slow shader animations (cloud flow, granulation) step in visible jumps. Positions are worked out in double precision on the CPU and are not affected.

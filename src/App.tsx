@@ -9,6 +9,7 @@ import { Experience } from './scene/Experience.tsx'
 import { Hint } from './ui/Hint.tsx'
 import { Hud } from './ui/Hud.tsx'
 import { Intro } from './ui/Intro.tsx'
+import { Shortcuts } from './ui/Shortcuts.tsx'
 
 const DebugPanel = DEBUG ? lazy(() => import('./debug/DebugPanel.tsx')) : null
 
@@ -28,10 +29,13 @@ export default function App() {
       <p className="visually-hidden">
         An interactive universe. Drag or use the arrow keys to look around, Tab to choose a
         galaxy, a star or a world and Enter to fall into it, Escape to rise back out. M turns the
-        sound on and off.
+        sound on and off, T changes how fast time runs, S what the eye sees by (visible light,
+        infrared, radio), and D lets VOID drift through its stories on its own. In a galaxy, hold
+        Shift and choose stars to join them into a constellation.
       </p>
       <Experience />
       {!devView && opened && hinted && <Hud />}
+      {!devView && opened && <Shortcuts />}
       {!devView && opened && !hinted && <Hint onDone={hintDone} />}
       <Intro />
       <AudioDirector />

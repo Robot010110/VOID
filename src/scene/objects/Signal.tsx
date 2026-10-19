@@ -21,15 +21,15 @@ void main() {
   vec2 c = gl_PointCoord * 2.0 - 1.0;
   float r = length(c);
   if (r > 1.0) discard;
-  float glow = exp(-r * r * 9.0) * 1.6 + exp(-r * r * 2.2) * 0.25;
-  float ring = exp(-pow((r - uPhase) * 9.0, 2.0)) * 0.35 * (1.0 - uPhase);
+  float glow = exp(-r * r * 40.0) * 1.1 + exp(-r * r * 7.0) * 0.12;
+  float ring = exp(-pow((r - uPhase) * 14.0, 2.0)) * 0.45 * (1.0 - uPhase) * smoothstep(0.0, 0.15, uPhase);
   vec3 colour = vec3(0.62, 0.9, 1.0) * (glow + ring) * uStrength;
   gl_FragColor = vec4(colour, 1.0);
 }
 `
 
 /** CSS pixels across, at a device pixel ratio of 1. */
-const SIZE = 96
+const SIZE = 88
 /** Seconds for one ring to carry outward. */
 const PERIOD = 3.2
 

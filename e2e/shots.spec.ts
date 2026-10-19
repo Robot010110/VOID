@@ -22,7 +22,16 @@ interface Shot {
    * the frame clock), or the first-visit hint once it has ended.
    */
   intro?: 'loading' | 'title' | number | 'hint'
+  /** localStorage to start from (a visitor's constellations). */
+  storage?: Record<string, string>
+  /** Hold the pointer down here for a moment (gravity touch) before the picture. */
+  hold?: { x: number; y: number }
+  /** A touch screen. */
+  touch?: boolean
 }
+
+/** A visitor's constellation in the home galaxy, as stored. */
+const KITE = JSON.stringify([{ id: 'kite', galaxy: 0, stars: [0, 1, 2, 5, 0], name: 'The Kite', made: 1_760_000_000_000 }])
 
 const PLANET = 'shot=planet&quality=high'
 const SYSTEM = 'shot=system&quality=high&system=0'
@@ -117,6 +126,20 @@ const SHOTS: Shot[] = [
   { name: '6-title-phone', query: 'shot=opening&intro&quality=medium', intro: 'title', ...PHONE },
   { name: '6-eclipse-phone', query: 'shot=opening&intro&quality=medium', intro: 110, ...PHONE },
   { name: '6-linked', query: 'shot=opening&intro&quality=high&anchor=driram&view=night', intro: 'hint' },
+  // Phase 7: seeing by heat and by radio at every scale, a constellation, gravity touch.
+  { name: '7-universe-infrared', query: `${UNIVERSE}&spectrum=infrared` },
+  { name: '7-universe-radio', query: `${UNIVERSE}&spectrum=radio` },
+  { name: '7-galaxy-infrared', query: `${GALAXY}&spectrum=infrared` },
+  { name: '7-galaxy-radio', query: `${GALAXY}&spectrum=radio` },
+  { name: '7-system-infrared', query: `${SYSTEM}&spectrum=infrared` },
+  { name: '7-system-radio', query: `${SYSTEM}&spectrum=radio` },
+  { name: '7-world-infrared', query: `${ANCHOR}=ithasal&view=night&spectrum=infrared` },
+  { name: '7-world-radio', query: `${ANCHOR}=ithasal&view=night&spectrum=radio` },
+  { name: '7-hole-radio', query: `${HOLE}&spectrum=radio` },
+  { name: '7-constellation', query: GALAXY, storage: { 'void.constellations': KITE } },
+  { name: '7-gravity-galaxy', query: GALAXY, hold: { x: 640, y: 470 } },
+  { name: '7-gravity-universe', query: UNIVERSE, hold: { x: 900, y: 420 } },
+  { name: '7-controls-phone', query: 'shot=galaxy&quality=medium&galaxy=0', storage: { 'void.constellations': KITE }, touch: true, ...PHONE },
 ]
 
 interface Hooks {
@@ -185,8 +208,15 @@ for (const shot of SHOTS) {
     const context = await browser.newContext({
       viewport: shot.viewport ?? { width: 1600, height: 900 },
       deviceScaleFactor: shot.scale ?? 1,
+      hasTouch: shot.touch ?? false,
+      isMobile: shot.touch ?? false,
     })
     const page = await context.newPage()
+    if (shot.storage) {
+      await page.addInitScript((entries) => {
+        for (const [key, value] of Object.entries(entries)) localStorage.setItem(key, value)
+      }, shot.storage)
+    }
     const problems: string[] = []
     page.on('console', (message) => {
       if (message.type() === 'error' || message.type() === 'warning') {
@@ -211,6 +241,17 @@ for (const shot of SHOTS) {
       expect(spot).not.toBeNull()
       await page.mouse.move(spot!.x, spot!.y)
       await frames(page, 30)
+    }
+
+    if (shot.hold) {
+      await page.mouse.move(shot.hold.x, shot.hold.y)
+      await page.mouse.down()
+      await frames(page, 90)
+      await page.screenshot({ path: `screenshots/${shot.name}.png` })
+      await page.mouse.up()
+      await context.close()
+      expect(problems).toEqual([])
+      return
     }
 
     if (shot.descend !== undefined) {

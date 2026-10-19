@@ -7,6 +7,7 @@ import { getSystem, HOME } from '../core/universe.ts'
 import { descend } from '../scene/camera/transitions.ts'
 import { marker, pointer } from '../scene/stage.ts'
 import { childName, KIND_WORDS, starWords } from './places.ts'
+import { joinStar } from './sketch.ts'
 
 /**
  * The thin ring and soft name beside a hovered or focused world. Its place on screen is
@@ -67,7 +68,7 @@ function GalaxyTargets({ galaxy, settled }: { galaxy: GalaxyData; settled: boole
               disabled={!settled}
               onFocus={() => focusTarget(index)}
               onBlur={blurTarget}
-              onClick={() => descend(index)}
+              onClick={(event) => (event.shiftKey ? joinStar(index) : descend(index))}
             >
               {star.name}, {starWords(star.temperature)}
             </button>

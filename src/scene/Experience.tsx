@@ -19,6 +19,8 @@ import { QualityGovernor } from './QualityGovernor.tsx'
 import { bakesPending, currentBake, runBakeQueue } from './shared/bake.ts'
 import { advanceWorldClock, worldClock } from './shared/clock.ts'
 import { stepSpectrum } from './shared/spectrum.ts'
+import { stepWell } from './shared/well.ts'
+import { stepDrift } from './drift.ts'
 import { runWork, workPending } from './shared/work.ts'
 import { levelRuntime, marker, pointer } from './stage.ts'
 import { installTestHooks } from './testHooks.ts'
@@ -79,6 +81,8 @@ function WorldClock() {
     worldClock.target = effectiveScale(timeStep, levels)
     advanceWorldClock(delta)
     stepSpectrum(Math.min(delta, 0.1), SHOT !== null)
+    stepWell(Math.min(delta, 0.1))
+    stepDrift(Math.min(delta, 0.1))
   }, -100)
   return null
 }
@@ -118,7 +122,7 @@ function HoverDriver() {
       if (index !== store.hoverTarget) store.setHoverTarget(index)
     }
     const target = useVoid.getState().hoverTarget
-    canvas.style.cursor = idle && pointer.hovering && target !== null ? 'pointer' : ''
+    canvas.style.cursor = store.driftMode ? 'none' : idle && pointer.hovering && target !== null ? 'pointer' : ''
     const element = marker.element
     if (!element) return
     const spot = idle && target !== null ? runtime.locate?.(target) : null

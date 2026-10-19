@@ -348,8 +348,8 @@ export function Cosmos({ universe }: { universe: Universe }) {
     const screenPixels: IUniform = { value: 1000 }
     const maxPointSize: IUniform = { value: 256 }
     const exposure: IUniform = { value: num(TWEAKS, 'exposure') }
-    // Gravity touch among the galaxies reaches about a cluster's width.
-    const well = wellUniforms(230)
+    // Gravity touch among the galaxies reaches across a cluster and the threads beside it.
+    const well = wellUniforms(480)
     const lightUniforms = (side: number): Record<string, IUniform> => ({
       ...well,
       uTime: time,

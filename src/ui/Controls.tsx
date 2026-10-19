@@ -45,22 +45,21 @@ export function Controls() {
   const spectrum = useVoid((s) => s.spectrum)
   const canRise = useVoid((s) => s.path.length > 0 && s.transition.phase === 'idle')
   const [words, say] = useAnnouncement()
-  const first = useRef(true)
+  const seen = useRef({ timeStep, spectrum })
 
-  // Announce changes however they were made (a control or a key), but not the first values.
+  // Announce changes however they were made (a control or a key), never the values found.
   useEffect(() => {
-    if (first.current) return
+    if (seen.current.timeStep === timeStep) return
+    seen.current.timeStep = timeStep
     say(TIME_WORDS[timeStep])
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeStep])
   useEffect(() => {
-    if (first.current) return
+    if (seen.current.spectrum === spectrum) return
+    seen.current.spectrum = spectrum
     say(SPECTRUM_WORDS[spectrum])
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [spectrum])
-  useEffect(() => {
-    first.current = false
-  }, [])
 
   const rings = RINGS[spectrum]
   return (

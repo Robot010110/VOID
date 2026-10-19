@@ -3,7 +3,10 @@ import { useEffect, useRef } from 'react'
 import { Spherical, Vector3, type PerspectiveCamera } from 'three'
 import { prefersReducedMotion, SHOT } from '../../core/env.ts'
 import { useVoid } from '../../core/store.ts'
+import type { Level } from '../../core/universe.ts'
 import { worldClock } from '../shared/clock.ts'
+import { cancelSketch, finishSketch, joinStar, sketching, unjoinStar } from '../../ui/sketch.ts'
+import { well } from '../shared/well.ts'
 import { levelRuntime, motion, pointer } from '../stage.ts'
 import { POLAR_MAX, POLAR_MIN, rig } from './rig.ts'
 import { ascend, back, descend } from './transitions.ts'
@@ -34,6 +37,16 @@ const INTENT_WINDOW = 700
 /** A press shorter and stiller than this is a tap. */
 const TAP_MS = 350
 const TAP_PIXELS = 6
+/**
+ * A press held this long without moving is a hold: on empty space in a galaxy or among the
+ * galaxies it makes a gravity well; on a star, on a touch screen, it begins a constellation.
+ */
+const HOLD_MS = 320
+/**
+ * While drifting, the camera turns slowly round what it looks at (radians per second); slowest
+ * at a world, so the light stays three-quarter while its words are read.
+ */
+const DRIFT_ORBIT: Record<Level, number> = { universe: 0.03, hole: 0.02, galaxy: 0.035, system: 0.03, planet: 0.012 }
 
 const ARROWS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'])
 
@@ -81,6 +94,22 @@ export function CameraRig() {
     let press = { x: 0, y: 0, time: 0, moved: 0 }
     const intent = { amount: 0, target: -1, time: 0 }
     const keys = new Set<string>()
+    let holdTimer = 0
+    /** A hold has happened during this press: its release is not a tap. */
+    let held = false
+
+    const cancelHold = () => {
+      window.clearTimeout(holdTimer)
+      holdTimer = 0
+    }
+    const releaseWell = () => {
+      well.holding = false
+    }
+    /** Gravity touch works where there are particles to bend: in a galaxy, among the galaxies. */
+    const wellLevel = () => {
+      const level = useVoid.getState().level
+      return level === 'galaxy' || level === 'universe'
+    }
 
     const local = (event: { clientX: number; clientY: number }) => {
       const rect = canvas.getBoundingClientRect()
@@ -140,6 +169,27 @@ export function CameraRig() {
       rig.velocity.polar = 0
       pinch = pinchSpan()
       canvas.setPointerCapture(event.pointerId)
+
+      held = false
+      cancelHold()
+      if (pointers.size !== 1 || !steering()) return
+      const hit = activeRuntime().pick?.(at.x, at.y) ?? null
+      const touchStar = hit !== null && event.pointerType !== 'mouse' && useVoid.getState().level === 'galaxy'
+      if (!(hit === null && wellLevel()) && !touchStar) return
+      holdTimer = window.setTimeout(() => {
+        holdTimer = 0
+        if (!pointers.has(event.pointerId) || press.moved >= TAP_PIXELS || !steering()) return
+        held = true
+        rig.velocity.azimuth = 0
+        rig.velocity.polar = 0
+        if (hit) {
+          joinStar(hit.index, 'touch')
+          return
+        }
+        well.holding = true
+        well.x = pointers.get(event.pointerId)!.x
+        well.y = pointers.get(event.pointerId)!.y
+      }, HOLD_MS)
     }
 
     const onPointerMove = (event: PointerEvent) => {
@@ -154,6 +204,14 @@ export function CameraRig() {
       const dy = at.y - previous.y
       pointers.set(event.pointerId, at)
       press.moved += Math.hypot(dx, dy)
+      if (press.moved >= TAP_PIXELS || pointers.size > 1) cancelHold()
+      // A held well follows the pointer instead of turning the view.
+      if (well.holding) {
+        if (pointers.size > 1) releaseWell()
+        well.x = at.x
+        well.y = at.y
+        return
+      }
       if (!steering()) return
       if (pointers.size >= 2) {
         // Pinch: spread zooms in (and over a world, falls into it), squeeze zooms out.
@@ -184,23 +242,37 @@ export function CameraRig() {
       if (!pointers.delete(event.pointerId)) return
       if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId)
       pinch = pinchSpan()
+      cancelHold()
+      releaseWell()
       // A drag that stopped before release, or the end of a pinch, should not fling.
       if (pointers.size > 0 || event.timeStamp - lastMove > 90 || prefersReducedMotion()) {
         rig.velocity.azimuth = 0
         rig.velocity.polar = 0
       }
-      // A tap or click on a world flies into it.
-      const tap = event.timeStamp - press.time < TAP_MS && press.moved < TAP_PIXELS
+      // A tap or click on a world flies into it; in a galaxy, with Shift held or while a
+      // constellation is being drawn by touch, it joins the star to the drawing instead.
+      const tap = !held && event.timeStamp - press.time < TAP_MS && press.moved < TAP_PIXELS
       if (tap && pointers.size === 0 && event.type === 'pointerup' && steering()) {
         rig.velocity.azimuth = 0
         rig.velocity.polar = 0
         const hit = activeRuntime().pick?.(press.x, press.y)
-        if (hit) descend(hit.index)
+        const { level, sketch } = useVoid.getState()
+        const drawing = level === 'galaxy' && (event.shiftKey || (sketch !== null && sketching.by === 'touch'))
+        if (drawing) {
+          if (hit) joinStar(hit.index, event.shiftKey ? 'keys' : 'touch')
+          else if (!event.shiftKey) finishSketch()
+        } else if (hit) descend(hit.index)
       }
     }
 
     const onPointerLeave = () => {
       pointer.hovering = false
+    }
+
+    // Letting go of Shift finishes a constellation drawn with it.
+    const onKeyUp = (event: KeyboardEvent) => {
+      keys.delete(event.key)
+      if (event.key === 'Shift' && sketching.by === 'keys' && useVoid.getState().sketch) finishSketch()
     }
 
     const onWheel = (event: WheelEvent) => {
@@ -215,6 +287,13 @@ export function CameraRig() {
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (isTyping(event.target) || !opened()) return
+      // While a constellation is being drawn, Escape lets it go and Backspace takes back a star.
+      if (useVoid.getState().sketch && (event.key === 'Escape' || event.key === 'Backspace')) {
+        event.preventDefault()
+        if (event.key === 'Escape') cancelSketch()
+        else if (!event.repeat) unjoinStar()
+        return
+      }
       if (event.key === 'Escape' || (event.key === 'Backspace' && !event.repeat)) {
         event.preventDefault()
         back()
@@ -224,10 +303,11 @@ export function CameraRig() {
       event.preventDefault()
       keys.add(event.key)
     }
-    const onKeyUp = (event: KeyboardEvent) => {
-      keys.delete(event.key)
+    const onBlur = () => {
+      keys.clear()
+      cancelHold()
+      releaseWell()
     }
-    const onBlur = () => keys.clear()
 
     canvas.addEventListener('pointerdown', onPointerDown)
     canvas.addEventListener('pointermove', onPointerMove)
@@ -249,6 +329,8 @@ export function CameraRig() {
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('keyup', onKeyUp)
       window.removeEventListener('blur', onBlur)
+      cancelHold()
+      releaseWell()
     }
   }, [canvas])
 
@@ -276,6 +358,9 @@ export function CameraRig() {
       if (keys.has('ArrowDown')) target.polar += KEY_SPEED * dt
       target.azimuth += velocity.azimuth * dt
       target.polar += velocity.polar * dt
+      // Drifting, the camera turns slowly round what it looks at.
+      const { driftMode, level } = useVoid.getState()
+      if (driftMode && !prefersReducedMotion()) target.azimuth += DRIFT_ORBIT[level] * dt
       const decay = Math.exp(-FLING_DECAY * dt)
       velocity.azimuth *= decay
       velocity.polar *= decay

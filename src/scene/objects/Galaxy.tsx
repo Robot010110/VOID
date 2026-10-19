@@ -112,7 +112,7 @@ function orbitUniforms(galaxy: GalaxyData): Record<string, IUniform> {
 
 /** Dust lanes glow in heat (infrared) instead of only darkening. */
 const DUST_SHADE = new Color(0.035, 0.018, 0.009)
-const DUST_GLOW = new Color(0.5, 0.13, 0.035)
+const DUST_GLOW = new Color(0.36, 0.09, 0.025)
 
 /**
  * A galaxy's particles on the GPU, shared like a planet's maps. The light is one set of
@@ -604,7 +604,7 @@ export function Galaxy({ galaxy, active, handed }: GalaxyProps) {
     // there, dims, while its resolved stars keep their light. By heat the stars dim and the
     // dust and nebulae glow; by radio the stars all but vanish, and so does the dust.
     const adapted = tuned.current.exposure * (1 - ADAPTATION * sky.inside)
-    const exposure = adapted * lens(0.6, 0.3)
+    const exposure = adapted * lens(0.42, 0.3)
     parts.lightUniforms.uExposure.value = exposure
     parts.nebulae.material.uniforms.uGlow!.value = NEBULA_GLOW * (adapted / num(TWEAKS, 'exposure')) * lens(2.2, 0.35)
     parts.sparkle.uniforms.uExposure!.value = tuned.current.sparkle * lens(0.4, 0.06)
