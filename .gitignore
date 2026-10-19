@@ -6,6 +6,7 @@ dist-ssr
 
 # Generated review material
 screenshots
+film-render
 test-results
 playwright-report
 blob-report

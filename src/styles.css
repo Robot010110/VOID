@@ -1080,6 +1080,376 @@ html[data-secret] .hud button {
   color: var(--text-prose);
 }
 
+/*
+ * The trailer (`?film`): its own layer over the universe. Louder than the interface, as an
+ * advertisement must be, but in the same light: Fraunces for what is said, Hanken for what is
+ * noted, Starlight on the dark. Every value that moves is painted each frame from the film's
+ * clock (ui/FilmOverlay.tsx), so nothing here transitions.
+ */
+.film {
+  position: fixed;
+  inset: 0;
+  z-index: 9;
+  pointer-events: none;
+  overflow: hidden;
+  color: var(--starlight);
+}
+
+.film-veil,
+.film-dust {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.film-veil {
+  background: var(--abyss);
+}
+
+.film-point {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fffaf2 0, rgb(255 238 214 / 0.9) 38%, rgb(255 214 170 / 0) 72%);
+  box-shadow:
+    0 0 14px 3px rgb(255 214 170 / 0.45),
+    0 0 60px 10px rgb(255 179 107 / 0.12);
+}
+
+.film-title {
+  position: absolute;
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  padding: 0 6vw;
+  visibility: hidden;
+  text-align: center;
+  text-shadow:
+    0 0 24px rgb(3 4 11 / 0.85),
+    0 0 3px rgb(3 4 11 / 0.6);
+}
+
+.film-title span {
+  display: inline-block;
+  white-space: pre;
+}
+
+.film-whisper {
+  top: calc(50% + 38px);
+  font-size: clamp(1.15rem, 0.9rem + 0.75vw, 1.75rem);
+  letter-spacing: 0.04em;
+  color: var(--text-prose);
+}
+
+.film-statement,
+.film-shout,
+.film-feature-text,
+.film-fragment,
+.film-numeral,
+.film-wordmark {
+  font-family: var(--font-literary);
+  font-weight: 300;
+  font-optical-sizing: auto;
+  font-variation-settings:
+    'SOFT' 100,
+    'WONK' 0;
+}
+
+.film-statement {
+  top: 50%;
+  translate: 0 -50%;
+  font-size: clamp(2.2rem, 1.2rem + 4.6vw, 4.8rem);
+  line-height: 1.16;
+  letter-spacing: -0.01em;
+}
+
+.film-statement .film-line {
+  display: block;
+}
+
+.film-count {
+  bottom: 13vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  transform-origin: 50% 70%;
+  isolation: isolate;
+  text-shadow:
+    0 0 34px rgb(3 4 11 / 0.95),
+    0 0 12px rgb(3 4 11 / 0.7);
+}
+
+/* Shade behind a count, so it reads even inside a galaxy's glow. */
+.film-count::before {
+  content: '';
+  position: absolute;
+  inset: -30% 10%;
+  z-index: -1;
+  background: radial-gradient(closest-side, rgb(3 4 11 / 0.6), rgb(3 4 11 / 0.25) 55%, transparent);
+}
+
+.film-numeral {
+  font-size: clamp(5rem, 2rem + 14vw, 13rem);
+  line-height: 0.92;
+  font-variant-numeric: lining-nums tabular-nums;
+  font-variation-settings:
+    'SOFT' 0,
+    'WONK' 0;
+  letter-spacing: -0.02em;
+}
+
+.film-count-line {
+  font-size: clamp(1rem, 0.8rem + 0.7vw, 1.45rem);
+  color: var(--text-prose);
+}
+
+/* Above the galaxy, in starlight, glowing the colour of the light it names. */
+.film-shout {
+  top: 13vh;
+  font-size: clamp(3.4rem, 1rem + 9vw, 8.5rem);
+  line-height: 1;
+  color: rgb(250 246 240);
+  text-shadow:
+    0 0 30px var(--glow),
+    0 0 70px color-mix(in srgb, var(--glow) 55%, transparent),
+    0 0 10px rgb(3 4 11 / 0.6);
+}
+
+.film-low {
+  top: auto;
+  bottom: 13vh;
+  translate: none;
+}
+
+.film-feature {
+  bottom: 12vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.1rem;
+}
+
+.film-rule {
+  display: block;
+  width: min(140px, 30vw);
+  height: 1px;
+  background: rgb(244 235 221 / 0.55);
+  transform-origin: 50% 50%;
+}
+
+.film-title .film-feature-mask {
+  display: block;
+  overflow: hidden;
+  padding: 0.1em 0.2em 0.2em;
+}
+
+.film-feature-text {
+  font-size: clamp(1.8rem, 1rem + 3.2vw, 3.4rem);
+  line-height: 1.15;
+  white-space: normal;
+}
+
+/* A fragment beside the world on a wide screen; under it on a tall one. */
+.film-fragment {
+  top: 50%;
+  left: auto;
+  right: 5vw;
+  margin: 0;
+  padding: 0;
+  translate: 0 -50%;
+  /* As wide as its longest line, which is never broken: it grows leftward, over the night side. */
+  width: max-content;
+  max-width: 90vw;
+  text-align: left;
+  font-size: clamp(1.1rem, 0.75rem + 1.2vw, 1.85rem);
+  line-height: 1.6;
+  color: rgb(244 235 221 / 0.92);
+}
+
+.film-fragment .film-line {
+  display: block;
+}
+
+@media (orientation: portrait) {
+  .film-fragment {
+    top: auto;
+    bottom: 15vh;
+    left: 0;
+    right: 0;
+    margin: 0 auto;
+    width: fit-content;
+    max-width: 88vw;
+    translate: none;
+    font-size: clamp(1.2rem, 0.9rem + 1.3vw, 2rem);
+  }
+
+  .film-shout {
+    top: 17vh;
+  }
+}
+
+/* Where the visitor's touch bends the stars: a soft ring, as a finger would leave. */
+.film-touch {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 54px;
+  height: 54px;
+  margin: -27px 0 0 -27px;
+  border-radius: 50%;
+  border: 1.5px solid rgb(255 250 242 / 0.95);
+  box-shadow:
+    0 0 0 1px rgb(3 4 11 / 0.45),
+    inset 0 0 0 1px rgb(3 4 11 / 0.35),
+    0 0 26px rgb(244 235 221 / 0.55);
+  opacity: 0;
+}
+
+.film-crumbs {
+  position: absolute;
+  left: max(6vw, 24px);
+  bottom: max(5vh, 28px);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  max-width: 80vw;
+  visibility: hidden;
+  font-size: clamp(0.9rem, 0.8rem + 0.35vw, 1.15rem);
+  color: var(--text-quiet);
+  text-shadow: var(--halo);
+}
+
+.film-crumb:not(.film-crumb-here):not(:first-child)::before {
+  content: '/';
+  margin: 0 0.55em;
+  opacity: 0.6;
+}
+
+.film-crumb-here {
+  flex-basis: 100%;
+  margin-top: 0.2rem;
+  font-family: var(--font-literary);
+  font-weight: 300;
+  font-size: clamp(1.8rem, 1.2rem + 1.8vw, 2.8rem);
+  color: var(--text-name);
+}
+
+.film-end {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(1.6rem, 4.5vh, 3rem);
+}
+
+.film-wordmark {
+  margin: 0;
+  padding-left: 0.3em;
+  font-size: clamp(3.5rem, 2rem + 9vw, 9.5rem);
+  line-height: 1;
+  letter-spacing: 0.3em;
+  font-variation-settings:
+    'SOFT' 0,
+    'WONK' 0;
+  color: rgb(244 235 221 / 0.96);
+  visibility: hidden;
+}
+
+.film-wordmark span {
+  opacity: 0;
+}
+
+.film-end-lines {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.55rem;
+  text-align: center;
+}
+
+.film-end-lines p {
+  margin: 0;
+  opacity: 0;
+}
+
+.film-end-name {
+  font-size: clamp(1.05rem, 0.9rem + 0.6vw, 1.5rem);
+  color: var(--text-name);
+}
+
+.film-end-url {
+  font-size: clamp(1rem, 0.85rem + 0.55vw, 1.4rem);
+  letter-spacing: 0.02em;
+  color: var(--tide);
+}
+
+.film-end-quiet {
+  margin-top: 0.4rem !important;
+  font-size: clamp(0.85rem, 0.8rem + 0.3vw, 1.05rem);
+  color: var(--text-quiet);
+}
+
+.film-gate,
+.film-after {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.8rem;
+  pointer-events: auto;
+}
+
+.film-gate {
+  top: calc(50% + 48px);
+}
+
+/* The press is answered at once, while the music is still being built. */
+.film-gate[data-starting] {
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+.film-after {
+  bottom: 9vh;
+  flex-direction: row;
+  justify-content: center;
+  gap: 2.2rem;
+}
+
+.film-play,
+.film-again {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0.6rem 1.2rem;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 1.05rem;
+  color: var(--text-name);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.film-play:hover,
+.film-again:hover {
+  color: var(--starlight);
+}
+
+.film-gate-line {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-quiet);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .caption,
   .caption[data-shown='true'],

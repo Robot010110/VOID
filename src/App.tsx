@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useState } from 'react'
 import { AudioDirector } from './audio/AudioDirector.tsx'
-import { DEBUG, LEVEL, PLANET } from './core/env.ts'
+import { DEBUG, FILM, LEVEL, PLANET } from './core/env.ts'
 import { readFlag } from './core/persist.ts'
 import { isPlanetKind } from './core/planets.ts'
 import { useVoid } from './core/store.ts'
@@ -8,6 +8,7 @@ import { opening } from './intro/opening.ts'
 import { Experience } from './scene/Experience.tsx'
 import { Hint } from './ui/Hint.tsx'
 import { CompanionWords } from './ui/CompanionWords.tsx'
+import { FilmOverlay } from './ui/FilmOverlay.tsx'
 import { GraphicsBoundary } from './ui/GraphicsBoundary.tsx'
 import { Hud } from './ui/Hud.tsx'
 import { Intro } from './ui/Intro.tsx'
@@ -30,7 +31,8 @@ export default function App() {
   // Only a visitor who has seen the opening is shown the hint after it.
   const [hinted, setHinted] = useState(() => opening.mode === 'none' || readFlag('hint', false))
   const hintDone = useCallback(() => setHinted(true), [])
-  const devView = LEVEL === 'sky' || isPlanetKind(PLANET)
+  // The trailer (`?film`) shows only the universe and its own words.
+  const devView = LEVEL === 'sky' || isPlanetKind(PLANET) || FILM
   return (
     <main className="void">
       <h1 className="visually-hidden">VOID</h1>
@@ -51,7 +53,9 @@ export default function App() {
       {!devView && opened && <Shortcuts />}
       {!devView && opened && !hinted && <Hint onDone={hintDone} />}
       {!devView && <Terminal />}
-      <Intro />
+      {FILM && <FilmOverlay />}
+      {/* The trailer has its own gate and its own music: not the opening, nor its sound. */}
+      {!FILM && <Intro />}
       <Outage />
       <AudioDirector />
       {DebugPanel && (

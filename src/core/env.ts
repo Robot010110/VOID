@@ -47,6 +47,12 @@ export const INTRO = params.get('intro')
 export const SPECTRUM = params.get('spectrum')
 export const TIME = params.get('time')
 
+/**
+ * `?film` plays VOID's trailer: a motion piece directed through the universe itself (src/film).
+ * With `?shot=` it waits to be stepped frame by frame, for rendering to video.
+ */
+export const FILM = params.has('film')
+
 /** `?fallback` shows the page a browser without WebGL2 sees. */
 export const FALLBACK = params.has('fallback')
 

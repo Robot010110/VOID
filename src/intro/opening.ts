@@ -138,13 +138,13 @@ export function beginOpening(withSound: boolean) {
 }
 
 /** The home world, which the first shot sees crossing its sun. */
-function homeWorld() {
+export function homeWorld() {
   const home = anchorById('ithasal')
   const system = getSystem(HOME[0]!, HOME[1]!)
   return { system, planet: system.planets[home?.world ?? 3]! }
 }
 
-function placeFirstShot() {
+export function placeFirstShot() {
   const { planet } = homeWorld()
   const at = orbitPosition(planet.orbit, worldClock.time)
   const azimuth = Math.atan2(at[0], at[2])
@@ -152,7 +152,7 @@ function placeFirstShot() {
 }
 
 /** Plan the pull-back from wherever the first shot stands, through each level at rest. */
-function planFlight(): PullBackSegment[] {
+export function planFlight(): PullBackSegment[] {
   const { system } = homeWorld()
   const scaleOf = (path: Path) => anchorOf(path, worldClock.time, new Vector3(), new Quaternion())
   const systemRest = systemView(system).distance
@@ -167,7 +167,7 @@ function planFlight(): PullBackSegment[] {
 }
 
 /** Fly the first stretch, inside the system: back from the sun and up out of the plane. */
-function flySystem(segment: PullBackSegment, rest: ReturnType<typeof systemView>, onDone: () => void) {
+export function flySystem(segment: PullBackSegment, rest: ReturnType<typeof systemView>, onDone: () => void) {
   const start = { distance: rig.pose.distance, azimuth: rig.pose.azimuth, polar: rig.pose.polar }
   let t = 0
   rig.flight = (pose, step) => {

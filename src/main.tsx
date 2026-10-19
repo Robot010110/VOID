@@ -10,6 +10,7 @@ import { getUniverse } from './core/cosmos.ts'
 import {
   ANCHOR,
   FALLBACK,
+  FILM,
   GALAXY,
   HOLE,
   INTRO,
@@ -30,6 +31,7 @@ import { SPECTRA, TIME_STEPS, useVoid, type Spectrum, type TimeStep } from './co
 import { getSystem, HOME, levelOf, type Path } from './core/universe.ts'
 import { planOpening, type OpeningMode } from './intro/opening.ts'
 import { greetConsole } from './secrets/console.ts'
+import { prepareFilm } from './film/director.ts'
 import { Fallback } from './ui/Fallback.tsx'
 
 // Tone.js greets the console when it loads; VOID's console is kept for other things.
@@ -64,7 +66,7 @@ function openingPath(): Path {
  * screenshot script and the development views.
  */
 function openingMode(linked: boolean): OpeningMode {
-  if (INTRO === 'skip' || LEVEL === 'sky' || isPlanetKind(PLANET)) return 'none'
+  if (FILM || INTRO === 'skip' || LEVEL === 'sky' || isPlanetKind(PLANET)) return 'none'
   if (SHOT && INTRO === null) return 'none'
   return linked || prefersReducedMotion() ? 'fade' : 'film'
 }
@@ -79,7 +81,8 @@ const path = planOpening(mode, linkedPath)
 
 useVoid.setState({
   quality: PINNED_QUALITY ?? guessTier(gpu, readDeviceHints()),
-  qualityLocked: PINNED_QUALITY !== null,
+  // The trailer never changes tier while it plays: every place in it is built once, up front.
+  qualityLocked: PINNED_QUALITY !== null || FILM,
   planet: isPlanetKind(PLANET) ? PLANET : 'terrestrial',
   path,
   level: levelOf(path),
@@ -88,7 +91,10 @@ useVoid.setState({
   timeStep: TIME_STEPS.includes(Number(TIME) as TimeStep) && TIME !== null ? (Number(TIME) as TimeStep) : 1,
 })
 
+// The trailer starts from the home system, every place it visits put on stage behind its dark.
+if (FILM && supported) prepareFilm()
+
 createRoot(document.getElementById('root')!).render(<StrictMode>{supported ? <App /> : <Fallback />}</StrictMode>)
 
 // For whoever opens the console: a riddle (see secrets/console.ts).
-if (supported) greetConsole()
+if (supported && !FILM) greetConsole()

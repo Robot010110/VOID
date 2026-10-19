@@ -8,6 +8,8 @@ import { DEBUG, SHOT } from '../core/env.ts'
 import { useVoid } from '../core/store.ts'
 import { beginOpening, opening } from '../intro/opening.ts'
 import { edge, signalSpot } from '../secrets/sequences.ts'
+import { filmReady, filmState, startFilm } from '../film/director.ts'
+import { renderScore } from '../film/sound.ts'
 import { ascend, back, descend } from './camera/transitions.ts'
 import { stepping, worldClock } from './shared/clock.ts'
 import { bakesPending } from './shared/bake.ts'
@@ -55,6 +57,8 @@ export function installTestHooks() {
       const { foundSecrets, secretScene, terminalOpen } = useVoid.getState()
       return { found: foundSecrets, scene: secretScene, terminal: terminalOpen, edge: Number(edge.fade.toFixed(3)) }
     },
+    /** The trailer: roll it, read where it is, and render its music (a base64 WAV). */
+    film: { start: startFilm, state: filmState, ready: filmReady, score: renderScore },
     /** The sound engine's state, once Enter has started it. */
     audio: () => audioEngine()?.inspect() ?? null,
     state: () => {

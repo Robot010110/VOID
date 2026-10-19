@@ -55,6 +55,9 @@ export function nextSpectrum(spectrum: Spectrum): Spectrum {
 /** The secrets that take the camera for a while. */
 export type SecretScene = 'interior' | 'signal'
 
+/** The trailer (`?film`): not in use, waiting to be played, playing, or played through. */
+export type FilmStage = 'off' | 'waiting' | 'playing' | 'ended'
+
 /** A constellation being drawn: the stars joined so far, in one galaxy. */
 export interface Sketch {
   readonly galaxy: number
@@ -101,6 +104,9 @@ export interface VoidState {
   outage: boolean
   /** Bumped to start the scene again from nothing, in a new canvas. */
   canvasEpoch: number
+  film: FilmStage
+  /** Places the trailer keeps on stage unseen, built and compiled ahead of the shots that need them. */
+  filmWarm: readonly Path[]
   setQuality: (quality: QualityTier) => void
   lockQuality: () => void
   setPlanet: (planet: PlanetKind) => void
@@ -122,6 +128,8 @@ export interface VoidState {
   setSecretScene: (scene: SecretScene | null) => void
   setOutage: (outage: boolean) => void
   renewCanvas: () => void
+  setFilm: (film: FilmStage) => void
+  setFilmWarm: (paths: readonly Path[]) => void
 }
 
 function keep(constellations: readonly Constellation[]) {
@@ -164,6 +172,8 @@ export const useVoid = create<VoidState>()(
     secretScene: null,
     outage: false,
     canvasEpoch: 0,
+    film: 'off',
+    filmWarm: [],
     setQuality: (quality) => set({ quality }),
     lockQuality: () => set({ qualityLocked: true }),
     setPlanet: (planet) => set({ planet }),
@@ -209,6 +219,8 @@ export const useVoid = create<VoidState>()(
     setSecretScene: (secretScene) => set({ secretScene }),
     setOutage: (outage) => set({ outage }),
     renewCanvas: () => set((state) => ({ canvasEpoch: state.canvasEpoch + 1 })),
+    setFilm: (film) => set({ film }),
+    setFilmWarm: (filmWarm) => set({ filmWarm }),
   })),
 )
 

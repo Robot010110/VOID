@@ -36,6 +36,28 @@ The interface fades when you are not using it and returns as soon as you move. Y
 
 Some things in VOID are not on any map.
 
+## The trailer
+
+**https://void-universe.onrender.com/?film** plays a fifty-second trailer, directed through VOID itself, with its own music: press Play, sound on.
+
+To make it into a video, render it frame by frame, then encode it with ffmpeg:
+
+```bash
+SIZE=540x960 OUT=film-render/vertical SCORE=1 npm run film:render
+```
+
+```bash
+ffmpeg -framerate 30 -i film-render/vertical/frames/%05d.jpg -i film-render/vertical/score.wav -vf "scale=out_color_matrix=bt709:out_range=tv,format=yuv420p" -c:v libx264 -preset slow -crf 16 -colorspace bt709 -color_primaries bt709 -color_trc bt709 -c:a aac -b:a 256k -shortest -movflags +faststart void-vertical.mp4
+```
+
+`SIZE=540x960` makes a 1080x1920 video for Reels and TikTok; `SIZE=960x540` makes 1920x1080. A render takes about an hour on a laptop. Don't edit the source while one runs: the dev server would reload the page under it.
+
+The music is composed in `src/film/score.ts`, and `?film` plays it back from `src/film/score.mp3`. After changing the score, render it on its own (`AT=0.1 SCORE=1 OUT=film-render/score npm run film:render`), then make the MP3 again:
+
+```bash
+ffmpeg -i film-render/score/score.wav -c:a libmp3lame -b:a 192k -ar 48000 src/film/score.mp3
+```
+
 ## Running it locally
 
 VOID needs Node 22 or newer, and a browser with WebGL2. Once loaded it makes no network requests at all.

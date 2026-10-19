@@ -608,3 +608,64 @@ All nine secrets are described, with where they are, in SECRETS.md (spoilers). T
 - **The station's title is sentence case and its coordinates use plain dots** (`2f.a1.01`), per the brief's rule against tracked capitals and middle-dot strings. It still reads dots, spaces or colons as typed.
 - **Touch, re-checked after Phase 8's changes:** taps fall into things, a long press begins a constellation, taps join and finish it, holding bends the stars, and the up control rises. The companion's words now choose their side by their measured width, so they never run off a narrow screen.
 - **Every phone screenshot was reviewed side by side for fixed elements in each other's way.** One was: a world opened directly on a tall screen set its sun low, behind the breadcrumb and the world's name. The sun now rises just below the planet's limb (0.3 rad off the view rather than 0.42), between the world and the caption.
+
+## After the build: the trailer
+
+A motion piece to advertise VOID, made out of VOID itself.
+
+### Directed through the real universe, not edited from footage
+
+- **`?film` plays it on the site, and the same film renders to video.** The camera, the titles and the music all run on one film clock. Nothing is cut together after the fact: every frame is VOID rendering itself, with words laid over it.
+- **The director (`src/film/director.ts`) fires shots at their moments, using the site's own moves:**
+  - the opening's pull-back from one world out to the universe, reused whole;
+  - chained falls at a quicker pace than a visitor's;
+  - flights to a framing;
+  - cuts under a flash or a dip to dark.
+- **Every place the film visits is put on stage unseen before it rolls:** two galaxies, a system, a world, the universe, the black hole. They are built and compiled behind the Play gate, so nothing waits mid-film. A place that is somehow not ready holds the film, not the picture's motion: a render simply takes no frames, and live, world time stands still.
+- **Live, the film follows the music's clock**, so every cut lands on its hit however the frames fall. It follows what is heard: the output's own delay is taken off.
+- **The music is composed in code (`score.ts`) and rendered offline, once.** That one rendering goes into the videos and into `score.mp3`, which `?film` plays back.
+  - **Synthesised live, it stuttered.** The score cost more than real time to compute on a laptop: 55 s of work for 52 s of music, mostly the reverb, the pad and the bells. Tone's voices keep their signals running long after they fall silent. Beside the universe, the audio clock fell to about 0.7 of real time, and the film with it.
+  - **Played back, it costs nothing.** Live sounds exactly like the videos, Tone.js is not even downloaded for the film, and the press of Play no longer stalls the page while instruments are built.
+  - **The file is 1.2 MB, an MP3 at 192 kbps.** MP3 decodes in every browser, it is fetched while the universe builds, and it is decoded by an offline context, so no audio context exists before Play.
+  - **A phone's silent switch is told this is playback,** so the trailer is heard.
+
+### The film
+
+About 50 seconds, sentence case throughout:
+1. **"Look up."** A point of light.
+2. **The pull-back, counted:** 8 worlds around one sun, 300 stars in one galaxy, 61 galaxies and one black hole. These are the real numbers of the real place.
+3. **"Fall into anything."** Straight down through Kistri into Driram's night side, its ring, its cities and one of its fragments.
+4. **The features, cut on the beat:** visible, infrared, radio; then bending the stars, speeding up time, drawing a constellation.
+5. **The black hole:** "Some things are hidden.", "Look closer.", and in.
+6. **The name:** silence, then the wordmark gathering out of streaming stars, the address, and "Sound on. Take your time."
+
+### The look
+
+- **Louder than the interface, as an advertisement must be, in the same light:** Fraunces for what is said, Hanken for what is noted, Starlight on the dark.
+- **Motion is deterministic and comes only from the film clock:** words blur up word by word, counts roll and push in, the spectrum's words pop on the cut with a glow the colour of their light, features rise from behind a rule.
+- **Spectrum words sit above the galaxy, in white:** set in their own colours, they disappeared into a galaxy of the same colour.
+- **A soft ring shows where the stars are being bent.**
+- **The end card's stars are the wordmark's own letters, sampled and sent out across the screen.** Each comes back on a curve with a short trail. Reversing the opening's burst was tried and was too sparse.
+
+### The music
+
+- **Composed from VOID's own sound:** D Lydian, the drone, FM bells, the chorus pad, noise swept down for falls.
+- **The score follows the film's structure:**
+  - a heartbeat in the dark;
+  - a bloom and a long rise under the pull-back, a bell for each count;
+  - a soft pulse at 100 beats a minute under the falls;
+  - the people's chord;
+  - a hit for each way of seeing;
+  - a glide for gravity, quickening ticks for time, a run of bells for the constellation;
+  - the black hole's rumble and two last heartbeats;
+  - silence;
+  - the rise of the gathering and the last chord.
+- **Mixed by meter, not by ear:** about −14.5 dBFS RMS overall, peaks under −0.7 dBFS, the black hole loudest at about −11, the silence before the name truly silent.
+
+### Making the video
+
+- **`npm run film:render` (tools/film) lays the page out at a screen's size and draws it at twice the density.** 540x960 makes 1080x1920 for Reels and TikTok; 960x540 makes 1920x1080. The words are sized as on a phone, and the frames are full size. Rendered at its native 1080x1920 layout the type was a desktop page's and unreadable on a phone.
+- **Frames are high-quality JPEG; the music is a 48 kHz WAV.** ffmpeg encodes H.264 with AAC.
+- **A stretch can be shot again (`FRAMES`), and spliced in only at a cut.** Some of the sky (its brightness, its parallax) eases by frame time, so no two renders are quite the same mid-shot. The fragment's line ran off a wide screen; frames 0–935 were shot again, up to the flash at 31.2 s.
+- **Converted to BT.709 and tagged so.** JPEG frames are BT.601. Left that way, the social players, which assume BT.709 for HD, shift the warm colours.
+- **The sky twinkles, and the well gathers, on world time in a screenshot run,** so a frame-stepped render moves at the film's own pace.

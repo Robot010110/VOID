@@ -89,8 +89,11 @@ const LevelFrame = memo(function LevelFrame({ path }: { path: Path }) {
   const compile = useRef<'pending' | CompileJob | 'done'>('pending')
   const [background] = useState(() => {
     const state = useVoid.getState()
-    // A level warming up for the opening waits unseen, and never frames the camera.
-    const warming = state.intro !== 'done' && !samePath(path, state.path) && warmUp.paths.some((p) => samePath(p, path))
+    // A level warming up for the opening (or for a shot of the trailer) waits unseen, and never
+    // frames the camera.
+    const warming =
+      !samePath(path, state.path) &&
+      ((state.intro !== 'done' && warmUp.paths.some((p) => samePath(p, path))) || state.filmWarm.some((p) => samePath(p, path)))
     if (warming) {
       runtime.visible = false
       runtime.fade.current = 0
@@ -152,10 +155,12 @@ export function Levels() {
   const path = useVoid((s) => s.path)
   const transition = useVoid((s) => s.transition)
   const opening = useVoid((s) => s.intro !== 'done')
+  const filmWarm = useVoid((s) => s.filmWarm)
   const mounted = useMemo(() => {
     const both = transition.phase === 'approaching' || transition.phase === 'swapping'
     const list = both ? [transition.from, transition.to] : [path]
     if (opening) list.push(...warmUp.paths)
+    list.push(...filmWarm)
     if (list.some(inHole)) list.unshift(UNIVERSE)
     const seen = new Set<string>()
     return list.filter((p) => {
@@ -164,7 +169,7 @@ export function Levels() {
       seen.add(key)
       return true
     })
-  }, [path, transition, opening])
+  }, [path, transition, opening, filmWarm])
 
   return (
     <>

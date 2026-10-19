@@ -28,6 +28,7 @@ import { runWork, workPending } from './shared/work.ts'
 import { levelRuntime, marker, pointer } from './stage.ts'
 import { installTestHooks } from './testHooks.ts'
 import { recovery, watchContext } from './recovery.ts'
+import { stepFilm } from '../film/director.ts'
 
 const DebugProbe = DEBUG ? lazy(() => import('../debug/DebugProbe.tsx')) : null
 
@@ -86,8 +87,10 @@ function WorldClock() {
     const levels = transition.phase === 'idle' ? [level] : [levelOf(transition.from), levelOf(transition.to)]
     worldClock.target = effectiveScale(timeStep, levels)
     advanceWorldClock(delta)
+    stepFilm(worldClock.step)
     stepSpectrum(Math.min(delta, 0.1), SHOT !== null)
-    stepWell(Math.min(delta, 0.1))
+    // Screenshot runs (and the trailer's render) step it with world time, frame by frame.
+    stepWell(SHOT ? worldClock.step : Math.min(delta, 0.1))
     stepDrift(Math.min(delta, 0.1))
     stepJourney()
     stepSecrets(worldClock.step, universeLimits().max)
@@ -123,7 +126,7 @@ function HoverDriver() {
   useFrame(() => {
     const store = useVoid.getState()
     const runtime = levelRuntime(store.path)
-    const idle = store.transition.phase === 'idle' && store.intro === 'done' && store.secretScene === null
+    const idle = store.transition.phase === 'idle' && store.intro === 'done' && store.secretScene === null && store.film === 'off'
     if (idle && pointer.hovering && runtime.pick) {
       const hit = runtime.pick(pointer.x, pointer.y)
       const index = hit ? hit.index : null

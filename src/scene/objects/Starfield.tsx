@@ -32,6 +32,7 @@ import glowVert from '../../shaders/starfield/glow.vert'
 import starsFrag from '../../shaders/starfield/stars.frag'
 import starsVert from '../../shaders/starfield/stars.vert'
 import { bakeProgramReady, bakeTexture } from '../shared/gpu.ts'
+import { worldClock } from '../shared/clock.ts'
 import { lens } from '../shared/spectrum.ts'
 import { sung } from '../shared/chorus.ts'
 import { curtain, sky as skyTurn } from '../stage.ts'
@@ -304,7 +305,7 @@ export function Starfield({ brightness = 1, band = 1 }: StarfieldProps) {
   const densityTarget = QUALITY[quality].starFraction
 
   useFrame((state, delta) => {
-    const t = state.clock.elapsedTime
+    const t = SHOT ? worldClock.real : state.clock.elapsedTime
     shared.uTime!.value = t
     shared.uPixelRatio!.value = state.gl.getPixelRatio()
 

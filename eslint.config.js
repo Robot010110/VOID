@@ -32,7 +32,7 @@ export default defineConfig([
     rules: { 'react-hooks/immutability': 'off' },
   },
   {
-    files: ['*.config.{ts,js}', 'e2e/**/*.ts'],
+    files: ['*.config.{ts,js}', 'e2e/**/*.ts', 'tools/**/*.ts'],
     languageOptions: { globals: globals.node },
   },
 ])

@@ -119,7 +119,7 @@ export function CameraRig() {
     }
     // The opening flies the camera itself: until it ends, the visitor only watches. So does a
     // secret while it plays out.
-    const opened = () => useVoid.getState().intro === 'done'
+    const opened = () => useVoid.getState().intro === 'done' && useVoid.getState().film === 'off'
     const steering = () => {
       const { transition, secretScene } = useVoid.getState()
       return opened() && rig.flight === null && transition.phase === 'idle' && secretScene === null
