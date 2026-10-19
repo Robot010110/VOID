@@ -2,6 +2,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
 import { Color, Group, Vector3, type PerspectiveCamera } from 'three'
 import { blackbody } from '../../core/blackbody.ts'
+import { isLit } from '../../core/civilization.ts'
 import { useVoid, type Transition } from '../../core/store.ts'
 import { getSystem, orbitPosition, type Path } from '../../core/universe.ts'
 import { systemLimits } from '../camera/views.ts'
@@ -13,6 +14,7 @@ import { SwarmStructure } from '../objects/Megastructures.tsx'
 import { hiddenBy, starlight } from '../objects/light.ts'
 import { Orbits } from '../objects/Orbits.tsx'
 import { Planet } from '../objects/Planet.tsx'
+import { Signal } from '../objects/Signal.tsx'
 import { Star } from '../objects/Star.tsx'
 import { worldClock } from '../shared/clock.ts'
 import { handover, levelRuntime, type Pick } from '../stage.ts'
@@ -190,6 +192,7 @@ export function SystemLevel({ path }: { path: Path }) {
           ) : (
             <Planet preset={planet.preset} sun={sun} detail="system" anchor={handed === i} />
           )}
+          {isLit(planet.civilization) && <Signal />}
         </group>
       ))}
       <Flare source={flare} color={starColour} />

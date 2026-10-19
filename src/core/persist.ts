@@ -47,3 +47,19 @@ export function writeFlag(key: string, value: boolean) {
     // Storage is full or blocked: forget quietly.
   }
 }
+
+export function readText(key: string): string | null {
+  try {
+    return current()?.getItem(PREFIX + key) ?? null
+  } catch {
+    return null
+  }
+}
+
+export function writeText(key: string, value: string) {
+  try {
+    current()?.setItem(PREFIX + key, value)
+  } catch {
+    // Storage is full or blocked: forget quietly.
+  }
+}

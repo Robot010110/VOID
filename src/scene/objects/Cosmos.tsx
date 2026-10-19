@@ -46,6 +46,8 @@ import { cancelBake, enqueueBake } from '../shared/bake.ts'
 import { useShared, type Disposable } from '../shared/cache.ts'
 import { worldClock } from '../shared/clock.ts'
 import { SoftBuffer } from '../shared/softBuffer.ts'
+import { lens, spectrum } from '../shared/spectrum.ts'
+import { aimWell, wellUniforms } from '../shared/well.ts'
 import { cancelWork, enqueueWork, type Work } from '../shared/work.ts'
 import { BlackHole } from './BlackHole.tsx'
 import { ATLAS_POLICY, createUniverseNebulae, NebulaAtlas } from './Nebula.ts'
@@ -289,6 +291,10 @@ function shown(object: Object3D): boolean {
 const cameraLocal = new Vector3()
 const centre = new Vector3()
 
+/** Dust lanes glow in heat (infrared) instead of only darkening. */
+const DUST_SHADE = new Color(0.035, 0.018, 0.009)
+const DUST_GLOW = new Color(0.5, 0.13, 0.035)
+
 /**
  * The universe's content: its galaxies, the faint gas of the cosmic web, its nebulae, the deep
  * field of distant galaxies behind them all, and the black hole. The galaxies' glow, the gas and the nebulae
@@ -304,6 +310,14 @@ export function Cosmos({ universe }: { universe: Universe }) {
   const atlas = useShared(`nebula-atlas:${atlasSize}`, () => new NebulaAtlas(atlasSize), ATLAS_POLICY)
   const root = useRef<Group>(null)
   const warmed = useRef(false)
+  const tuned = useRef({
+    exposure: num(TWEAKS, 'exposure'),
+    sparkle: num(TWEAKS, 'sparkle'),
+    core: num(TWEAKS, 'coreLight') / 2,
+    gas: num(TWEAKS, 'gas'),
+    field: num(TWEAKS, 'field'),
+    nebulae: num(TWEAKS, 'nebulae'),
+  })
 
   // Seen first, the universe is built at once while the page loads; arrived at mid-flight, it
   // is built a galaxy at a time.
@@ -334,7 +348,10 @@ export function Cosmos({ universe }: { universe: Universe }) {
     const screenPixels: IUniform = { value: 1000 }
     const maxPointSize: IUniform = { value: 256 }
     const exposure: IUniform = { value: num(TWEAKS, 'exposure') }
+    // Gravity touch among the galaxies reaches about a cluster's width.
+    const well = wellUniforms(230)
     const lightUniforms = (side: number): Record<string, IUniform> => ({
+      ...well,
       uTime: time,
       uGalaxies: { value: galaxies.data },
       uDetail: { value: galaxies.detail },
@@ -379,6 +396,7 @@ export function Cosmos({ universe }: { universe: Universe }) {
         uDustScale: { value: 1 },
         // Dust scatters a little of its galaxy's light: dark lanes read warm brown, not grey.
         uColour: { value: new Color(0.035, 0.018, 0.009) },
+        ...well,
       },
       blending: NormalBlending,
       premultipliedAlpha: true,
@@ -483,6 +501,8 @@ export function Cosmos({ universe }: { universe: Universe }) {
       screenPixels,
       maxPointSize,
       exposure,
+      well,
+      dust,
       materials: [far, near, dust, cores, gas, sparkle, field],
       sparkle,
       cores,
@@ -521,14 +541,14 @@ export function Cosmos({ universe }: { universe: Universe }) {
   const apply = useMemo(
     () => (key: string, value: TweakValue) => {
       if (typeof value !== 'number') return
-      if (key === 'exposure') parts.exposure.value = value
-      if (key === 'sparkle') parts.sparkle.uniforms.uExposure!.value = value
-      if (key === 'coreLight') parts.cores.uniforms.uIntensity!.value = value / 2
-      if (key === 'gas') parts.gas.uniforms.uExposure!.value = value
-      if (key === 'field') parts.field.uniforms.uExposure!.value = value
-      if (key === 'nebulae') parts.nebulae.material.uniforms.uGlow!.value = value
+      if (key === 'exposure') tuned.current.exposure = value
+      if (key === 'sparkle') tuned.current.sparkle = value
+      if (key === 'coreLight') tuned.current.core = value / 2
+      if (key === 'gas') tuned.current.gas = value
+      if (key === 'field') tuned.current.field = value
+      if (key === 'nebulae') tuned.current.nebulae = value
     },
-    [parts],
+    [],
   )
   useTweaks('Universe', TWEAKS, apply)
 
@@ -548,6 +568,21 @@ export function Cosmos({ universe }: { universe: Universe }) {
     parts.sparkle.uniforms.uMinSigma!.value = 0.6 * dpr
     parts.sparkle.uniforms.uMaxSigma!.value = 1.3 * dpr
     parts.field.uniforms.uMinSigma!.value = 0.65 * dpr
+
+    // By heat the galaxies' stars dim while their dust and the nebulae glow; by radio the stars
+    // all but vanish, galaxies' hearts stay bright, and the gas of the cosmic web comes out.
+    const t = tuned.current
+    parts.exposure.value = t.exposure * lens(0.6, 0.3)
+    parts.sparkle.uniforms.uExposure!.value = t.sparkle * lens(0.4, 0.06)
+    parts.cores.uniforms.uIntensity!.value = t.core * lens(0.8, 1.6)
+    parts.gas.uniforms.uExposure!.value = t.gas * lens(1.3, 4.5)
+    parts.field.uniforms.uExposure!.value = t.field * lens(0.7, 0.45)
+    parts.nebulae.material.uniforms.uGlow!.value = t.nebulae * lens(2, 0.45)
+    parts.dust.uniforms.uDustScale!.value = lens(0.75, 0.08)
+    ;(parts.dust.uniforms.uColour!.value as Color).copy(DUST_SHADE).lerp(DUST_GLOW, spectrum.infrared)
+    // Gravity touch, while the visitor is among the galaxies (not at the black hole).
+    if (useVoid.getState().path.length === 0) aimWell(parts.well, group, cam, state.size.width, state.size.height, true)
+    else parts.well.uWell.value.w = 0
 
     // Each galaxy draws as many of its particles as its size in the soft buffer needs.
     const shares = galaxies.detail.image.data as Float32Array

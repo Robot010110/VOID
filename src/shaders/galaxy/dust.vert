@@ -4,6 +4,7 @@
 // its dust layer, under the light in front, so the lanes have depth. Unlike the light, dust
 // never shrinks into points: close up it thins out and is gone.
 #include "./orbit.glsl"
+#include "../common/well.glsl"
 
 attribute vec4 aOrbit;
 // Size, opacity, unused, turns with the arms.
@@ -25,7 +26,7 @@ varying float vHalf;
 void main() {
   float phase;
   float presence;
-  vec3 local = galacticPosition(aOrbit, aShape.w, phase, presence);
+  vec3 local = wellBend(galacticPosition(aOrbit, aShape.w, phase, presence));
   vec4 view = modelViewMatrix * vec4(local, 1.0);
   gl_Position = projectionMatrix * view;
   gl_Position.z = gl_Position.w;

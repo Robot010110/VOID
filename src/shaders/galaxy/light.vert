@@ -5,6 +5,7 @@
 // thins away, while the bright point stars (uResolve) stay points and brighten, so a galaxy
 // resolves into stars as the camera falls into it.
 #include "./orbit.glsl"
+#include "../common/well.glsl"
 
 attribute vec4 aOrbit;
 // Size, light, how sharply the arms gate it, turns with the arms.
@@ -37,7 +38,7 @@ varying float vHalf;
 void main() {
   float phase;
   float presence;
-  vec3 local = galacticPosition(aOrbit, aShape.w, phase, presence);
+  vec3 local = wellBend(galacticPosition(aOrbit, aShape.w, phase, presence));
   vec4 view = modelViewMatrix * vec4(local, 1.0);
   gl_Position = projectionMatrix * view;
   // Light never hides anything: it sits behind whatever writes depth.

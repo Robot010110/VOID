@@ -4,14 +4,16 @@
  * fixed step per frame, giving the same picture every time.
  */
 import { SHOT } from '../../core/env.ts'
+import { easeScale } from '../../core/time.ts'
 
 export const worldClock = {
   /** Seconds of world time elapsed. */
   time: 0,
   /** Seconds since the page started, unscaled. */
   real: 0,
-  /** Multiplier on world time. */
+  /** Multiplier on world time, easing towards `target` over about a second. */
   scale: 1,
+  target: 1,
   /** Seconds this frame advanced, unscaled: what flights and fades step by. */
   step: 0,
 }
@@ -32,5 +34,7 @@ export function advanceWorldClock(delta: number) {
   }
   worldClock.step = step
   worldClock.real += step
+  // A screenshot run changes pace at once, so a frame shows the pace it asked for.
+  worldClock.scale = SHOT ? worldClock.target : easeScale(worldClock.scale, worldClock.target, step)
   worldClock.time += step * worldClock.scale
 }

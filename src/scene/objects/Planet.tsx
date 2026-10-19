@@ -24,6 +24,7 @@ import { cancelBake, enqueueBake } from '../shared/bake.ts'
 import { peek, useShared } from '../shared/cache.ts'
 import { worldClock } from '../shared/clock.ts'
 import { icosphere, linear, sphereDetail } from '../shared/gpu.ts'
+import { lens } from '../shared/spectrum.ts'
 import { FULL, useLevel } from '../levels/context.ts'
 import { useAtmosphereTweaks } from './atmosphereTweaks.ts'
 import { LatticeStructure, RingStructure, Satellites } from './Megastructures.tsx'
@@ -251,6 +252,7 @@ export function Planet({ preset, sun, detail = 'close', anchor = false, tweakabl
   }, [layers, quality])
 
   const lod = useRef(-1)
+  const cityIntensity = useRef(preset.lights?.intensity ?? 0)
 
   useFrame((state) => {
     if (!root.current || !tilt.current || !spin.current || !surfaceMesh.current) return
@@ -285,6 +287,8 @@ export function Planet({ preset, sun, detail = 'close', anchor = false, tweakabl
     g.uTime!.value = time
     g.uClock!.value = worldClock.real
     g.uFade!.value = fade.current
+    // A people's cities are warm by heat, and by radio they are where the voices come from.
+    if (preset.lights) g.uCityIntensity!.value = cityIntensity.current * lens(1.4, 3.2)
 
     if (layers.clouds && cloudMesh.current && preset.clouds) {
       // Clouds turn `relative` radians further than the ground. A surface direction maps to
@@ -416,7 +420,7 @@ export function Planet({ preset, sun, detail = 'close', anchor = false, tweakabl
     (key: string, value: TweakValue) => {
       const g = layers.ground.uniforms
       if (key === 'density') g.uCityDensity!.value = value
-      else if (key === 'intensity') g.uCityIntensity!.value = value
+      else if (key === 'intensity') cityIntensity.current = value as number
       else if (key === 'roads') g.uRoads!.value = value
       else if (key === 'color') {
         applyColour(g.uCityColor!.value, value)

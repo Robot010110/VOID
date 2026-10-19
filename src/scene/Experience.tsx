@@ -2,11 +2,12 @@ import { Canvas, useFrame, useThree, type RootState } from '@react-three/fiber'
 import { lazy, Suspense, useRef } from 'react'
 import type { WebGLRendererParameters } from 'three'
 import { galaxySite, type GalaxyKind } from '../core/cosmos.ts'
-import { DEBUG, LEVEL, PLANET } from '../core/env.ts'
+import { DEBUG, LEVEL, PLANET, SHOT } from '../core/env.ts'
 import { isPlanetKind } from '../core/planets.ts'
 import { QUALITY } from '../core/quality.ts'
 import { useVoid } from '../core/store.ts'
-import { HOME } from '../core/universe.ts'
+import { effectiveScale } from '../core/time.ts'
+import { HOME, levelOf } from '../core/universe.ts'
 import { CameraRig } from './camera/CameraRig.tsx'
 import { IntroDriver } from './IntroDriver.tsx'
 import { Levels } from './levels/Levels.tsx'
@@ -16,7 +17,8 @@ import { Starfield } from './objects/Starfield.tsx'
 import { PostPipeline } from './post/PostPipeline.tsx'
 import { QualityGovernor } from './QualityGovernor.tsx'
 import { bakesPending, currentBake, runBakeQueue } from './shared/bake.ts'
-import { advanceWorldClock } from './shared/clock.ts'
+import { advanceWorldClock, worldClock } from './shared/clock.ts'
+import { stepSpectrum } from './shared/spectrum.ts'
 import { runWork, workPending } from './shared/work.ts'
 import { levelRuntime, marker, pointer } from './stage.ts'
 import { installTestHooks } from './testHooks.ts'
@@ -66,9 +68,18 @@ function onCreated({ gl }: RootState) {
   gl.debug.checkShaderErrors = import.meta.env.DEV
 }
 
-/** Advances world time before anything else reads it this frame. */
+/**
+ * Advances world time before anything else reads it this frame, at the pace the visitor chose,
+ * as far as the levels on screen allow (a fall between two takes the slower).
+ */
 function WorldClock() {
-  useFrame((_, delta) => advanceWorldClock(delta), -100)
+  useFrame((_, delta) => {
+    const { timeStep, transition, level } = useVoid.getState()
+    const levels = transition.phase === 'idle' ? [level] : [levelOf(transition.from), levelOf(transition.to)]
+    worldClock.target = effectiveScale(timeStep, levels)
+    advanceWorldClock(delta)
+    stepSpectrum(Math.min(delta, 0.1), SHOT !== null)
+  }, -100)
   return null
 }
 

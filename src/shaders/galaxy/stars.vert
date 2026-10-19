@@ -3,12 +3,15 @@
 // every distance; close in it grows as a real star's would, and once the camera can resolve
 // the star's disc it becomes a small sun, matched to the system's own star at the swap.
 #include "./orbit.glsl"
+#include "../common/well.glsl"
 #include "../common/blackbody.glsl"
 
 attribute vec4 aOrbit;
 // Index, light, the star's radius in system units, its temperature.
 attribute vec4 aStar;
 attribute vec3 aColour;
+// 1 for a star whose system still holds a people: by radio, their signals shine out.
+attribute float aSignal;
 
 uniform float uFade;
 uniform float uPixelsPerUnit;
@@ -21,6 +24,8 @@ uniform float uReach;
 uniform float uHover;
 uniform float uHidden;
 uniform float uPeakMax;
+// How far the view has turned to radio, 0 to 1.
+uniform float uRadio;
 
 varying vec3 vColour;
 // The disc's colour once resolved: the star's face, tinted as the system's star is.
@@ -35,7 +40,7 @@ const float VISIBLE = 0.003;
 void main() {
   float phase;
   float presence;
-  vec3 local = galacticPosition(aOrbit, 0.0, phase, presence);
+  vec3 local = wellBend(galacticPosition(aOrbit, 0.0, phase, presence));
   vec4 view = modelViewMatrix * vec4(local, 1.0);
   gl_Position = projectionMatrix * view;
   gl_Position.z = gl_Position.w;
@@ -45,6 +50,8 @@ void main() {
   float near = uReach / (distance / scale);
   float hovered = 1.0 - step(0.5, abs(aStar.x - uHover));
   float light = uStarLight * aStar.y * max(1.0, near * near) * (1.0 + 0.9 * hovered);
+  // Seen by radio, a people's star outshines every other: what is heard is their voices.
+  light += aSignal * uRadio * 2.6 * max(1.0, near * near);
 
   // The star's own disc, in pixels: the point of light hands over to it as it resolves.
   float disc = aStar.z * uSystemScale * scale * uPixelsPerUnit / distance;

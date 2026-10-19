@@ -43,6 +43,10 @@ export const ANCHOR = params.get('anchor')
  */
 export const INTRO = params.get('intro')
 
+/** `?spectrum=infrared|radio` opens seeing by heat or by radio; `?time=0|100|10000` at that pace. */
+export const SPECTRUM = params.get('spectrum')
+export const TIME = params.get('time')
+
 const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
 
 export function prefersReducedMotion(): boolean {

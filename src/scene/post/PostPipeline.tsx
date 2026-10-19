@@ -10,6 +10,7 @@ import { num, useTweaks, type TweakSchema, type TweakValue } from '../../core/tw
 import { curtain, lens } from '../stage.ts'
 import { Film, type FilmEffect } from './Film.ts'
 import { createLensingPass } from './Lensing.ts'
+import { SpectrumLens } from './SpectrumLens.ts'
 
 const TONE_MODES: Record<string, ToneMappingMode> = {
   agx: ToneMappingMode.AGX,
@@ -113,6 +114,7 @@ export function PostPipeline() {
         intensity={num(TWEAKS, 'bloomIntensity')}
       />
       <ToneMapping mode={TONE_MODES[TONE ?? 'agx'] ?? ToneMappingMode.AGX} />
+      <SpectrumLens />
       <Vignette
         ref={vignette}
         offset={num(TWEAKS, 'vignetteOffset')}

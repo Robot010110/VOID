@@ -7,11 +7,11 @@ import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import { anchorById } from './content/anchors.ts'
 import { getUniverse } from './core/cosmos.ts'
-import { ANCHOR, GALAXY, HOLE, INTRO, LEVEL, PINNED_QUALITY, PLANET, prefersReducedMotion, SHOT, SYSTEM, WORLD } from './core/env.ts'
+import { ANCHOR, GALAXY, HOLE, INTRO, LEVEL, PINNED_QUALITY, PLANET, prefersReducedMotion, SHOT, SPECTRUM, SYSTEM, TIME, WORLD } from './core/env.ts'
 import { getGalaxy } from './core/galaxy.ts'
 import { isPlanetKind } from './core/planets.ts'
 import { guessTier, probeGpu, readDeviceHints } from './core/quality.ts'
-import { useVoid } from './core/store.ts'
+import { SPECTRA, TIME_STEPS, useVoid, type Spectrum, type TimeStep } from './core/store.ts'
 import { getSystem, HOME, levelOf, type Path } from './core/universe.ts'
 import { planOpening, type OpeningMode } from './intro/opening.ts'
 
@@ -63,6 +63,8 @@ useVoid.setState({
   path,
   level: levelOf(path),
   intro: mode === 'none' ? 'done' : 'loading',
+  spectrum: SPECTRA.includes(SPECTRUM as Spectrum) ? (SPECTRUM as Spectrum) : 'visible',
+  timeStep: TIME_STEPS.includes(Number(TIME) as TimeStep) && TIME !== null ? (Number(TIME) as TimeStep) : 1,
 })
 
 createRoot(document.getElementById('root')!).render(

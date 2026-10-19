@@ -33,7 +33,9 @@ import {
   REFERENCE_LIGHT,
   type ParticleCounts,
 } from '../../core/galaxyParticles.ts'
+import { isLit } from '../../core/civilization.ts'
 import { QUALITY } from '../../core/quality.ts'
+import { getSystem } from '../../core/universe.ts'
 import { useVoid } from '../../core/store.ts'
 import { num, useTweaks, type TweakSchema, type TweakValue } from '../../core/tweaks.ts'
 import compositeVert from '../../shaders/galaxy/composite.vert'
@@ -52,6 +54,8 @@ import { useShared, type Disposable } from '../shared/cache.ts'
 import { worldClock } from '../shared/clock.ts'
 import { FULLSCREEN_TRIANGLE } from '../shared/gpu.ts'
 import { SoftBuffer } from '../shared/softBuffer.ts'
+import { lens, spectrum } from '../shared/spectrum.ts'
+import { aimWell, wellUniforms, type WellUniforms } from '../shared/well.ts'
 import { cancelWork, enqueueWork, type Work } from '../shared/work.ts'
 import { handover, sky } from '../stage.ts'
 import { ATLAS_POLICY, createNebulae, NebulaAtlas } from './Nebula.ts'
@@ -101,8 +105,14 @@ function orbitUniforms(galaxy: GalaxyData): Record<string, IUniform> {
     uBend2: { value: new Vector3(shape.wiggle[3], shape.wiggle[4], shape.wiggle[5]) },
     uBar: { value: new Vector3(shape.bar, shape.barAngle, shape.barEccentricity) },
     uMotion: { value: new Vector3(motion.speed, motion.core, motion.pattern) },
+    // Gravity touch reaches about a third of the way across the disc.
+    ...wellUniforms(shape.radius * 0.32),
   }
 }
+
+/** Dust lanes glow in heat (infrared) instead of only darkening. */
+const DUST_SHADE = new Color(0.035, 0.018, 0.009)
+const DUST_GLOW = new Color(0.5, 0.13, 0.035)
 
 /**
  * A galaxy's particles on the GPU, shared like a planet's maps. The light is one set of
@@ -204,9 +214,13 @@ function createStars(galaxy: GalaxyData): BufferGeometry {
   geometry.setAttribute('aOrbit', new BufferAttribute(orbit, 4))
   geometry.setAttribute('aStar', new BufferAttribute(info, 4))
   geometry.setAttribute('aColour', new BufferAttribute(colour, 3))
+  geometry.setAttribute('aSignal', new BufferAttribute(new Float32Array(count), 1))
   geometry.setDrawRange(0, count)
   return geometry
 }
+
+/** Stars whose systems are looked at for a people per frame: the whole galaxy takes ~80 ms. */
+const SIGNALS_PER_FRAME = 24
 
 /** True when the object and everything above it is shown. */
 function shown(object: Object3D): boolean {
@@ -243,10 +257,15 @@ export function Galaxy({ galaxy, active, handed }: GalaxyProps) {
   const atlas = useShared(`nebula-atlas:${atlasSize}`, () => new NebulaAtlas(atlasSize), ATLAS_POLICY)
   const root = useRef<Group>(null)
   const warmed = useRef(false)
+  const signalsDone = useRef(0)
   const tuned = useRef({
     exposure: num(TWEAKS, 'exposure'),
     softness: num(TWEAKS, 'softness'),
     spread: num(TWEAKS, 'spread'),
+    sparkle: num(TWEAKS, 'sparkle'),
+    dust: num(TWEAKS, 'dust'),
+    core: (num(TWEAKS, 'coreLight') / 2) * CORE_LIGHT[galaxy.kind],
+    starLight: num(TWEAKS, 'starLight'),
   })
 
   // The first galaxy seen is built at once, while the page loads; one arrived at mid-flight is
@@ -380,6 +399,7 @@ export function Galaxy({ galaxy, active, handed }: GalaxyProps) {
         uHidden: { value: -1 },
         uPeakMax: { value: 8 },
         uDiscLight: { value: 1.9 },
+        uRadio: { value: 0 },
       },
       blending: AdditiveBlending,
       transparent: true,
@@ -500,6 +520,11 @@ export function Galaxy({ galaxy, active, handed }: GalaxyProps) {
     }
   }, [level, parts])
 
+  // A rebuilt star geometry has no signals yet.
+  useEffect(() => {
+    signalsDone.current = 0
+  }, [parts])
+
   useLayoutEffect(() => {
     const context = gl.getContext()
     const range = context.getParameter(context.ALIASED_POINT_SIZE_RANGE) as Float32Array | null
@@ -524,13 +549,13 @@ export function Galaxy({ galaxy, active, handed }: GalaxyProps) {
     () => (key: string, value: TweakValue) => {
       if (typeof value !== 'number') return
       if (key === 'exposure') tuned.current.exposure = value
-      if (key === 'sparkle') parts.sparkle.uniforms.uExposure!.value = value
+      if (key === 'sparkle') tuned.current.sparkle = value
       if (key === 'youngShift') parts.lightUniforms.uYoungShift.value = value
       if (key === 'softness') tuned.current.softness = value
       if (key === 'spread') tuned.current.spread = value
-      if (key === 'dust') parts.dust.uniforms.uDustScale!.value = value
-      if (key === 'coreLight') parts.core.uniforms.uIntensity!.value = (value / 2) * CORE_LIGHT[galaxy.kind]
-      if (key === 'starLight') parts.stars.uniforms.uStarLight!.value = value
+      if (key === 'dust') tuned.current.dust = value
+      if (key === 'coreLight') tuned.current.core = (value / 2) * CORE_LIGHT[galaxy.kind]
+      if (key === 'starLight') tuned.current.starLight = value
     },
     [parts, galaxy],
   )
@@ -576,10 +601,33 @@ export function Galaxy({ galaxy, active, handed }: GalaxyProps) {
     if (shown(group)) sky.inside = disc ? 1 - t * t * (3 - 2 * t) : 0
 
     // Falling into the disc, the eye adapts: the galaxy's glow, which surrounds the camera
-    // there, dims, while its resolved stars keep their light.
-    const exposure = tuned.current.exposure * (1 - ADAPTATION * sky.inside)
+    // there, dims, while its resolved stars keep their light. By heat the stars dim and the
+    // dust and nebulae glow; by radio the stars all but vanish, and so does the dust.
+    const adapted = tuned.current.exposure * (1 - ADAPTATION * sky.inside)
+    const exposure = adapted * lens(0.6, 0.3)
     parts.lightUniforms.uExposure.value = exposure
-    parts.nebulae.material.uniforms.uGlow!.value = NEBULA_GLOW * (exposure / num(TWEAKS, 'exposure'))
+    parts.nebulae.material.uniforms.uGlow!.value = NEBULA_GLOW * (adapted / num(TWEAKS, 'exposure')) * lens(2.2, 0.35)
+    parts.sparkle.uniforms.uExposure!.value = tuned.current.sparkle * lens(0.4, 0.06)
+    parts.stars.uniforms.uStarLight!.value = tuned.current.starLight * lens(0.45, 0.15)
+    parts.core.uniforms.uIntensity!.value = tuned.current.core * lens(0.75, 0.6)
+    parts.dust.uniforms.uDustScale!.value = tuned.current.dust * lens(0.75, 0.08)
+    ;(parts.dust.uniforms.uColour!.value as Color).copy(DUST_SHADE).lerp(DUST_GLOW, spectrum.infrared)
+    // By radio, the stars whose systems still hold a people shine out. Which they are is worked
+    // out the first time this galaxy is seen by radio, a few stars a frame.
+    parts.stars.uniforms.uRadio!.value = spectrum.radio
+    if (spectrum.radio > 0 && signalsDone.current < galaxy.stars.length) {
+      const attribute = parts.starGeometry.getAttribute('aSignal') as BufferAttribute
+      const end = Math.min(galaxy.stars.length, signalsDone.current + SIGNALS_PER_FRAME)
+      for (let i = signalsDone.current; i < end; i++) {
+        const system = getSystem(galaxy.index, galaxy.stars[i]!.index)
+        attribute.setX(i, system.planets.some((p) => isLit(p.civilization)) ? 1 : 0)
+      }
+      signalsDone.current = end
+      attribute.needsUpdate = true
+    }
+    // Gravity touch, while this is the galaxy the visitor is in.
+    if (active) aimWell(orbit as WellUniforms, group, cam, state.size.width, state.size.height)
+    else (orbit.uWell!.value as Vector4).w = 0
     layers.nebulae.visible = atlas.job.ready
 
     // The near glow covers the distances where the disc's particles have thinned away.

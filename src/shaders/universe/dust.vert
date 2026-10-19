@@ -1,6 +1,7 @@
 // The galaxies' dust, seen from the universe: galaxy/dust.vert for every galaxy at once, drawn
 // between the light beyond each galaxy's dust layer and the light in front of it.
 #include "./galaxy.glsl"
+#include "../common/well.glsl"
 
 attribute vec4 aOrbit;
 // Size, opacity, unused, turns with the arms.
@@ -30,7 +31,7 @@ void main() {
   float phase;
   float presence;
   vec3 local = galacticPosition(aOrbit, aShape.w, phase, presence);
-  vec3 place = gCentre + turnVector(gTurn, local * gScale);
+  vec3 place = wellBend(gCentre + turnVector(gTurn, local * gScale));
   vec4 view = modelViewMatrix * vec4(place, 1.0);
   gl_Position = projectionMatrix * view;
   gl_Position.z = gl_Position.w;

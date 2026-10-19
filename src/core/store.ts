@@ -5,7 +5,8 @@
  */
 import { create } from 'zustand'
 import { subscribeWithSelector } from 'zustand/middleware'
-import { readFlag, writeFlag } from './persist.ts'
+import { parseConstellations, serializeConstellations, type Constellation } from './constellations.ts'
+import { readFlag, readText, writeFlag, writeText } from './persist.ts'
 import type { PlanetKind } from './planets.ts'
 import type { QualityTier } from './quality.ts'
 import { HOME, levelOf, type Level, type Path } from './universe.ts'
@@ -33,6 +34,30 @@ export interface Transition {
  */
 export type IntroStage = 'loading' | 'title' | 'opening' | 'done'
 
+/** How fast world time runs: paused, as it is, a hundred times, ten thousand times. */
+export type TimeStep = 0 | 1 | 100 | 10000
+export const TIME_STEPS: readonly TimeStep[] = [0, 1, 100, 10000]
+
+/** What the eye sees by: visible light, heat (infrared), or radio. */
+export type Spectrum = 'visible' | 'infrared' | 'radio'
+export const SPECTRA: readonly Spectrum[] = ['visible', 'infrared', 'radio']
+
+/** The next pace, round the cycle: faster, faster, paused, as it is. */
+export function nextTimeStep(step: TimeStep): TimeStep {
+  return TIME_STEPS[(TIME_STEPS.indexOf(step) + 1) % TIME_STEPS.length]!
+}
+
+/** The next way of seeing, round the cycle: visible, infrared, radio. */
+export function nextSpectrum(spectrum: Spectrum): Spectrum {
+  return SPECTRA[(SPECTRA.indexOf(spectrum) + 1) % SPECTRA.length]!
+}
+
+/** A constellation being drawn: the stars joined so far, in one galaxy. */
+export interface Sketch {
+  readonly galaxy: number
+  readonly stars: readonly number[]
+}
+
 export interface VoidState {
   quality: QualityTier
   /** True when pinned by ?quality or after the governor has settled. */
@@ -48,6 +73,15 @@ export interface VoidState {
   intro: IntroStage
   /** Sound wanted (remembered between visits); it only plays once Enter has been pressed. */
   audioEnabled: boolean
+  timeStep: TimeStep
+  spectrum: Spectrum
+  /** The camera touring the handcrafted worlds on its own, the interface away. */
+  driftMode: boolean
+  /** The visitor's constellations, kept between visits. */
+  constellations: readonly Constellation[]
+  sketch: Sketch | null
+  /** The constellation whose name is being written, if any. */
+  naming: string | null
   setQuality: (quality: QualityTier) => void
   lockQuality: () => void
   setPlanet: (planet: PlanetKind) => void
@@ -56,6 +90,18 @@ export interface VoidState {
   setTransition: (transition: Transition) => void
   setIntro: (intro: IntroStage) => void
   setAudioEnabled: (enabled: boolean) => void
+  setTimeStep: (step: TimeStep) => void
+  setSpectrum: (spectrum: Spectrum) => void
+  setDriftMode: (drifting: boolean) => void
+  setSketch: (sketch: Sketch | null) => void
+  addConstellation: (constellation: Constellation) => void
+  renameConstellation: (id: string, name: string) => void
+  forgetConstellation: (id: string) => void
+  setNaming: (id: string | null) => void
+}
+
+function keep(constellations: readonly Constellation[]) {
+  writeText('constellations', serializeConstellations(constellations))
 }
 
 export const IDLE: Transition = { phase: 'idle', direction: 'down', from: HOME, to: HOME }
@@ -71,6 +117,12 @@ export const useVoid = create<VoidState>()(
     transition: IDLE,
     intro: 'loading',
     audioEnabled: readFlag('audio', true),
+    timeStep: 1,
+    spectrum: 'visible',
+    driftMode: false,
+    constellations: parseConstellations(readText('constellations')),
+    sketch: null,
+    naming: null,
     setQuality: (quality) => set({ quality }),
     lockQuality: () => set({ qualityLocked: true }),
     setPlanet: (planet) => set({ planet }),
@@ -82,6 +134,29 @@ export const useVoid = create<VoidState>()(
       writeFlag('audio', audioEnabled)
       set({ audioEnabled })
     },
+    setTimeStep: (timeStep) => set({ timeStep }),
+    setSpectrum: (spectrum) => set({ spectrum }),
+    setDriftMode: (driftMode) => set({ driftMode }),
+    setSketch: (sketch) => set({ sketch }),
+    addConstellation: (constellation) =>
+      set((state) => {
+        const constellations = [...state.constellations, constellation]
+        keep(constellations)
+        return { constellations }
+      }),
+    renameConstellation: (id, name) =>
+      set((state) => {
+        const constellations = state.constellations.map((c) => (c.id === id ? { ...c, name } : c))
+        keep(constellations)
+        return { constellations }
+      }),
+    forgetConstellation: (id) =>
+      set((state) => {
+        const constellations = state.constellations.filter((c) => c.id !== id)
+        keep(constellations)
+        return { constellations, naming: state.naming === id ? null : state.naming }
+      }),
+    setNaming: (naming) => set({ naming }),
   })),
 )
 

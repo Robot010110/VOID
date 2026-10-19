@@ -3,6 +3,7 @@
 // the dust: the light beyond each galaxy's dust layer (as seen from the camera), then the
 // dust, then the light in front. The sparkle, which never meets the dust, draws in one.
 #include "./galaxy.glsl"
+#include "../common/well.glsl"
 
 attribute vec4 aOrbit;
 // Size, light, how sharply the arms gate it, turns with the arms.
@@ -54,7 +55,7 @@ void main() {
     }
   }
 
-  vec3 place = gCentre + turnVector(gTurn, local * gScale);
+  vec3 place = wellBend(gCentre + turnVector(gTurn, local * gScale));
   vec4 view = modelViewMatrix * vec4(place, 1.0);
   gl_Position = projectionMatrix * view;
   gl_Position.z = gl_Position.w;
