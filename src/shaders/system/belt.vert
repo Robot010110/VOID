@@ -2,7 +2,8 @@
 // rocks overtake outer ones), tumbling about its own axis. Everything moves here, so the CPU
 // does no work per frame. Like the stars, a rock never shrinks below about a pixel: when it
 // would, it is drawn at that size with its light spread over it, so the belt reads as a
-// stream of fine dust from afar instead of sparkling.
+// stream of fine dust from afar instead of sparkling. A rock the camera comes close to
+// shrinks away first: up close the shape would show its facets.
 uniform float uTime;
 uniform float uRadius;
 uniform float uOmega;
@@ -41,8 +42,9 @@ void main() {
   float pixels = aShape.x * scale * uPixelsPerUnit / max(-view.z, 1e-3);
   float grow = max(1.0, uMinPixels / max(pixels, 1e-4));
   vDim = 1.0 / (grow * grow);
+  float near = smoothstep(8.0, 32.0, -view.z / max(scale, 1e-6));
 
-  vec3 placed = centre + local * grow;
+  vec3 placed = centre + local * grow * near;
   gl_Position = projectionMatrix * modelViewMatrix * vec4(placed, 1.0);
   vNormal = mat3(modelMatrix) * (spin * normal);
   vToStar = mat3(modelMatrix) * -placed;

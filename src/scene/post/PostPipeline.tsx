@@ -1,13 +1,13 @@
 import { Bloom, EffectComposer, FXAA, SMAA, ToneMapping, Vignette } from '@react-three/postprocessing'
 import { ToneMappingMode, type BloomEffect, type VignetteEffect } from 'postprocessing'
 import { useFrame, useThree } from '@react-three/fiber'
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { HalfFloatType } from 'three'
 import { TONE } from '../../core/env.ts'
 import { QUALITY } from '../../core/quality.ts'
 import { useVoid } from '../../core/store.ts'
 import { num, useTweaks, type TweakSchema, type TweakValue } from '../../core/tweaks.ts'
-import { lens } from '../stage.ts'
+import { curtain, lens } from '../stage.ts'
 import { Film, type FilmEffect } from './Film.ts'
 import { createLensingPass } from './Lensing.ts'
 
@@ -42,8 +42,8 @@ const LEVEL_BLOOM: Record<string, number> = { universe: 0.6, galaxy: 0.45, hole:
 const SMAA_MAX_DPR = 1.75
 
 /**
- * HDR scene → the black hole's lensing (only while a hole is in view) → antialiasing → bloom →
- * AgX tone mapping → vignette → film grade (look, floor, grain). Everything after the
+ * HDR scene â†’ the black hole's lensing (only while a hole is in view) â†’ antialiasing â†’ bloom â†’
+ * AgX tone mapping â†’ vignette â†’ film grade (look, floor, grain). Everything after the
  * antialiasing merges into one full-screen pass (plus bloom's own small passes). Lensing and
  * antialiasing re-sample their input at other places, so each runs in a pass of its own; the
  * lensing goes first, so bloom sees the black hole's disc.
@@ -55,11 +55,18 @@ export function PostPipeline() {
   const lensing = useMemo(() => createLensingPass(camera), [camera])
   useEffect(() => () => lensing.dispose(), [lensing])
 
+  // Behind the opening's curtain nothing is drawn at all, not even these passes: a program used
+  // before the driver has compiled it would hold the page still while the levels' shaders are
+  // compiling in the background, and the point of light would stop breathing.
+  const [drawing, setDrawing] = useState(() => !curtain.closed)
+
   // After the scene's own frame callbacks (the hole writes `lens`), before the composer renders.
   // The pass also runs, bending nothing, for the first frames: its program then compiles while
   // the page loads, never mid-flight on the way up to the universe.
   const frames = useRef(0)
   useFrame(() => {
+    if (curtain.closed) return
+    if (!drawing) setDrawing(true)
     frames.current++
     lensing.enabled = lens.active || frames.current <= 3
   }, 0.5)
@@ -93,7 +100,7 @@ export function PostPipeline() {
   useTweaks('Post', TWEAKS, apply)
 
   return (
-    <EffectComposer multisampling={0} frameBufferType={HalfFloatType} enableNormalPass={false}>
+    <EffectComposer enabled={drawing} multisampling={0} frameBufferType={HalfFloatType} enableNormalPass={false}>
       <primitive object={lensing} />
       {antialias ? quality === 'high' ? <SMAA /> : <FXAA /> : <></>}
       <Bloom

@@ -309,21 +309,21 @@ export function Cosmos({ universe }: { universe: Universe }) {
   // is built a galaxy at a time.
   useLayoutEffect(() => {
     if (galaxies.ready) return
-    if (level.background) {
+    if (level.patient) {
       enqueueWork(galaxies)
       return () => cancelWork(galaxies)
     }
     galaxies.run()
-  }, [galaxies, level.background])
+  }, [galaxies, level.patient])
 
   useLayoutEffect(() => {
     if (atlas.job.ready) return
-    if (level.background) {
+    if (level.patient) {
       enqueueBake(atlas.job)
       return () => cancelBake(atlas.job)
     }
     atlas.job.run(gl)
-  }, [atlas, gl, level.background])
+  }, [atlas, gl, level.patient])
 
   const parts = useMemo(() => {
     const buffer = new SoftBuffer('universe', SCREEN_ORDER.light)
@@ -565,7 +565,8 @@ export function Cosmos({ universe }: { universe: Universe }) {
     screen.sparkle.visible = ready
     screen.field.visible = ready
     // Draw once before it ever shows, so its buffers upload while the level is still hidden.
-    if (!ready || (!visible && warmed.current)) return
+    // Drawing before the level's shaders are compiled would wait on them; unseen, it can wait.
+    if (!ready || (!visible && (warmed.current || !level.compiled.current))) return
     warmed.current = true
     screen.composite.visible = visible
     buffer.render(gl, cam, group.matrixWorld)

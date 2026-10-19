@@ -61,12 +61,12 @@ export function Moon({ spec, seed, sun, fade, detail }: MoonProps) {
 
   useLayoutEffect(() => {
     if (world.job.ready) return
-    if (level.background) {
+    if (level.patient) {
       enqueueBake(world.job)
       return () => cancelBake(world.job)
     }
     world.job.run(gl)
-  }, [world, gl, level.background])
+  }, [world, gl, level.patient])
 
   useEffect(() => {
     bound.current = null

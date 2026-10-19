@@ -64,7 +64,8 @@ function activeRuntime() {
  * the wheel and a pinch zoom, and keep zooming over a world to fall into it, or past the
  * limit to rise out of a level. A tap or click on a world flies there. Everything eases, a
  * flick carries on and settles, and an idle camera breathes with a slow handheld drift.
- * During a transition the director flies the camera and input waits, except Escape.
+ * During a transition the director flies the camera and input waits, except Escape; during
+ * the opening, input waits altogether.
  */
 export function CameraRig() {
   const camera = useThree((s) => s.camera)
@@ -85,7 +86,9 @@ export function CameraRig() {
       const rect = canvas.getBoundingClientRect()
       return { x: event.clientX - rect.left, y: event.clientY - rect.top }
     }
-    const steering = () => rig.flight === null && useVoid.getState().transition.phase === 'idle'
+    // The opening flies the camera itself: until it ends, the visitor only watches.
+    const opened = () => useVoid.getState().intro === 'done'
+    const steering = () => opened() && rig.flight === null && useVoid.getState().transition.phase === 'idle'
 
     const zoomBy = (factor: number) => {
       rig.target.distance = clamp(rig.target.distance * factor, rig.limits.min, rig.limits.max)
@@ -211,7 +214,7 @@ export function CameraRig() {
     }
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (isTyping(event.target)) return
+      if (isTyping(event.target) || !opened()) return
       if (event.key === 'Escape' || (event.key === 'Backspace' && !event.repeat)) {
         event.preventDefault()
         back()

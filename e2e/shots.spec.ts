@@ -17,6 +17,11 @@ interface Shot {
   descend?: number | 'hole'
   /** Where that fall arrives (by default a world of the home system). */
   arrive?: number[]
+  /**
+   * A moment of the opening: while it loads, the title, a frame of the film after Enter (on
+   * the frame clock), or the first-visit hint once it has ended.
+   */
+  intro?: 'loading' | 'title' | number | 'hint'
 }
 
 const PLANET = 'shot=planet&quality=high'
@@ -26,6 +31,7 @@ const UNIVERSE = 'shot=universe&quality=high'
 const HOLE = 'shot=hole&quality=high&hole'
 const ANCHOR = 'shot=planet&quality=high&anchor'
 const PHONE = { viewport: { width: 390, height: 844 }, scale: 2 }
+const OPENING = 'shot=opening&intro&quality=high'
 
 const SHOTS: Shot[] = [
   // Phase 0: the night sky alone.
@@ -99,6 +105,18 @@ const SHOTS: Shot[] = [
   { name: '5-arc-system', query: 'shot=system&quality=high&galaxy=1&system=63' },
   { name: '5-arrival-story', query: 'shot=system&quality=high&system=11', descend: 0, arrive: [0, 11, 0] },
   { name: '5-fragment-phone', query: 'shot=planet&quality=medium&anchor=sivar&view=home', ...PHONE },
+  // Phase 6: the opening, from the point of light to the universe.
+  { name: '6-loading', query: OPENING, intro: 'loading' },
+  { name: '6-title', query: OPENING, intro: 'title' },
+  { name: '6-letting-go', query: OPENING, intro: 20 },
+  { name: '6-eclipse', query: OPENING, intro: 110 },
+  { name: '6-pull-back-system', query: OPENING, intro: 200 },
+  { name: '6-pull-back-galaxy', query: OPENING, intro: 380 },
+  { name: '6-pull-back-universe', query: OPENING, intro: 560 },
+  { name: '6-hint', query: OPENING, intro: 'hint' },
+  { name: '6-title-phone', query: 'shot=opening&intro&quality=medium', intro: 'title', ...PHONE },
+  { name: '6-eclipse-phone', query: 'shot=opening&intro&quality=medium', intro: 110, ...PHONE },
+  { name: '6-linked', query: 'shot=opening&intro&quality=high&anchor=driram&view=night', intro: 'hint' },
 ]
 
 interface Hooks {
@@ -106,7 +124,13 @@ interface Hooks {
   descend(index: number): void
   hole(): number
   state(): { path: number[]; phase: string }
+  hold(on: boolean): void
+  advance(frames: number): void
+  pending(): number
+  enter(): void
+  intro(): { stage: string }
 }
+
 
 type HookedWindow = Window & { __VOID__: Hooks }
 
@@ -121,6 +145,39 @@ async function frames(page: Page, count: number) {
       }),
     count,
   )
+}
+
+const stage = (page: Page) => page.evaluate(() => (window as unknown as HookedWindow).__VOID__.intro().stage)
+
+/** Bring the opening to the moment a shot shows. */
+async function opening(page: Page, moment: NonNullable<Shot['intro']>) {
+  if (moment === 'loading') {
+    await page.waitForFunction(() => document.querySelector('.intro-point') !== null)
+    await page.waitForTimeout(900)
+    return
+  }
+  await expect.poll(() => stage(page), { timeout: 240_000, intervals: [250] }).toBe('title')
+  if (moment === 'title') {
+    // The wordmark, the line and Enter have come up.
+    await page.waitForTimeout(4500)
+    return
+  }
+  if (moment === 'hint') {
+    await page.evaluate(() => (window as unknown as HookedWindow).__VOID__.enter())
+    await expect.poll(() => stage(page), { timeout: 120_000, intervals: [250] }).toBe('done')
+    await page.waitForTimeout(2600)
+    return
+  }
+  await page.evaluate(() => {
+    const hooks = (window as unknown as HookedWindow).__VOID__
+    hooks.hold(true)
+    hooks.enter()
+  })
+  await page.evaluate((n) => (window as unknown as HookedWindow).__VOID__.advance(n), moment)
+  await expect
+    .poll(() => page.evaluate(() => (window as unknown as HookedWindow).__VOID__.pending()), { timeout: 120_000, intervals: [100] })
+    .toBe(0)
+  await frames(page, 3)
 }
 
 for (const shot of SHOTS) {
@@ -139,6 +196,13 @@ for (const shot of SHOTS) {
     page.on('pageerror', (error) => problems.push(`pageerror: ${error.message}`))
 
     await page.goto(`/?${shot.query}`)
+    if (shot.intro !== undefined) {
+      await opening(page, shot.intro)
+      await page.screenshot({ path: `screenshots/${shot.name}.png` })
+      await context.close()
+      expect(problems).toEqual([])
+      return
+    }
     await page.waitForSelector('html[data-void-ready="true"]', { timeout: 240_000 })
     await frames(page, 12)
 

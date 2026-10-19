@@ -16,6 +16,8 @@ const UP_COOLDOWN_MS = 9000
  */
 export function QualityGovernor() {
   const locked = useVoid((s) => s.qualityLocked)
+  // Loading compiles and builds three levels at once: not a frame rate to judge a tier by.
+  const opened = useVoid((s) => s.intro === 'done')
   const mounted = useRef<number | null>(null)
   const lastChange = useRef(0)
 
@@ -38,7 +40,7 @@ export function QualityGovernor() {
     return [Math.min(refreshRate * 0.75, 50), Math.min(refreshRate * 0.95, 100)]
   }, [])
 
-  if (locked) return null
+  if (locked || !opened) return null
   return (
     <PerformanceMonitor
       ms={300}

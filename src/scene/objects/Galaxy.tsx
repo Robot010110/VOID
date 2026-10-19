@@ -253,21 +253,21 @@ export function Galaxy({ galaxy, active, handed }: GalaxyProps) {
   // built a slice per frame.
   useLayoutEffect(() => {
     if (buffers.ready) return
-    if (level.background) {
+    if (level.patient) {
       enqueueWork(buffers)
       return () => cancelWork(buffers)
     }
     buffers.run()
-  }, [buffers, level.background])
+  }, [buffers, level.patient])
 
   useLayoutEffect(() => {
     if (atlas.job.ready) return
-    if (level.background) {
+    if (level.patient) {
       enqueueBake(atlas.job)
       return () => cancelBake(atlas.job)
     }
     atlas.job.run(gl)
-  }, [atlas, gl, level.background])
+  }, [atlas, gl, level.patient])
 
   const orbit = useMemo(() => orbitUniforms(galaxy), [galaxy])
   // The near glow models a spiral's disc; ellipticals and irregulars resolve into their stars.
@@ -571,8 +571,9 @@ export function Galaxy({ galaxy, active, handed }: GalaxyProps) {
     const { radius, thickness } = galaxy.shape
     const away = Math.max(0, Math.abs(cameraLocal.y) - thickness) + Math.max(0, Math.hypot(cameraLocal.x, cameraLocal.z) - radius)
     const t = Math.min(1, Math.max(0, (away - 15) / 125))
-    // An elliptical has no disc: from inside it there is no band, only the swarm's stars.
-    sky.inside = disc ? 1 - t * t * (3 - 2 * t) : 0
+    // An elliptical has no disc: from inside it there is no band, only the swarm's stars. A
+    // galaxy kept on stage unseen (warming up for the opening) leaves the sky alone.
+    if (shown(group)) sky.inside = disc ? 1 - t * t * (3 - 2 * t) : 0
 
     // Falling into the disc, the eye adapts: the galaxy's glow, which surrounds the camera
     // there, dims, while its resolved stars keep their light.
@@ -602,7 +603,8 @@ export function Galaxy({ galaxy, active, handed }: GalaxyProps) {
     // Draw the soft light whenever it shows, and once before it ever shows, so its buffers are
     // uploaded while the level is still hidden rather than in the frame it appears.
     const visible = shown(group) && level.fade.current > 0
-    if (!ready || (!visible && warmed.current)) return
+    // Drawing before the level's shaders are compiled would wait on them; unseen, it can wait.
+    if (!ready || (!visible && (warmed.current || !level.compiled.current))) return
     warmed.current = true
     screen.composite.visible = visible
     buffer.render(gl, cam, group.matrixWorld)

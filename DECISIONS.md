@@ -12,7 +12,7 @@ Non-obvious calls, one or two lines each, with the reason. Newest phase last.
 - **three is pinned to r182.** R3F 9.8.1 (the latest) still constructs `THREE.Clock`, which logs a deprecation warning from r183 on. Revisit when R3F moves to `THREE.Timer`.
 - **LF line endings everywhere**, via `.gitattributes` and repo-local `core.autocrlf=false`, so shaders and configs are byte-identical on every OS.
 - **Imports carry explicit `.ts` extensions**, as the Vite template does. Pure modules in `src/core` also run directly in Node for quick checks.
-- **`npm run shots` uses SwiftShader**, as the brief suggests. `VOID_GPU=1 npm run shots` uses the real GPU through ANGLE and runs about 5× faster. Any console warning or error fails a shot, so the script doubles as a smoke test. `/screenshots` is git-ignored.
+- **`npm run shots` uses SwiftShader**, as the brief suggests. `VOID_GPU=1 npm run shots` uses the real GPU through ANGLE and runs about 5أ— faster. Any console warning or error fails a shot, so the script doubles as a smoke test. `/screenshots` is git-ignored.
 - **URL parameters for review:** `?debug` (tuning panel and frame readout), `?quality=low|medium|high` (pins the tier), `?view=home|core|pole` (opening framing), `?tone=agx|aces|neutral` (tone mapper), `?shot=` (screenshot run: no fade-in, no drift).
 - **leva only loads with `?debug`, from a lazy chunk.** Components describe their tunables in a small registry (`core/tweaks.ts`) whose values are the production defaults, so app code never imports leva. `?debug` also works on production builds, for profiling on real devices.
 
@@ -36,7 +36,7 @@ Non-obvious calls, one or two lines each, with the reason. Newest phase last.
 - **All stars share one point-spread function**: a gaussian core, a faint wide halo, and spikes on the brightest 0.5%. Brighter stars light more of it, so apparent size grows with brightness as on a real sensor. Sprites end where the light drops below visibility, so faint stars cost a few pixels.
 - **Spikes share one orientation across the sky**, as through a single telescope, and are deliberately faint.
 - **The starfield draws first, in the opaque queue, at the far plane**, with additive light and no depth test. Opaque planets cover it; anything transparent glows over it.
-- **The home sky has a galactic band**, baked once on the GPU into a 2048×512 half-float strip (1024 wide on Low). Its dust dims and reddens the stars behind it, and faint stars brighten inside its glow, so dust lanes and star gaps always line up. The band is meant to fade at the Galaxy and Universe levels, where the view is from outside any galaxy.
+- **The home sky has a galactic band**, baked once on the GPU into a 2048أ—512 half-float strip (1024 wide on Low). Its dust dims and reddens the stars behind it, and faint stars brighten inside its glow, so dust lanes and star gaps always line up. The band is meant to fade at the Galaxy and Universe levels, where the view is from outside any galaxy.
 - **The band's glow is a ring mesh at infinity with per-vertex UVs**, not a full-screen ray pass. There is no per-pixel trigonometry, and it costs nothing when the band is out of view.
 - **The opening framing is composed:** the band rises from lower left, the warm core sits on the right third, and the upper left is quiet.
 - **Parallax comes from accumulated camera travel divided by distance**, not absolute position. It feels the same at every scale, and jumps (a level swap re-centring the camera) can be ignored.
@@ -60,10 +60,10 @@ Non-obvious calls, one or two lines each, with the reason. Newest phase last.
 
 ### Atmosphere and light
 
-- **The raymarched single-scattering atmosphere won over the fresnel rim approximation.** It gives the blue limb, the warm terminator and a bright backlit rim. Sunlight transmittance comes from a 256×64 precomputed table, which also carries the planet's soft shadow, so each sample costs one texture read. Units are planet radii. The atmosphere is drawn about 6× thicker than Earth's, with coefficients scaled down to keep Earth-like optical depth.
+- **The raymarched single-scattering atmosphere won over the fresnel rim approximation.** It gives the blue limb, the warm terminator and a bright backlit rim. Sunlight transmittance comes from a 256أ—64 precomputed table, which also carries the planet's soft shadow, so each sample costs one texture read. Units are planet radii. The atmosphere is drawn about 6أ— thicker than Earth's, with coefficients scaled down to keep Earth-like optical depth.
 - **Samples follow the path.** A short drop to the ground gets 4 samples, bunched towards the dense air near the surface. Long grazing paths along the limb get up to 14 / 10 / 5 by tier. This cut the close-view atmosphere cost by more than half.
 - **Low keeps a minimal march instead of dropping it, a deliberate deviation from the brief.** With adaptive sampling most of the planet already uses 4 samples. The fresnel fallback would lose the warm terminator for a small saving. Revisit in the Phase 9 performance pass.
-- **Sun irradiance is set so a white sunlit surface sits just under the bloom threshold** (π × 0.95). Only real light sources bloom: the sun, ocean glint, city lights and lava.
+- **Sun irradiance is set so a white sunlit surface sits just under the bloom threshold** (د€ أ— 0.95). Only real light sources bloom: the sun, ocean glint, city lights and lava.
 - **The warm terminator is lifted slightly.** Ground light uses transmittance^0.8, clouds ^0.7. The exact values read as dirty brown instead of a sunset glow.
 
 ### Layers
@@ -80,21 +80,21 @@ Non-obvious calls, one or two lines each, with the reason. Newest phase last.
 - **City lights never shrink below about a pixel.** Like the stars, they keep part of their energy as they shrink. Overlapping lights roll off exponentially, so distant cities read as clusters and dense metros glow without burning out.
 - **Population is baked:** coastal, low, temperate, liveable land, gathered unevenly by noise. Metropolitan areas are its densest parts. The cloud base glows faintly above them at night.
 - **Gas giants bake their band field once; all motion happens at lookup time.** Each latitude turns at its own rate and storms swirl the lookup, so storms ride their bands and nothing is re-baked per frame.
-- **Ring density comes from a 1024×1 profile** built from radial waves and smooth gaps, with mipmaps for distance. The planet shadows the rings by a ray-sphere test with penumbra; the rings shadow the planet by a ray-plane test.
+- **Ring density comes from a 1024أ—1 profile** built from radial waves and smooth gaps, with mipmaps for distance. The planet shadows the rings by a ray-sphere test with penumbra; the rings shadow the planet by a ray-plane test.
 
 ### Framing
 
-- **Tall screens widen the view instead of cropping it.** The vertical field of view is 50° on landscape screens. On portrait screens it widens to keep at least 42° across, up to 72°, where perspective starts to stretch the planet's edges.
+- **Tall screens widen the view instead of cropping it.** The vertical field of view is 50آ° on landscape screens. On portrait screens it widens to keep at least 42آ° across, up to 72آ°, where perspective starts to stretch the planet's edges.
 - **The opening shot is composed for the screen's shape.** On a wide screen the sun sits beside the planet. On a tall one it rises below it, and the planet stands a quarter further back so the whole crescent fits.
 
 ### Review and performance
 
 - **`?level=sky` shows the Phase 0 sky until levels connect in Phase 2.** `?planet=<kind>` picks a preset, and `?debug` can switch it live.
 - **`npm run shots` now uses the real GPU and falls back to software automatically.** `npm run shots:soft` forces SwiftShader as the brief describes. One high-quality planet shot takes about 2.3 minutes on SwiftShader against about 15 seconds on the GPU.
-- **Measured on an Intel UHD 620 at 1600×900, DPR 1:**
+- **Measured on an Intel UHD 620 at 1600أ—900, DPR 1:**
   - Planet filling the screen: 37 fps on Low (where this GPU starts) and 29 on High.
   - The normal framing: 60 fps on Low and about 52 on High.
-  - Iris Xe is roughly 2.5–3× faster; the governor steps weaker GPUs down a tier.
+  - Iris Xe is roughly 2.5â€“3أ— faster; the governor steps weaker GPUs down a tier.
 
 ## Phase 2: The star system
 
@@ -161,7 +161,7 @@ Desktop, at a planet                          Phone, at a planet
 - **The home system is star 0 of galaxy 0, and featured.** It always has a sun-like star, at least six worlds, a lit temperate home world nearest the habitable zone, a banded and a ringed giant, and a belt.
 - **World kinds follow temperature zones.** Zones are measured against the habitable distance, which grows with the square root of the star's luminosity. Kinds already used are less likely, for variety. Presets vary within their tuned ranges, and giants pick from curated palettes, so every world looks as good as the showroom's.
 - **Until civilisations arrive in Phase 5, at most one temperate world per system is lit.**
-- **Sunlight doesn't fall off as 1/r².** It dims gently beyond the habitable zone (power 0.35, floor 0.55), so outer worlds stay readable. Its colour is the star's blackbody.
+- **Sunlight doesn't fall off as 1/rآ².** It dims gently beyond the habitable zone (power 0.35, floor 0.55), so outer worlds stay readable. Its colour is the star's blackbody.
 - **Orbits follow Kepler's third law.** At 1x the innermost world takes about 10 minutes and the outermost about 5 hours, so the system is calm but alive.
 
 ### Levels and transitions
@@ -280,10 +280,10 @@ Desktop, at a planet                          Phone, at a planet
 ### The black hole
 
 - **The hole is drawn by the universe around it, and the two share one stage.** The hole's level is the universe's own units, centred on the hole and turned to its disc. The universe stays mounted beneath it, so a fall between them changes only the frame and the framing, and nothing fades.
-- **It is ray traced.** This is the brief's stretch goal, and it fit the budget. Each pixel near the hole follows its ray through the hole's gravity: the exact shape of a light ray's path in Schwarzschild spacetime, written as a force (-1.5 h² x / r⁵) and integrated with steps that shrink near the hole. The trace runs into its own buffer (0.85, 0.7 or 0.55 of the screen, 88, 76 or 64 steps by tier), only where the traced sphere lands on screen. Disc crossings are composited front to back, so the far side of the disc arches over the shadow and under it, as in the classic render.
+- **It is ray traced.** This is the brief's stretch goal, and it fit the budget. Each pixel near the hole follows its ray through the hole's gravity: the exact shape of a light ray's path in Schwarzschild spacetime, written as a force (-1.5 hآ² x / râپµ) and integrated with steps that shrink near the hole. The trace runs into its own buffer (0.85, 0.7 or 0.55 of the screen, 88, 76 or 64 steps by tier), only where the traced sphere lands on screen. Disc crossings are composited front to back, so the far side of the disc arches over the shadow and under it, as in the classic render.
 - **The shadow's edge and the photon ring come from each ray's exact impact parameter, not from the march.** Rays near the critical impact parameter circle the photon sphere and need hundreds of steps. Treating rays that ran out of steps as fallen in made the shadow too large and left the ring inside it. The ring is drawn no thinner than a pixel, with its light kept, so it never breaks into dashes on a phone.
-- **Lensing is a post pass of its own, ahead of bloom, so bloom sees the disc.** Each pixel's ray is turned towards the hole by the real deflection for its impact parameter. That is Darwin's exact result in elliptic integrals, tabulated over log(b / b_c - 1) in a half-float texture, with the strong-field limit below the table and the weak-field series above it. A camera's finite distance is accounted for by (1 + cos θ) / 2. The pass is skipped when nothing on screen bends by more than three quarters of a pixel. Lensing's exact physics gives arcs, an Einstein ring, and the dark lens the hole makes against the web from afar.
-- **The disc is white-hot at its inner edge (11,000 K) and cools to Ember outward.** Its colour falls as r^-1.2 and its light more steeply. Doppler beaming (g³, with speeds scaled to 0.72) brightens and blues the side coming towards the camera, and gravitational redshift dims gas near the hole. Its turbulence is a baked, seamless noise carried round at Keplerian speeds. Two layers half a cycle apart crossfade, so the pattern streams without winding up. The noise is filtered to each pixel's footprint, stretched where the disc is seen edge-on, so the disc never sparkles.
+- **Lensing is a post pass of its own, ahead of bloom, so bloom sees the disc.** Each pixel's ray is turned towards the hole by the real deflection for its impact parameter. That is Darwin's exact result in elliptic integrals, tabulated over log(b / b_c - 1) in a half-float texture, with the strong-field limit below the table and the weak-field series above it. A camera's finite distance is accounted for by (1 + cos خ¸) / 2. The pass is skipped when nothing on screen bends by more than three quarters of a pixel. Lensing's exact physics gives arcs, an Einstein ring, and the dark lens the hole makes against the web from afar.
+- **The disc is white-hot at its inner edge (11,000 K) and cools to Ember outward.** Its colour falls as r^-1.2 and its light more steeply. Doppler beaming (gآ³, with speeds scaled to 0.72) brightens and blues the side coming towards the camera, and gravitational redshift dims gas near the hole. Its turbulence is a baked, seamless noise carried round at Keplerian speeds. Two layers half a cycle apart crossfade, so the pattern streams without winding up. The noise is filtered to each pixel's footprint, stretched where the disc is seen edge-on, so the disc never sparkles.
 
 ### Falls
 
@@ -357,3 +357,44 @@ Desktop, at a planet                          Phone, at a planet
 ### Review and performance
 
 - **Measured on an Intel UHD 620 at 1600x900, DPR 1, production build, on Low:** 60 fps for every handcrafted world at its resting view, the arc's system and the arc in the sky. Close up, with the world filling the screen, 41 to 44 fps, as for any world (the GPU time per frame is the same with or without a people). On High, the ring world runs 54 fps at rest.
+
+## Phase 6: Opening and sound
+
+### The opening
+
+- **One point of light, then a title card.** The page opens on Abyss with a single warm point breathing at the centre while everything loads. When everything is ready it swells into a soft glow, and the wordmark comes up over it, lit from behind; then "Sound on. Take your time.", then Enter (staggered at 0.5, 1.5 and 2.3 s). Enter (the button, or the Enter key or space anywhere on the title) is the gesture that starts the sound.
+- **The wordmark is the brief's one place where type becomes art:** Fraunces 300, sharp (SOFT 0), tracked wide like a film title, its trailing tracking balanced on the left so the word sits centred on the light. It is the only thing on screen; the line and Enter are Hanken in the prose and name tiers. Enter is a word with a hairline beneath it, not a box.
+- **On Enter the letters let go.** Each letter is drawn into an offscreen canvas exactly where it stands, sampled into about 2,200 specks (1,400 on a narrow screen) and the page's letters hand over to them in 0.35 s. The middle letters go first. The specks drift outward, slowing; most dim within two seconds, and one in fifteen lingers as a twinkling point, warm or cool, until the sky has come up behind. Seeded and stepped by the frame clock, so screenshot runs draw the same dust.
+- **The point of light is a sun.** The dark lifts over 1.3 s and the glow gives way to the home star at the same place on screen. The first shot stands in the plane of Ithasal's orbit, 7 units beyond it (inside the asteroid belt beyond its orbit), a little below the plane: from there the world is larger than its sun and covers it, night side towards us with its cities lit. The camera holds for a second and a half while the dust drifts, then rises as it pulls back, and the world slides down off the sun: an eclipse, ending. The camera is placed when Enter is pressed, from where the world is then, so this happens however long the title waited.
+- **The pull-back is one move.** Out of the system, out of the galaxy, out to the universe at rest: 10 s, after the 1.5 s hold. Chained ascents would each ease in and out and the camera would stall at every level, so the whole move follows one curve of log-distance over time (`intro/pullback.ts`): a monotone cubic through each level's resting distance, given 30%, 37% and 33% of the time, starting and ending at rest, its speed continuous at every hand-over. Each flight is handed its stretch of the curve as a profile (`ascend(profile)`, `ascendTo(path, profiles)`).
+- **Asteroids shrink away as the camera comes near** (from 32 units, gone by 8). The pull-back rises through the home belt, whose low-poly rocks showed their facets up close. Views of a system stand 50 units or more from any belt, so nothing else changes.
+- **The hint, once.** On a first visit, after the film has shown what falling looks like, "Scroll to fall into anything" ("Tap to fall into anything" on a touch screen) fades in at the bottom centre, holds 4 s and goes; the caption and controls follow it. It is remembered and never shown again.
+- **Reduced motion, and links:** a visitor who prefers reduced motion opens on the universe and gets the same title, the letters fading rather than breaking, and a crossfade instead of the flight. A link to somewhere particular (`?anchor=`, `?galaxy=`...) gets the same: title, Enter, crossfade to that place.
+- **Input waits for the opening**, which flies the camera itself: no orbiting, falling, hovering or Escape until it ends. Every visit plays it; Enter is needed to start the sound anyway, and on a second visit the browser's shader cache brings the title up in a few seconds.
+- **`?intro` plays the opening on a screenshot run, and `?intro=skip` skips it** (straight into the universe or the linked place). Screenshot runs and the development views (`?level=sky`, `?planet=`) skip it by default.
+
+### Loading behind the dark
+
+- **Nothing is drawn while the opening loads.** The levels the film needs (the home system, the home galaxy and the universe) mount at once, the galaxy and the universe hidden, never framing the camera. Behind the dark ("the curtain"), no level, no sky and no post-processing draws at all: every shader compiles in the background (KHR_parallel_shader_compile), every map bakes a little each frame, and only then does the curtain rise, for eight real frames still behind the dark, before the title. The warm levels leave the stage when the film ends: the brief's "current level plus the incoming one" rule is bent only while the opening plays.
+- **Why:** on the Intel UHD 620, the page used to freeze for the first 8 to 11 s, with no frames at all and no breathing point. Profiling found three causes, each a program used before the driver had compiled it: a level that opened in place baked its maps all at once in the first frame, the sky's band and the post-processing passes drew from the first frame, and every level's shaders were handed to the driver at once.
+- **Levels opening behind the curtain bake patiently,** as an arriving level always has. Bake passes now compile in the background before their first tile (in every case, not only the opening).
+- **The driver gets at most six programs at a time** (`compileSlotFree`), from levels and bakes alike, an object at a time. All at once, a slow driver works through them as one block and the page freezes until the last is done (8 s); one at a time, no freeze but twice as long; six at a time, the longest pause is about a second and loading nearly as quick. It also helps falls between levels, which compile their next level the same way.
+- **The title waits for the fonts, the sound module, the band of the sky, and all three levels ready**, at least 1.4 s (one breath) and at most 15 s. On the UHD 620 that is about 13 s on a first visit and about 3 s on the next (the shader cache).
+
+### Sound
+
+- **Tone.js, D Lydian, in `audio/`.** `engine.ts` is the graph and nothing else (no React, no three); `notes.ts` maps things to notes (pure, tested); `sound.ts` is the engine as the rest of VOID sees it; `AudioDirector.tsx` keeps it in step with the store through subscriptions.
+- **Tone is fetched while the opening loads, in its own chunk (65 kB gzipped), and imported from its class modules, not its index:** the index creates an AudioContext as soon as it loads, which Chrome warns about before any gesture. The context is created inside the Enter click (creating it takes a quarter of a second on the test laptop, unavoidably in the click); the routing is built once it runs, and the voices a stage a frame, in the order the film needs them, because built at once they held the page for half a second as the dark lifts. Tone's console greeting is silenced, and its warning about scheduling on a sleeping context is dropped (VOID's context sleeps on purpose); anything else Tone says still reaches the console.
+- **Master:** everything plays through one bus, a gentle compressor (-24 dB, 3:1, soft knee), a limiter at -1 dB and the master volume (-9 dB); most voices also send into a 10 s reverb, the space everything hangs in. Measured at the output: about -21 to -27 dBFS RMS by level, peaks under -13 dBFS.
+- **The drone is always there:** two sawtooths a few cents apart on D2 and a quiet fifth above, through a low-pass that wanders over a minute, with very quiet dark noise under it.
+- **Each level has a layer, crossfading over two seconds when the level changes:** the universe, D1 and its octave swelling and ebbing over half a minute (the octave carries it on laptop speakers); a galaxy, D major seventh with the raised fourth, high and thin, each voice breathing on its own slow cycle through a wide chorus, like voices far off; a system, a warm open chord (D3, A3, E4) that pulses with the orbit of the world nearest the camera (0.1 to 0.5 Hz, faster for quicker orbits, checked every two seconds); a world, wind in its air (none on an airless rock, most on a giant), and the hum of its people: warm while they thrive, faltering at odd moments while they fade, a glassy high fifth if they became light, nothing if they are gone. The black hole darkens the drone.
+- **Touching something rings it.** A star (hovered or focused with Tab) rings an FM bell pitched by its temperature, three octaves from D3, hot stars high; a world rings a softer bell pitched by its orbit, the innermost highest; a galaxy rings deep, the largest lowest. Notes come at most every 90 ms, and a quick run plays softer.
+- **A fall sweeps noise through a band down from 2.6 kHz to 180 Hz, and a rise sweeps it up, over the flight's own length.** The opening plays one long rise for the whole pull-back.
+- **Fades are linear in amplitude.** The first bloom swells over 4.5 s and is heard from its first moment; an exponential fade from silence stayed inaudible for half its length.
+- **The first shot is framed while loading,** not only on Enter, so what it shows close up (the world, its moons, its cities) is built and compiled behind the dark; on Enter it is framed again from where the world has moved to.
+- **Mute** (the M key, or the sound control top right) fades out over half a second and then suspends the AudioContext, so muted VOID does no audio work at all; a hidden tab does the same. The choice is remembered. The control is a single line: a gentle wave while sound is on, lying flat when it is off.
+
+### Review and performance
+
+- **Measured on an Intel UHD 620 at 1600x900, DPR 1, production build.** Loading: the title after about 13 s on a first visit and 2 to 3 s after, the longest pause in the breathing point about a second. The film on Low: 60 fps through the whole pull-back, with five short hitches in its first second (the AudioContext, then the sound's stages) while the camera still holds on the eclipse. On High (meant for Iris Xe-class GPUs and up) 33 to 60 fps, as the universe on High was already.
+- **Sound, measured at the output (the screenshot browser has no speakers):** the bloom is heard within half a second; every level sits between -23 and -26 dBFS RMS; peaks stay under -13 dBFS; the right layer is up at every level, a world's wind and hum follow it, and hovering rings a note. How it sounds needs ears.

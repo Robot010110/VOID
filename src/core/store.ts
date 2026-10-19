@@ -5,6 +5,7 @@
  */
 import { create } from 'zustand'
 import { subscribeWithSelector } from 'zustand/middleware'
+import { readFlag, writeFlag } from './persist.ts'
 import type { PlanetKind } from './planets.ts'
 import type { QualityTier } from './quality.ts'
 import { HOME, levelOf, type Level, type Path } from './universe.ts'
@@ -22,7 +23,15 @@ export interface Transition {
   readonly direction: 'down' | 'up'
   readonly from: Path
   readonly to: Path
+  /** How long the flight takes, for what follows it (the sound of the fall). */
+  readonly seconds?: number
 }
+
+/**
+ * The opening: the point of light while everything loads, the title waiting for Enter, the
+ * film that follows it, and then the universe is the visitor's.
+ */
+export type IntroStage = 'loading' | 'title' | 'opening' | 'done'
 
 export interface VoidState {
   quality: QualityTier
@@ -36,12 +45,17 @@ export interface VoidState {
   /** The child under the pointer or keyboard focus, by index, at the current level. */
   hoverTarget: number | null
   transition: Transition
+  intro: IntroStage
+  /** Sound wanted (remembered between visits); it only plays once Enter has been pressed. */
+  audioEnabled: boolean
   setQuality: (quality: QualityTier) => void
   lockQuality: () => void
   setPlanet: (planet: PlanetKind) => void
   setPath: (path: Path) => void
   setHoverTarget: (index: number | null) => void
   setTransition: (transition: Transition) => void
+  setIntro: (intro: IntroStage) => void
+  setAudioEnabled: (enabled: boolean) => void
 }
 
 export const IDLE: Transition = { phase: 'idle', direction: 'down', from: HOME, to: HOME }
@@ -55,12 +69,19 @@ export const useVoid = create<VoidState>()(
     level: levelOf(HOME),
     hoverTarget: null,
     transition: IDLE,
+    intro: 'loading',
+    audioEnabled: readFlag('audio', true),
     setQuality: (quality) => set({ quality }),
     lockQuality: () => set({ qualityLocked: true }),
     setPlanet: (planet) => set({ planet }),
     setPath: (path) => set({ path, level: levelOf(path), hoverTarget: null }),
     setHoverTarget: (hoverTarget) => set({ hoverTarget }),
     setTransition: (transition) => set({ transition }),
+    setIntro: (intro) => set({ intro }),
+    setAudioEnabled: (audioEnabled) => {
+      writeFlag('audio', audioEnabled)
+      set({ audioEnabled })
+    },
   })),
 )
 

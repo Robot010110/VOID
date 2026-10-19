@@ -1,17 +1,6 @@
 import { useFrame, useThree } from '@react-three/fiber'
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
-import {
-  HalfFloatType,
-  Quaternion,
-  Vector3,
-  WebGLRenderTarget,
-  type Camera,
-  type Group,
-  type Material,
-  type Object3D,
-  type Scene,
-  type WebGLRenderer,
-} from 'three'
+import { Quaternion, Vector3, type Group } from 'three'
 import { getUniverse, isHole } from '../../core/cosmos.ts'
 import { getGalaxy } from '../../core/galaxy.ts'
 import { pathKey, samePath, useVoid } from '../../core/store.ts'
@@ -29,58 +18,16 @@ import {
 } from '../camera/views.ts'
 import { frameTransform } from '../frames.ts'
 import { bakesPending } from '../shared/bake.ts'
+import { CompileJob } from '../shared/compile.ts'
 import { worldClock } from '../shared/clock.ts'
 import { workPending } from '../shared/work.ts'
-import { levelRuntime } from '../stage.ts'
+import { curtain, levelRuntime, warmUp } from '../stage.ts'
 import { LevelContext, type LevelInfo } from './context.ts'
 import { GalaxyLevel } from './GalaxyLevel.tsx'
 import { HoleLevel } from './HoleLevel.tsx'
 import { PlanetLevel } from './PlanetLevel.tsx'
 import { SystemLevel } from './SystemLevel.tsx'
 import { UniverseLevel } from './UniverseLevel.tsx'
-
-/**
- * A one-pixel target of the kind the scene really renders into (linear, half float), bound
- * while shaders are precompiled: three keys programs by output colour space, and programs
- * compiled for the screen would be compiled again at first use.
- */
-let compileTarget: WebGLRenderTarget | null = null
-
-interface ProgramState {
-  currentProgram?: { isReady(): boolean; getUniforms(): unknown }
-}
-
-function programOf(gl: WebGLRenderer, material: Material) {
-  return (gl.properties.get(material) as ProgramState).currentProgram
-}
-
-/**
- * Start compiling a level's shaders. With KHR_parallel_shader_compile the driver compiles in
- * the background and the returned materials are polled until their programs are ready;
- * without it, linking is forced now, mid-flight, rather than at the moment of the swap.
- */
-function precompile(gl: WebGLRenderer, roots: Iterable<Object3D>, camera: Camera, scene: Scene): Set<Material> {
-  compileTarget ??= new WebGLRenderTarget(1, 1, { type: HalfFloatType, depthBuffer: true })
-  const previous = gl.getRenderTarget()
-  gl.setRenderTarget(compileTarget)
-  const materials = new Set<Material>()
-  for (const root of roots) for (const material of gl.compile(root, camera, scene)) materials.add(material)
-  gl.setRenderTarget(previous)
-  if (!gl.extensions.has('KHR_parallel_shader_compile')) {
-    for (const material of materials) programOf(gl, material)?.getUniforms()
-    materials.clear()
-  }
-  return materials
-}
-
-/** True once every program has finished compiling. Disposed materials no longer count. */
-function compiledAll(gl: WebGLRenderer, materials: Set<Material>): boolean {
-  for (const material of materials) {
-    const program = programOf(gl, material)
-    if (!program || program.isReady()) materials.delete(material)
-  }
-  return materials.size === 0
-}
 
 const position = new Vector3()
 const rotation = new Quaternion()
@@ -139,9 +86,22 @@ const LevelFrame = memo(function LevelFrame({ path }: { path: Path }) {
   const root = useRef<Group>(null)
   // 'pending' until the first frame after mounting (React's development double-mount has
   // settled by then), then the materials still compiling, then 'done'.
-  const compile = useRef<'pending' | Set<Material> | 'done'>('pending')
-  const [background] = useState(() => useVoid.getState().transition.phase !== 'idle')
-  const info = useMemo<LevelInfo>(() => ({ fade: runtime.fade, background, extras: new Set() }), [runtime, background])
+  const compile = useRef<'pending' | CompileJob | 'done'>('pending')
+  const [background] = useState(() => {
+    const state = useVoid.getState()
+    // A level warming up for the opening waits unseen, and never frames the camera.
+    const warming = state.intro !== 'done' && !samePath(path, state.path) && warmUp.paths.some((p) => samePath(p, path))
+    if (warming) {
+      runtime.visible = false
+      runtime.fade.current = 0
+    }
+    return warming || state.transition.phase !== 'idle'
+  })
+  const [patient] = useState(() => background || curtain.closed)
+  const info = useMemo<LevelInfo>(
+    () => ({ fade: runtime.fade, background, patient, extras: new Set(), compiled: { current: false } }),
+    [runtime, background, patient],
+  )
 
   useEffect(() => {
     compile.current = 'pending'
@@ -154,10 +114,11 @@ const LevelFrame = memo(function LevelFrame({ path }: { path: Path }) {
     group.position.copy(position)
     group.quaternion.copy(rotation)
     group.scale.setScalar(scale)
-    group.visible = runtime.visible
+    group.visible = runtime.visible && !curtain.closed
     // Compile this level's shaders in parallel instead of stalling the frame it appears in.
-    if (compile.current === 'pending') compile.current = precompile(gl, [group, ...info.extras], camera, scene)
-    if (compile.current !== 'done' && compiledAll(gl, compile.current)) compile.current = 'done'
+    if (compile.current === 'pending') compile.current = new CompileJob([group, ...info.extras])
+    if (compile.current !== 'done' && compile.current.step(gl, camera, scene)) compile.current = 'done'
+    info.compiled.current = compile.current === 'done'
     runtime.ready = compile.current === 'done' && !bakesPending() && !workPending()
   }, -50)
 
@@ -184,14 +145,17 @@ const UNIVERSE: Path = []
 
 /**
  * The levels on stage: the current one, plus the next one while a transition runs. The black
- * hole is drawn by the universe around it, so the universe stays on stage beneath it.
+ * hole is drawn by the universe around it, so the universe stays on stage beneath it. While
+ * the opening plays, the levels it rises through wait on stage too, unseen.
  */
 export function Levels() {
   const path = useVoid((s) => s.path)
   const transition = useVoid((s) => s.transition)
+  const opening = useVoid((s) => s.intro !== 'done')
   const mounted = useMemo(() => {
     const both = transition.phase === 'approaching' || transition.phase === 'swapping'
     const list = both ? [transition.from, transition.to] : [path]
+    if (opening) list.push(...warmUp.paths)
     if (list.some(inHole)) list.unshift(UNIVERSE)
     const seen = new Set<string>()
     return list.filter((p) => {
@@ -200,7 +164,7 @@ export function Levels() {
       seen.add(key)
       return true
     })
-  }, [path, transition])
+  }, [path, transition, opening])
 
   return (
     <>

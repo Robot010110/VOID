@@ -1,4 +1,5 @@
 import { Caption } from './Caption.tsx'
+import { Controls } from './Controls.tsx'
 import { Fragment } from './Fragment.tsx'
 import { HoverMarker, Targets } from './Hover.tsx'
 import { useIdle } from './idle.ts'
@@ -14,6 +15,7 @@ export function Hud() {
       <div className="hud" data-idle={idle}>
         <HoverMarker />
         <Caption />
+        <Controls />
         <Targets />
       </div>
       <Fragment />

@@ -128,12 +128,12 @@ export function BlackHole({ hole }: { hole: HoleSite }) {
 
   useLayoutEffect(() => {
     if (noise.job.ready) return
-    if (level.background) {
+    if (level.patient) {
       enqueueBake(noise.job)
       return () => cancelBake(noise.job)
     }
     noise.job.run(gl)
-  }, [noise, gl, level.background])
+  }, [noise, gl, level.patient])
 
   const parts = useMemo(() => {
     const target = new WebGLRenderTarget(1, 1, {

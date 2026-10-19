@@ -31,8 +31,8 @@ import glowFrag from '../../shaders/starfield/glow.frag'
 import glowVert from '../../shaders/starfield/glow.vert'
 import starsFrag from '../../shaders/starfield/stars.frag'
 import starsVert from '../../shaders/starfield/stars.vert'
-import { bakeTexture } from '../shared/gpu.ts'
-import { sky as skyTurn } from '../stage.ts'
+import { bakeProgramReady, bakeTexture } from '../shared/gpu.ts'
+import { curtain, sky as skyTurn } from '../stage.ts'
 
 const SKY_SEED = hashSeed(UNIVERSE_SEED, 0x5c1e)
 /** Latitude (radians) either side of the band covered by the baked strip. */
@@ -238,8 +238,10 @@ export function Starfield({ brightness = 1, band = 1 }: StarfieldProps) {
     return { mesh, material, geometry }
   }, [shared])
 
-  // Bake the band once (and again if the target is recreated), then let the sky fade in.
+  // Bake the band once (and again if the target is recreated), then let the sky fade in. Behind
+  // the opening's curtain its shader compiles in the background first, and the bake follows.
   const fadeStart = useRef<number | null>(null)
+  const pendingBake = useRef<ShaderMaterial | null>(null)
   useLayoutEffect(() => {
     const rng = new Rng(sky.seed)
     const material = new ShaderMaterial({
@@ -255,13 +257,22 @@ export function Starfield({ brightness = 1, band = 1 }: StarfieldProps) {
       depthTest: false,
       depthWrite: false,
     })
-    bakeTexture(gl, bandTarget, material)
-    material.dispose()
+    if (curtain.closed) {
+      pendingBake.current = material
+      skyTurn.baked = false
+    } else {
+      bakeTexture(gl, bandTarget, material)
+      material.dispose()
+    }
     fadeStart.current = null
     const context = gl.getContext()
     const range = context.getParameter(context.ALIASED_POINT_SIZE_RANGE) as Float32Array | null
     shared.uMaxPointSize!.value = range ? range[1] : 64
-    return () => bandTarget.dispose()
+    return () => {
+      pendingBake.current?.dispose()
+      pendingBake.current = null
+      bandTarget.dispose()
+    }
   }, [gl, bandTarget, sky, shared])
 
   useEffect(
@@ -295,6 +306,16 @@ export function Starfield({ brightness = 1, band = 1 }: StarfieldProps) {
     shared.uTime!.value = t
     shared.uPixelRatio!.value = state.gl.getPixelRatio()
 
+    const bake = pendingBake.current
+    if (bake && bakeProgramReady(state.gl, bake)) {
+      bakeTexture(state.gl, bandTarget, bake)
+      bake.dispose()
+      pendingBake.current = null
+      fadeStart.current = null
+      skyTurn.baked = true
+    }
+    // Unseen behind the curtain: its shaders compile with the rest of the scene's.
+    if (root.current) root.current.visible = !curtain.closed
     if (fadeStart.current === null) fadeStart.current = t
     const fade = FADE_IN > 0 ? Math.min(1, (t - fadeStart.current) / FADE_IN) : 1
     shared.uFade!.value = fade * fade * (3 - 2 * fade)

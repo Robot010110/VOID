@@ -7,7 +7,7 @@
  * counted in tiles of the pass being baked.
  */
 import { WebGLCubeRenderTarget, type ShaderMaterial, type WebGLRenderer, type WebGLRenderTarget } from 'three'
-import { bakeCubeTile, bakeTile } from './gpu.ts'
+import { bakeCubeTile, bakeProgramReady, bakeTile } from './gpu.ts'
 
 export interface BakePass {
   readonly target: WebGLCubeRenderTarget | WebGLRenderTarget
@@ -39,7 +39,14 @@ export class BakeJob {
 
   /** Bake everything now. */
   run(gl: WebGLRenderer) {
-    while (!this.ready) this.step(gl, Infinity)
+    while (!this.ready) this.step(gl, Infinity, false)
+  }
+
+  /** Start compiling every pass's program, so none of them holds the frame up later. */
+  compile(gl: WebGLRenderer): boolean {
+    let ready = true
+    for (const { material } of this.passes) ready = bakeProgramReady(gl, material) && ready
+    return ready
   }
 
   /** Which pass is baking now, so a scheduler can tell when the cost per tile changes. */
@@ -63,10 +70,12 @@ export class BakeJob {
 
   /**
    * Bake up to `tiles` tiles, never past the end of the current pass, so a scheduler can
-   * size the next frame's work for the next pass. Returns the tiles baked.
+   * size the next frame's work for the next pass. In the background (`patient`) a pass waits
+   * until its program has compiled. Returns the tiles baked.
    */
-  step(gl: WebGLRenderer, tiles: number): number {
+  step(gl: WebGLRenderer, tiles: number, patient = true): number {
     if (this.ready) return 0
+    if (patient && !bakeProgramReady(gl, this.passes[this.pass]!.material)) return 0
     if (!this.started) {
       this.prepare(gl)
       this.started = true
@@ -140,10 +149,14 @@ export function currentBake(): object | null {
   return list[job.passIndex]!
 }
 
-/** Bake up to `tiles` tiles of the oldest job's current pass. */
+/**
+ * Bake up to `tiles` tiles of the oldest job's current pass. Every waiting job's programs
+ * compile in the background meanwhile.
+ */
 export function runBakeQueue(gl: WebGLRenderer, tiles: number) {
   const job = queue[0]
   if (!job) return
+  for (const waiting of queue) waiting.compile(gl)
   job.step(gl, tiles)
   if (job.ready) queue.shift()
 }

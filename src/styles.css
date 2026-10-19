@@ -328,6 +328,286 @@ body {
   transition: none;
 }
 
+/*
+ * The opening: a title card on the dark. One point of light breathes while everything loads;
+ * it swells, and the wordmark comes up over it, lit from behind. On Enter the scene takes the
+ * fades over frame by frame (intro/opening.ts); until then, these transitions run them.
+ */
+.intro {
+  --mark: clamp(3.5rem, 2rem + 9vw, 9.5rem);
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+}
+
+/* While it waits, the title holds the page: nothing beneath it can be touched yet. */
+.intro[data-stage='loading'],
+.intro[data-stage='title'] {
+  pointer-events: auto;
+}
+
+.intro-backdrop {
+  position: absolute;
+  inset: 0;
+  background: var(--abyss);
+}
+
+.intro-light {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+}
+
+.intro-point {
+  --swell: 1;
+  position: absolute;
+  left: -3px;
+  top: -3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fffaf2 0, rgb(255 238 214 / 0.9) 38%, rgb(255 214 170 / 0) 72%);
+  box-shadow: 0 0 12px 2px rgb(255 214 170 / 0.4);
+  animation: intro-breathe 3.6s ease-in-out infinite;
+}
+
+.intro[data-stage='title'] .intro-point,
+.intro[data-stage='opening'] .intro-point {
+  --swell: 1.7;
+}
+
+@keyframes intro-breathe {
+  0%,
+  100% {
+    transform: scale(calc(var(--swell) * 0.8));
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(calc(var(--swell) * 1.15));
+    opacity: 1;
+  }
+}
+
+/* The point swollen into light: a soft warm bloom behind the wordmark, the sun to come. */
+.intro-glow {
+  position: absolute;
+  left: -170px;
+  top: -170px;
+  width: 340px;
+  height: 340px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(255 214 168 / 0.24), rgb(255 179 107 / 0.09) 42%, rgb(255 179 107 / 0.025) 70%, transparent);
+  opacity: 0;
+  transform: scale(0.15);
+  transition:
+    opacity 2.6s ease,
+    transform 3.4s var(--ease);
+}
+
+.intro[data-stage='title'] .intro-glow,
+.intro[data-stage='opening'] .intro-glow {
+  opacity: 1;
+  transform: none;
+}
+
+.intro-dust {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/*
+ * The one place type becomes art: tracked wide like a film title, its last letter's spacing
+ * balanced on the left so the word sits on the light.
+ */
+.intro-wordmark {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  margin: 0;
+  padding-left: 0.3em;
+  transform: translate(-50%, -50%);
+  font-family: var(--font-literary);
+  font-weight: 300;
+  font-optical-sizing: auto;
+  font-variation-settings:
+    'SOFT' 0,
+    'WONK' 0;
+  font-size: var(--mark);
+  line-height: 1;
+  letter-spacing: 0.3em;
+  white-space: nowrap;
+  color: rgb(244 235 221 / 0.94);
+  opacity: 0;
+  filter: blur(6px);
+  transition:
+    opacity 2.4s ease 0.5s,
+    filter 2.8s var(--ease) 0.5s;
+}
+
+.intro[data-stage='title'] .intro-wordmark {
+  opacity: 1;
+  filter: none;
+}
+
+.intro[data-stage='opening'] .intro-wordmark {
+  opacity: 0;
+  filter: none;
+  transition: opacity 0.35s ease;
+}
+
+.intro-below {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(50% + var(--mark) * 0.5 + clamp(1.4rem, 4vh, 2.75rem));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.9rem;
+  text-align: center;
+}
+
+.intro-line {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  color: var(--text-prose);
+  opacity: 0;
+  transition: opacity 1.6s ease 1.5s;
+}
+
+/* Enter: a word, not a box. A hairline beneath it reaches out when it is pointed at. */
+.intro-enter {
+  position: relative;
+  min-height: 44px;
+  padding: 10px 24px;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 1rem;
+  letter-spacing: 0.01em;
+  color: var(--text-name);
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity 1.4s ease 2.3s,
+    color 0.3s ease;
+}
+
+.intro-enter::after {
+  content: '';
+  position: absolute;
+  left: 24px;
+  right: 24px;
+  bottom: 9px;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.32;
+  transform: scaleX(0.45);
+  transition:
+    transform 0.6s var(--ease),
+    opacity 0.6s ease;
+}
+
+.intro-enter:hover,
+.intro-enter:focus-visible {
+  color: var(--starlight);
+}
+
+.intro-enter:hover::after,
+.intro-enter:focus-visible::after {
+  opacity: 0.7;
+  transform: none;
+}
+
+.intro-enter:disabled {
+  cursor: default;
+}
+
+.intro[data-stage='title'] .intro-line,
+.intro[data-stage='title'] .intro-enter {
+  opacity: 1;
+}
+
+.intro[data-stage='opening'] .intro-line,
+.intro[data-stage='opening'] .intro-enter {
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+/* The one hint, once: bottom centre, quiet, then gone. */
+.hint {
+  position: fixed;
+  left: 50%;
+  bottom: max(calc(var(--gutter) * 1.4), env(safe-area-inset-bottom));
+  margin: 0;
+  transform: translate(-50%, 4px);
+  font-size: 0.9375rem;
+  color: var(--text-prose);
+  text-shadow: var(--halo);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition:
+    opacity 1.4s ease,
+    transform 1.4s var(--ease);
+}
+
+.hint[data-shown='true'] {
+  opacity: 1;
+  transform: translate(-50%, 0);
+  transition:
+    opacity 1.1s ease,
+    transform 1.1s var(--ease);
+}
+
+/* Top right: controls drawn as single lines. */
+.controls {
+  position: absolute;
+  top: max(calc(var(--gutter) * 0.6), env(safe-area-inset-top));
+  right: max(calc(var(--gutter) * 0.6), env(safe-area-inset-right));
+  display: flex;
+  gap: 4px;
+}
+
+.control {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--text-prose);
+  cursor: pointer;
+  transition: color 0.25s ease;
+}
+
+.control:hover {
+  color: var(--text-name);
+}
+
+.control[aria-pressed='false'] {
+  color: var(--text-quiet);
+}
+
+.control svg {
+  overflow: visible;
+  filter: drop-shadow(0 0 6px rgb(3 4 11 / 0.8));
+}
+
+.control-line {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.3;
+  stroke-linecap: round;
+  transition: d 0.6s var(--ease);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .caption,
   .caption[data-shown='true'],
@@ -339,6 +619,32 @@ body {
     transform: none;
     filter: none;
     transition: opacity 0.8s ease;
+  }
+
+  .intro-point {
+    animation: none;
+    transform: scale(var(--swell));
+  }
+
+  .intro-glow {
+    transform: none;
+  }
+
+  .hint,
+  .hint[data-shown='true'] {
+    transform: translateX(-50%);
+  }
+
+  .intro-wordmark {
+    filter: none;
+  }
+
+  .intro[data-stage='opening'] .intro-wordmark {
+    transition: opacity 1.2s ease;
+  }
+
+  .control-line {
+    transition: none;
   }
 }
 

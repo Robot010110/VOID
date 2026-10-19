@@ -37,6 +37,12 @@ export const WORLD = params.get('world')
 /** `?anchor=<id>` opens close up on one of the handcrafted worlds (content/anchors.ts). */
 export const ANCHOR = params.get('anchor')
 
+/**
+ * `?intro` plays the opening even on a screenshot run; `?intro=skip` opens without it, straight
+ * into the universe (or wherever the link points).
+ */
+export const INTRO = params.get('intro')
+
 const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
 
 export function prefersReducedMotion(): boolean {

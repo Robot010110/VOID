@@ -46,6 +46,20 @@ export function forgetLevel(path: Path) {
   levels.delete(pathKey(path))
 }
 
+/**
+ * Levels kept on stage unseen while the opening plays: the galaxy and the universe its
+ * pull-back rises through, so their shaders are compiled and their particles built before the
+ * title appears. Set once, before the first render; they leave the stage when the opening ends.
+ */
+export const warmUp = { paths: [] as Path[] }
+
+/**
+ * While the curtain is closed (the opening's loading, behind the dark) no level draws at all:
+ * their shaders compile in parallel, off the main thread, instead of one by one in the first
+ * frame that would draw them.
+ */
+export const curtain = { closed: false }
+
 export const pointer = {
   /** CSS pixels relative to the canvas. */
   x: 0,
@@ -79,6 +93,8 @@ export const sky = {
    * the galaxy's own light has resolved away and the sky's band is what is left of it.
    */
   inside: 0,
+  /** Its band of light is baked (behind the opening's curtain it bakes once compiled). */
+  baked: true,
 }
 
 /**

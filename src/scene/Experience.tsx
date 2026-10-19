@@ -8,6 +8,7 @@ import { QUALITY } from '../core/quality.ts'
 import { useVoid } from '../core/store.ts'
 import { HOME } from '../core/universe.ts'
 import { CameraRig } from './camera/CameraRig.tsx'
+import { IntroDriver } from './IntroDriver.tsx'
 import { Levels } from './levels/Levels.tsx'
 import { ShowroomLevel } from './levels/ShowroomLevel.tsx'
 import { SkyLevel } from './levels/SkyLevel.tsx'
@@ -99,7 +100,7 @@ function HoverDriver() {
   useFrame(() => {
     const store = useVoid.getState()
     const runtime = levelRuntime(store.path)
-    const idle = store.transition.phase === 'idle'
+    const idle = store.transition.phase === 'idle' && store.intro === 'done'
     if (idle && pointer.hovering && runtime.pick) {
       const hit = runtime.pick(pointer.x, pointer.y)
       const index = hit ? hit.index : null
@@ -168,6 +169,7 @@ export function Experience() {
       onCreated={onCreated}
     >
       <WorldClock />
+      <IntroDriver />
       <BakeDriver />
       <QualityGovernor />
       <CameraRig />

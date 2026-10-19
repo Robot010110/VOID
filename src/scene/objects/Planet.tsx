@@ -227,12 +227,12 @@ export function Planet({ preset, sun, detail = 'close', anchor = false, tweakabl
   // Bake now, or a little each frame when the level arrived mid-transition.
   useLayoutEffect(() => {
     if (world.job.ready) return
-    if (level.background) {
+    if (level.patient) {
       enqueueBake(world.job)
       return () => cancelBake(world.job)
     }
     world.job.run(gl)
-  }, [world, gl, level.background])
+  }, [world, gl, level.patient])
 
   useEffect(() => {
     bound.current = null

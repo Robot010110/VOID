@@ -98,12 +98,12 @@ export function Star({ star, anchor = false }: StarProps) {
 
   useLayoutEffect(() => {
     if (pattern.job.ready) return
-    if (level.background) {
+    if (level.patient) {
       enqueueBake(pattern.job)
       return () => cancelBake(pattern.job)
     }
     pattern.job.run(gl)
-  }, [pattern, gl, level.background])
+  }, [pattern, gl, level.patient])
 
   const materials = useMemo(() => {
     const offset = seedOffset(star.seed)

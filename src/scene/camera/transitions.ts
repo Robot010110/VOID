@@ -73,6 +73,15 @@ const clamp01 = (t: number) => Math.min(1, Math.max(0, t))
 const UP = new Vector3(0, 1, 0)
 const IDENTITY = new Quaternion()
 
+/**
+ * A flight's own timing, for a chain of ascents meant to read as one move (the opening's
+ * pull-back): how long it takes, and how far along its distance it is at each moment.
+ */
+export interface FlightProfile {
+  readonly seconds: number
+  readonly ease: (t: number) => number
+}
+
 interface Running {
   /** Escape before the swap: fly back to where the approach began. */
   retreat?: () => void
@@ -81,6 +90,8 @@ interface Running {
 let running: Running | null = null
 /** Where a chain of ascents (a breadcrumb several levels up) is heading. */
 let goal: Path | null = null
+/** The timing of each ascent still to come in the chain, if it has its own. */
+let profiles: FlightProfile[] = []
 
 function setTransition(transition: Transition) {
   useVoid.getState().setTransition(transition)
@@ -145,8 +156,11 @@ function end(path: Path) {
   handover.index = -1
   setTransition({ ...IDLE, from: path, to: path })
   // Climbing several levels at once: on to the next.
-  if (goal && path.length > goal.length) ascend()
-  else goal = null
+  if (goal && path.length > goal.length) ascend(profiles.shift())
+  else {
+    goal = null
+    profiles = []
+  }
 }
 
 function exists(path: Path): boolean {
@@ -166,7 +180,7 @@ function sameStage(a: Path, b: Path): boolean {
 }
 
 /** How far from a level's centre the camera rests, in the level's own units. */
-function restDistance(path: Path): number {
+export function restDistance(path: Path): number {
   if (path.length === 3) return getSystem(path[0]!, path[1]!).planets[path[2]!]!.preset.framing
   if (path.length === 2) return systemView(getSystem(path[0]!, path[1]!)).distance
   if (path.length === 1) {
@@ -230,8 +244,10 @@ export function descend(index: number) {
   handover.index = index
   handover.owner = 'parent'
   goal = null
+  profiles = []
   state.setHoverTarget(null)
-  setTransition({ phase: 'approaching', direction: 'down', from, to })
+  const duration = prefersReducedMotion() ? REDUCED_DOWN : (DOWN[level] ?? 2.2)
+  setTransition({ phase: 'approaching', direction: 'down', from, to, seconds: duration })
 
   // Where the flight began, in the parent's frame, for turning back.
   const parent = {
@@ -258,7 +274,6 @@ export function descend(index: number) {
   }
   const swapAt = SWAP_DOWN[level] ?? SWAP_DOWN_DEFAULT
   const centreShare = CENTRE_SHARE[level] ?? CENTRE_SHARE_DEFAULT
-  const duration = prefersReducedMotion() ? REDUCED_DOWN : (DOWN[level] ?? 2.2)
   let t = 0
   let swapped = false
   let faded = false
@@ -282,11 +297,11 @@ export function descend(index: number) {
       handover.owner = 'child'
       arriving.visible = true
       useVoid.getState().setPath(to)
-      setTransition({ phase: 'swapping', direction: 'down', from, to })
+      setTransition({ phase: 'swapping', direction: 'down', from, to, seconds: duration })
     }
     if (swapped && !faded && (shared || crossfade(fade, leaving.fade, arriving.fade))) {
       faded = true
-      setTransition({ phase: 'settling', direction: 'down', from, to })
+      setTransition({ phase: 'settling', direction: 'down', from, to, seconds: duration })
     }
 
     if (swapped) {
@@ -311,7 +326,7 @@ export function descend(index: number) {
       readPose(rig.pose, turnDirection, turnUp)
       const turnSky = sky.orientation.clone()
       let back = 0
-      setTransition({ phase: 'approaching', direction: 'up', from: to, to: from })
+      setTransition({ phase: 'approaching', direction: 'up', from: to, to: from, seconds: RETREAT })
       running = {}
       rig.flight = (pose, step) => {
         back = Math.min(1, back + step / RETREAT)
@@ -327,8 +342,8 @@ export function descend(index: number) {
   }
 }
 
-/** Pull back out of the current level into its parent. */
-export function ascend() {
+/** Pull back out of the current level into its parent, at its usual pace or to a profile. */
+export function ascend(profile?: FlightProfile) {
   const state = useVoid.getState()
   if (state.transition.phase !== 'idle') return
   const from = state.path
@@ -348,7 +363,9 @@ export function ascend() {
   handover.index = index
   handover.owner = 'child'
   state.setHoverTarget(null)
-  setTransition({ phase: 'approaching', direction: 'up', from, to })
+  const duration = profile?.seconds ?? (prefersReducedMotion() ? REDUCED_UP : (UP_TO[level] ?? 2.6))
+  const ease = profile?.ease ?? easeDistance
+  setTransition({ phase: 'approaching', direction: 'up', from, to, seconds: duration })
 
   // The flight is planned in the parent's frame, where it ends at rest; until the swap its
   // centre stays on the child, which may be moving.
@@ -371,7 +388,6 @@ export function ascend() {
         : universeView(isPortrait())
   const rest = { distance: view.distance, direction: fromAngles(Math.atan2(camera.x, camera.z), view.polar) }
   const swapDistance = restDistance(from) * (SWAP_UP[levelOf(from)] ?? SWAP_UP_DEFAULT) * scale
-  const duration = prefersReducedMotion() ? REDUCED_UP : (UP_TO[level] ?? 2.6)
   let t = 0
   let swapAt = 1
   let swapped = false
@@ -379,7 +395,7 @@ export function ascend() {
   const fade = { t: 0 }
 
   rig.flight = (pose, step) => {
-    const along = easeDistance(t)
+    const along = ease(t)
     const distance = Math.exp(lerp(Math.log(startDistance), Math.log(rest.distance), along))
     const waiting = !swapped && distance >= swapDistance && !arriving.ready
     t = Math.min(1, t + (step / duration) * (waiting ? WAITING_PACE : 1))
@@ -391,11 +407,11 @@ export function ascend() {
       handover.owner = 'parent'
       arriving.visible = true
       useVoid.getState().setPath(to)
-      setTransition({ phase: 'swapping', direction: 'up', from, to })
+      setTransition({ phase: 'swapping', direction: 'up', from, to, seconds: duration })
     }
     if (swapped && !faded && (shared || crossfade(fade, leaving.fade, arriving.fade))) {
       faded = true
-      setTransition({ phase: 'settling', direction: 'up', from, to })
+      setTransition({ phase: 'settling', direction: 'up', from, to, seconds: duration })
     }
 
     // The centre leaves the child for the parent's centre only after the swap.
@@ -421,12 +437,16 @@ export function ascend() {
   running = {}
 }
 
-/** Rise to an ancestor of the current place, one level after another. */
-export function ascendTo(path: Path) {
+/**
+ * Rise to an ancestor of the current place, one level after another; each ascent at its usual
+ * pace, or to the matching profile.
+ */
+export function ascendTo(path: Path, timing: readonly FlightProfile[] = []) {
   const { path: current, transition } = useVoid.getState()
   if (transition.phase !== 'idle' || path.length >= current.length || !samePath(current.slice(0, path.length), path)) return
   goal = path
-  ascend()
+  profiles = timing.slice(1)
+  ascend(timing[0])
 }
 
 /** Escape and Backspace: turn back an approach that has not swapped yet, or go up a level. */
