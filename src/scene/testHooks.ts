@@ -7,6 +7,7 @@ import { getUniverse } from '../core/cosmos.ts'
 import { DEBUG, SHOT } from '../core/env.ts'
 import { useVoid } from '../core/store.ts'
 import { beginOpening, opening } from '../intro/opening.ts'
+import { edge, signalSpot } from '../secrets/sequences.ts'
 import { ascend, back, descend } from './camera/transitions.ts'
 import { stepping, worldClock } from './shared/clock.ts'
 import { bakesPending } from './shared/bake.ts'
@@ -48,6 +49,12 @@ export function installTestHooks() {
       bakes: bakesPending(),
       work: workPending(),
     }),
+    /** Where the signal is on screen and whether it is lit; the secrets found and playing. */
+    signal: () => ({ ...signalSpot }),
+    secrets: () => {
+      const { foundSecrets, secretScene, terminalOpen } = useVoid.getState()
+      return { found: foundSecrets, scene: secretScene, terminal: terminalOpen, edge: Number(edge.fade.toFixed(3)) }
+    },
     /** The sound engine's state, once Enter has started it. */
     audio: () => audioEngine()?.inspect() ?? null,
     state: () => {

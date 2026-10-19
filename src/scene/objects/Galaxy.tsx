@@ -55,6 +55,7 @@ import { worldClock } from '../shared/clock.ts'
 import { FULLSCREEN_TRIANGLE } from '../shared/gpu.ts'
 import { SoftBuffer } from '../shared/softBuffer.ts'
 import { lens, spectrum } from '../shared/spectrum.ts'
+import { sung } from '../shared/chorus.ts'
 import { aimWell, wellUniforms, type WellUniforms } from '../shared/well.ts'
 import { cancelWork, enqueueWork, type Work } from '../shared/work.ts'
 import { handover, sky } from '../stage.ts'
@@ -607,8 +608,8 @@ export function Galaxy({ galaxy, active, handed }: GalaxyProps) {
     const exposure = adapted * lens(0.42, 0.3)
     parts.lightUniforms.uExposure.value = exposure
     parts.nebulae.material.uniforms.uGlow!.value = NEBULA_GLOW * (adapted / num(TWEAKS, 'exposure')) * lens(2.2, 0.35)
-    parts.sparkle.uniforms.uExposure!.value = tuned.current.sparkle * lens(0.4, 0.06)
-    parts.stars.uniforms.uStarLight!.value = tuned.current.starLight * lens(0.45, 0.15)
+    parts.sparkle.uniforms.uExposure!.value = tuned.current.sparkle * lens(0.4, 0.06) * sung(0.9)
+    parts.stars.uniforms.uStarLight!.value = tuned.current.starLight * lens(0.45, 0.15) * sung(2.2)
     parts.core.uniforms.uIntensity!.value = tuned.current.core * lens(0.75, 0.6)
     parts.dust.uniforms.uDustScale!.value = tuned.current.dust * lens(0.75, 0.08)
     ;(parts.dust.uniforms.uColour!.value as Color).copy(DUST_SHADE).lerp(DUST_GLOW, spectrum.infrared)

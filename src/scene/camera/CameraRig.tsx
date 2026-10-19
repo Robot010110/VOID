@@ -6,6 +6,8 @@ import { useVoid } from '../../core/store.ts'
 import type { Level } from '../../core/universe.ts'
 import { worldClock } from '../shared/clock.ts'
 import { cancelSketch, finishSketch, joinStar, sketching, unjoinStar } from '../../ui/sketch.ts'
+import { edgeReach, fallIntoHole, followSignal, onHoleShadow, onSignal, openEdge, skipSecretScene } from '../../secrets/sequences.ts'
+import { endJourney } from '../journey.ts'
 import { well } from '../shared/well.ts'
 import { levelRuntime, motion, pointer } from '../stage.ts'
 import { POLAR_MAX, POLAR_MIN, rig } from './rig.ts'
@@ -115,9 +117,15 @@ export function CameraRig() {
       const rect = canvas.getBoundingClientRect()
       return { x: event.clientX - rect.left, y: event.clientY - rect.top }
     }
-    // The opening flies the camera itself: until it ends, the visitor only watches.
+    // The opening flies the camera itself: until it ends, the visitor only watches. So does a
+    // secret while it plays out.
     const opened = () => useVoid.getState().intro === 'done'
-    const steering = () => opened() && rig.flight === null && useVoid.getState().transition.phase === 'idle'
+    const steering = () => {
+      const { transition, secretScene } = useVoid.getState()
+      return opened() && rig.flight === null && transition.phase === 'idle' && secretScene === null
+    }
+    const onShadow = (x: number, y: number) =>
+      onHoleShadow(x, y, camera as PerspectiveCamera, canvas.clientWidth, canvas.clientHeight)
 
     const zoomBy = (factor: number) => {
       rig.target.distance = clamp(rig.target.distance * factor, rig.limits.min, rig.limits.max)
@@ -127,9 +135,24 @@ export function CameraRig() {
       return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 0
     }
 
-    /** Accumulate zoom-in over a target; enough of it falls into the target. */
+    /**
+     * Accumulate zoom-in over a target; enough of it falls into the target. At the black hole,
+     * as close as the camera goes, the target is the hole's shadow itself.
+     */
     const leanInto = (x: number, y: number, amount: number, now: number): boolean => {
       const level = useVoid.getState().level
+      if (level === 'hole') {
+        if (rig.target.distance > rig.limits.min * 1.02 || !onShadow(x, y)) return false
+        if (intent.target !== -3 || now - intent.time > INTENT_WINDOW) intent.amount = 0
+        intent.target = -3
+        intent.time = now
+        intent.amount += amount
+        if (intent.amount >= DESCEND_INTENT) {
+          intent.amount = 0
+          fallIntoHole()
+        }
+        return true
+      }
       if (level !== 'universe' && level !== 'galaxy' && level !== 'system') return false
       const hit = activeRuntime().pick?.(x, y)
       if (!hit) return false
@@ -144,17 +167,21 @@ export function CameraRig() {
       return true
     }
 
-    /** Accumulate zoom-out past the limit; enough of it rises out of the level. */
+    /**
+     * Accumulate zoom-out past the limit; enough of it rises out of the level. The universe
+     * has nowhere to rise to: there, it lets the camera go on, out past everything.
+     */
     const leanOut = (amount: number, now: number) => {
       const level = useVoid.getState().level
-      if (level === 'universe' || rig.target.distance < rig.limits.max * 0.999) return
+      if (rig.target.distance < rig.limits.max * 0.999 || edgeReach() !== null) return
       if (intent.target !== -2 || now - intent.time > INTENT_WINDOW) intent.amount = 0
       intent.target = -2
       intent.time = now
       intent.amount += amount
       if (intent.amount >= ASCEND_INTENT) {
         intent.amount = 0
-        ascend()
+        if (level === 'universe') openEdge()
+        else ascend()
       }
     }
 
@@ -258,7 +285,9 @@ export function CameraRig() {
         const hit = activeRuntime().pick?.(press.x, press.y)
         const { level, sketch } = useVoid.getState()
         const drawing = level === 'galaxy' && (event.shiftKey || (sketch !== null && sketching.by === 'touch'))
-        if (drawing) {
+        if (level === 'universe' && onSignal(press.x, press.y, event.pointerType !== 'mouse')) followSignal()
+        else if (level === 'hole' && onShadow(press.x, press.y)) fallIntoHole()
+        else if (drawing) {
           if (hit) joinStar(hit.index, event.shiftKey ? 'keys' : 'touch')
           else if (!event.shiftKey) finishSketch()
         } else if (hit) descend(hit.index)
@@ -287,6 +316,11 @@ export function CameraRig() {
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (isTyping(event.target) || !opened()) return
+      // A secret playing out: Escape only hurries it along.
+      if (useVoid.getState().secretScene !== null) {
+        if (event.key === 'Escape') skipSecretScene()
+        return
+      }
       // While a constellation is being drawn, Escape lets it go and Backspace takes back a star.
       if (useVoid.getState().sketch && (event.key === 'Escape' || event.key === 'Backspace')) {
         event.preventDefault()
@@ -296,6 +330,7 @@ export function CameraRig() {
       }
       if (event.key === 'Escape' || (event.key === 'Backspace' && !event.repeat)) {
         event.preventDefault()
+        endJourney()
         back()
         return
       }
@@ -332,7 +367,7 @@ export function CameraRig() {
       cancelHold()
       releaseWell()
     }
-  }, [canvas])
+  }, [canvas, camera])
 
   useFrame((frame, delta) => {
     const dt = Math.min(delta, 0.1)
@@ -343,6 +378,9 @@ export function CameraRig() {
       rig.limits.min = limits.min
       rig.limits.max = limits.max
     }
+    // Past the edge, the universe lets the camera keep going.
+    const reach = edgeReach()
+    if (reach !== null && useVoid.getState().level === 'universe') rig.limits.max = Math.max(rig.limits.max, reach)
 
     const fov = fieldOfView(frame.size.width / Math.max(frame.size.height, 1))
     let projection = Math.abs(cam.fov - fov) > 0.01

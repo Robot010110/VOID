@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { D2, D3, frequency, galaxyNote, inScale, orbitPulse, scaleNote, starNote, worldNote } from './notes.ts'
+import { D2, D3, frequency, galaxyNote, inScale, orbitPulse, scaleNote, starNote, voiceChord, worldNote } from './notes.ts'
 
 describe('notes', () => {
   it('builds D Lydian', () => {
@@ -48,5 +48,24 @@ describe('notes', () => {
     expect(orbitPulse(20000)).toBeCloseTo(0.1, 9)
     expect(orbitPulse(2693)).toBeGreaterThan(orbitPulse(9864))
     expect(orbitPulse(10)).toBeCloseTo(0.5, 9)
+  })
+})
+
+describe('a chord from many notes', () => {
+  it('keeps each pitch once, low to high, thinned evenly', () => {
+    const many = Array.from({ length: 40 }, (_, i) => scaleNote(i % 22))
+    const chord = voiceChord(many)
+    expect(chord).toHaveLength(7)
+    expect([...chord].sort((a, b) => a - b)).toEqual(chord)
+    expect(new Set(chord).size).toBe(7)
+    expect(chord[0]).toBe(scaleNote(0))
+    expect(chord[6]).toBe(scaleNote(21))
+    expect(chord.every(inScale)).toBe(true)
+  })
+
+  it('fills in an open chord when there are too few notes', () => {
+    expect(voiceChord([]).length).toBeGreaterThanOrEqual(5)
+    expect(voiceChord([scaleNote(3)])).toContain(scaleNote(3))
+    expect(voiceChord([scaleNote(2), scaleNote(5), scaleNote(9)])).toEqual([scaleNote(2), scaleNote(5), scaleNote(9)])
   })
 })

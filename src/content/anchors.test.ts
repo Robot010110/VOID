@@ -4,7 +4,8 @@ import { getUniverse } from '../core/cosmos.ts'
 import { describeGalaxy, describePlanet } from '../core/describe.ts'
 import { getGalaxy } from '../core/galaxy.ts'
 import { getSystem, HOME } from '../core/universe.ts'
-import { anchorAt, anchorById, anchorOf, ANCHORS, anchorsIn } from './anchors.ts'
+import { planTour } from '../core/tour.ts'
+import { anchorAt, anchorById, anchorOf, ANCHORS, anchorsIn, HIDDEN, isHidden } from './anchors.ts'
 
 const world = (id: string) => {
   const anchor = anchorById(id)!
@@ -123,6 +124,54 @@ describe('the fragments', () => {
           expect(line).toBe(line.trim())
         }
       }
+    }
+  })
+})
+
+describe('the hidden worlds', () => {
+  const hidden = HIDDEN.map((w) => [w.galaxy, w.star, w.world] as const)
+
+  it('stand apart from the anchors and from each other', () => {
+    const places = new Set([...ANCHORS, ...HIDDEN].map((w) => `${w.galaxy}:${w.star}`))
+    expect(places.size).toBe(ANCHORS.length + HIDDEN.length)
+    for (const path of hidden) {
+      expect(isHidden(path)).toBe(true)
+      expect(anchorOf(path)?.fragments.length).toBeGreaterThan(0)
+    }
+    expect(isHidden([0, 0, 3])).toBe(false)
+  })
+
+  it('are pointed at by nothing: not the tour, not a caption, not a notable star', () => {
+    const tour = planTour([]).map((p) => p.join('.'))
+    for (const world of HIDDEN) {
+      expect(tour).not.toContain(`${world.galaxy}.${world.star}.${world.world}`)
+      expect(anchorsIn(world.galaxy)).not.toContain(world)
+      const galaxy = getGalaxy(world.galaxy)
+      const star = galaxy.stars[world.star]!
+      expect(star.notable).toBe(false)
+      expect(describeGalaxy(galaxy)).not.toContain(star.star.name)
+    }
+  })
+
+  it('keep the pale dot small and blue, with one moon, third from a yellow star, in a system like ours', () => {
+    const { system, planet } = world('pale-dot')
+    expect(planet.index).toBe(2)
+    expect(planet.kind).toBe('terrestrial')
+    expect(planet.preset.moons).toHaveLength(1)
+    expect(planet.civilization).toBeNull()
+    expect(system.star.temperature).toBeGreaterThan(5200)
+    expect(system.star.temperature).toBeLessThan(6000)
+    expect(system.planets.map((p) => p.kind)).toEqual(['barren', 'toxic', 'terrestrial', 'desert', 'gas', 'ringed', 'ice-giant', 'ice-giant'])
+    expect(system.belts[0]?.after).toBe(3)
+    expect(system.planets.every((p) => p.civilization === null)).toBe(true)
+    expect(anchorOf([system.path[0]!, system.path[1]!, 2])?.fragments).toEqual([['You are here.']])
+  })
+
+  it('give the beacon and the keepers their people, the only people of their systems', () => {
+    for (const id of ['beacon', 'keepers']) {
+      const { system, planet, anchor } = world(id)
+      expect(planet.civilization?.people).toBe(anchor.civilization!.people)
+      expect(system.planets.filter((p) => p.civilization).length).toBe(1)
     }
   })
 })

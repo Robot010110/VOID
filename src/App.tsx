@@ -7,9 +7,13 @@ import { useVoid } from './core/store.ts'
 import { opening } from './intro/opening.ts'
 import { Experience } from './scene/Experience.tsx'
 import { Hint } from './ui/Hint.tsx'
+import { CompanionWords } from './ui/CompanionWords.tsx'
 import { Hud } from './ui/Hud.tsx'
 import { Intro } from './ui/Intro.tsx'
+import { SecretCounter } from './ui/SecretCounter.tsx'
+import { SecretScreen } from './ui/SecretScreen.tsx'
 import { Shortcuts } from './ui/Shortcuts.tsx'
+import { Terminal } from './ui/Terminal.tsx'
 
 const DebugPanel = DEBUG ? lazy(() => import('./debug/DebugPanel.tsx')) : null
 
@@ -34,9 +38,13 @@ export default function App() {
         Shift and choose stars to join them into a constellation.
       </p>
       <Experience />
+      {!devView && <SecretScreen />}
       {!devView && opened && hinted && <Hud />}
+      {!devView && opened && <CompanionWords />}
+      {!devView && opened && <SecretCounter />}
       {!devView && opened && <Shortcuts />}
       {!devView && opened && !hinted && <Hint onDone={hintDone} />}
+      {!devView && <Terminal />}
       <Intro />
       <AudioDirector />
       {DebugPanel && (

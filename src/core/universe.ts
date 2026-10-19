@@ -10,7 +10,7 @@
  * Units: a system's outermost orbit lies about 200 units from its star, and times are
  * seconds at 1x. Planet presets keep their own units (planet radii).
  */
-import { anchorAt, type Anchor } from '../content/anchors.ts'
+import { anchorAt, type Handcrafted } from '../content/anchors.ts'
 import {
   generateCivilization,
   NO_STRUCTURES,
@@ -283,8 +283,11 @@ export function generateSystem(galaxy: number, index: number, options: SystemOpt
   const { radius, luminosity } = star
   const habitable = Math.min(Math.max(60 * Math.sqrt(luminosity), 26), 120)
 
+  // A handcrafted world may lay out its whole system.
+  const anchor = anchorAt(galaxy, index)
   // Orbits: geometric spacing with jitter, stretched so the outermost sits near the edge.
-  const count = featured ? rng.int(6, 8) : rng.weighted([3, 4, 5, 6, 7, 8], [1, 2, 3, 3, 2, 1])
+  const drawn = featured ? rng.int(6, 8) : rng.weighted([3, 4, 5, 6, 7, 8], [1, 2, 3, 3, 2, 1])
+  const count = anchor?.system?.length ?? drawn
   const first = Math.max(radius * 5, 22) * rng.range(1, 1.15)
   const raw = [first]
   for (let i = 1; i < count; i++) raw.push(raw[i - 1]! * rng.range(1.38, 1.85))
@@ -309,15 +312,15 @@ export function generateSystem(galaxy: number, index: number, options: SystemOpt
       host = i
   }
   if (!featured && !rng.chance(0.55)) host = -1
-  const anchor = anchorAt(galaxy, index)
   if (anchor) {
+    anchor.system?.forEach((kind, i) => (kinds[i] = kind))
     kinds[anchor.world] = anchor.kind
-    host = anchor.world
+    host = anchor.civilization ? anchor.world : -1
   }
   // Without one, a dry or frozen world near the zone sometimes keeps the ruins of a people who
-  // outlived its climate.
+  // outlived its climate (never beside a handcrafted world).
   let ruined = -1
-  if (host < 0) {
+  if (host < 0 && !anchor) {
     const chance = new Rng(hashSeed(seed, 0xc1f2))
     for (let i = 0; i < count; i++) {
       const zone = radii[i]! / habitable
@@ -345,20 +348,21 @@ export function generateSystem(galaxy: number, index: number, options: SystemOpt
     const kind = kinds[i]!
     const planetSeed = hashSeed(seed, 0x91a7, i)
     const planetRng = new Rng(planetSeed)
-    const size = planetRadius(kind, planetRng)
+    const story = anchor?.world === i ? anchor : undefined
+    const drawnSize = planetRadius(kind, planetRng)
+    const size = story?.size ?? drawnSize
     // Moons stay well inside the gap to the neighbouring orbits.
     const gap = Math.min(
       i > 0 ? orbitRadius - radii[i - 1]! : orbitRadius - radius * 2,
       i < count - 1 ? radii[i + 1]! - orbitRadius : Infinity,
     )
-    const story = anchor?.world === i ? anchor : undefined
     // An anchor's moons may need more room than the gap allows; they still clear the neighbours.
     const reach = story?.moons ? Math.max(6, Math.min(8, (gap * 0.6) / size)) : Math.min(8, (gap * 0.4) / size)
     const generated = planetName()
     const name = story?.name ?? generated
     used.add(name)
-    const civilization = story
-      ? anchorCivilization(story, planetSeed)
+    const civilization = story?.civilization
+      ? anchorCivilization(story.civilization, planetSeed)
       : i === host
         ? generateCivilization(planetSeed, language, used, true)
         : i === ruined
@@ -387,7 +391,9 @@ export function generateSystem(galaxy: number, index: number, options: SystemOpt
   // An asteroid belt in the widest gap between a rocky world and a giant.
   const belts: BeltData[] = []
   let best = -1
-  let bestRatio = featured ? 1.3 : 1.45
+  // A featured system, or one laid out by hand, always has its belt where one fits.
+  const planned = featured || anchor?.system !== undefined
+  let bestRatio = planned ? 1.3 : 1.45
   for (let i = 0; i < count - 1; i++) {
     const ratio = radii[i + 1]! / radii[i]!
     const giantBeyond = isGiant(kinds[i + 1]!)
@@ -396,7 +402,7 @@ export function generateSystem(galaxy: number, index: number, options: SystemOpt
       bestRatio = ratio
     }
   }
-  if (best >= 0 && (featured || rng.chance(0.75))) {
+  if (best >= 0 && (planned || rng.chance(0.75))) {
     const middle = Math.sqrt(radii[best]! * radii[best + 1]!)
     const room = Math.min(middle - radii[best]!, radii[best + 1]! - middle)
     belts.push({
@@ -413,9 +419,9 @@ export function generateSystem(galaxy: number, index: number, options: SystemOpt
   return { seed, path: [galaxy, index], star, planets, belts, habitable, swarm }
 }
 
-/** An anchor's people, exactly as written. */
-function anchorCivilization(anchor: Anchor, worldSeed: number): Civilization {
-  const { people, state, age, since, structures } = anchor.civilization
+/** A handcrafted world's people, exactly as written. */
+function anchorCivilization(written: NonNullable<Handcrafted['civilization']>, worldSeed: number): Civilization {
+  const { people, state, age, since, structures } = written
   return {
     people,
     state,

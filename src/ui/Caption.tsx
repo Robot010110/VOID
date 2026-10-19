@@ -11,7 +11,7 @@ import { placeAt } from './places.ts'
  */
 export function Caption() {
   const path = useVoid((s) => s.path)
-  const settled = useVoid((s) => s.transition.phase === 'idle')
+  const settled = useVoid((s) => s.transition.phase === 'idle' && s.secretScene === null)
   const place = useMemo(() => placeAt(path), [path])
 
   useEffect(() => {

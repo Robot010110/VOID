@@ -14,6 +14,7 @@ import { guessTier, probeGpu, readDeviceHints } from './core/quality.ts'
 import { SPECTRA, TIME_STEPS, useVoid, type Spectrum, type TimeStep } from './core/store.ts'
 import { getSystem, HOME, levelOf, type Path } from './core/universe.ts'
 import { planOpening, type OpeningMode } from './intro/opening.ts'
+import { greetConsole } from './secrets/console.ts'
 
 // Tone.js greets the console when it loads; VOID's console is kept for other things.
 ;(window as Window & { TONE_SILENCE_LOGGING?: boolean }).TONE_SILENCE_LOGGING = true
@@ -72,3 +73,6 @@ createRoot(document.getElementById('root')!).render(
     <App />
   </StrictMode>,
 )
+
+// For whoever opens the console: a riddle (see secrets/console.ts).
+greetConsole()

@@ -2,11 +2,16 @@ import { useThree } from '@react-three/fiber'
 import { useEffect, useRef } from 'react'
 import { Vector3, type Group, type PerspectiveCamera } from 'three'
 import { getUniverse } from '../../core/cosmos.ts'
+import { getGalaxyLook } from '../../core/galaxy.ts'
+import { useVoid } from '../../core/store.ts'
 import type { Path } from '../../core/universe.ts'
 import { universeLimits } from '../camera/views.ts'
 import { DISC_OUTER } from '../objects/BlackHole.tsx'
 import { pixelRadius } from '../objects/body.ts'
 import { Cosmos } from '../objects/Cosmos.tsx'
+import { RadioRing } from '../objects/RadioRing.tsx'
+import { SignalStar } from '../objects/SignalStar.tsx'
+import { RADIO_GALAXY } from '../../secrets/secrets.ts'
 import { levelRuntime, type Pick } from '../stage.ts'
 
 /** Pixels around a galaxy that still count as pointing at it. */
@@ -21,6 +26,9 @@ export function UniverseLevel({ path }: { path: Path }) {
   const runtime = levelRuntime(path)
   const get = useThree((s) => s.get)
   const root = useRef<Group>(null)
+  const active = useVoid((s) => s.path.length === 0)
+  const whisper = universe.galaxies[RADIO_GALAXY]!
+  const look = getGalaxyLook(RADIO_GALAXY)
 
   useEffect(() => {
     const { hole } = universe
@@ -71,6 +79,10 @@ export function UniverseLevel({ path }: { path: Path }) {
   return (
     <group ref={root}>
       <Cosmos universe={universe} />
+      <SignalStar active={active} />
+      <group position={whisper.position} quaternion={whisper.orientation} scale={whisper.size / look.shape.radius}>
+        <RadioRing look={look} detail="universe" active={active} />
+      </group>
     </group>
   )
 }

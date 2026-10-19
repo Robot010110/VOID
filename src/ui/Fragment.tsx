@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { anchorOf, type Anchor } from '../content/anchors.ts'
+import { anchorOf, type Handcrafted } from '../content/anchors.ts'
 import { prefersReducedMotion, SHOT } from '../core/env.ts'
 import { useVoid } from '../core/store.ts'
 import { focus } from '../scene/stage.ts'
@@ -12,7 +12,7 @@ import { focus } from '../scene/stage.ts'
  */
 export function Fragment() {
   const path = useVoid((s) => s.path)
-  const settled = useVoid((s) => s.transition.phase === 'idle')
+  const settled = useVoid((s) => s.transition.phase === 'idle' && s.secretScene === null)
   const anchor = useMemo(() => anchorOf(path), [path])
   if (!anchor) return null
   return <Fragments key={anchor.id} anchor={anchor} settled={settled} />
@@ -35,7 +35,7 @@ const MIN_WIDTH = 240
 
 type Side = 'right' | 'left' | 'above'
 
-function Fragments({ anchor, settled }: { anchor: Anchor; settled: boolean }) {
+function Fragments({ anchor, settled }: { anchor: Handcrafted; settled: boolean }) {
   const block = useRef<HTMLDivElement>(null)
   const total = anchor.fragments.reduce((sum, lines) => sum + lines.length, 0)
   // Lines shown so far, counted across all fragments, and which fragment leads.

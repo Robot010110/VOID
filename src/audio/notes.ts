@@ -59,3 +59,17 @@ export function orbitPulse(period: number): number {
   const t = logShare(period, 600, 20000)
   return 0.5 * (0.1 / 0.5) ** t
 }
+
+/** The chord sung when nothing in view gives enough notes of its own: D major ninth, raised fourth. */
+const OPEN_CHORD = [0, 4, 8, 9, 13, 17].map((degree) => scaleNote(degree))
+
+/**
+ * One chord from many notes (the stars in view): each pitch once, low to high, thinned evenly
+ * to at most `voices` when there are more; too few, and the open chord fills in under them.
+ */
+export function voiceChord(midis: readonly number[], voices = 7): number[] {
+  let pitches = [...new Set(midis.filter((m) => Number.isFinite(m)))].sort((a, b) => a - b)
+  if (pitches.length < 3) pitches = [...new Set([...OPEN_CHORD, ...pitches])].sort((a, b) => a - b)
+  if (pitches.length <= voices) return pitches
+  return Array.from({ length: voices }, (_, i) => pitches[Math.round((i * (pitches.length - 1)) / (voices - 1))]!)
+}

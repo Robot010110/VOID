@@ -28,10 +28,16 @@ interface Shot {
   hold?: { x: number; y: number }
   /** A touch screen. */
   touch?: boolean
+  /** Typed once the page is ready, a line at a time (each after the first followed by Enter). */
+  keys?: string
+  /** A secret played out before the picture: the fall into the black hole, the dark past the edge, the old code. */
+  act?: 'hole' | 'edge' | 'old-code'
 }
 
-/** A visitor's constellation in the home galaxy, as stored. */
-const KITE = JSON.stringify([{ id: 'kite', galaxy: 0, stars: [0, 1, 2, 5, 0], name: 'The Kite', made: 1_760_000_000_000 }])
+/** A visitor's constellation in the home galaxy, as stored: drawn today, or on an earlier day. */
+const kite = (made: number) => JSON.stringify([{ id: 'kite', galaxy: 0, stars: [0, 1, 2, 5, 0], name: 'The Kite', made }])
+const KITE = kite(Date.now())
+const OLD_KITE = kite(1_760_000_000_000)
 
 const PLANET = 'shot=planet&quality=high'
 const SYSTEM = 'shot=system&quality=high&system=0'
@@ -140,6 +146,18 @@ const SHOTS: Shot[] = [
   { name: '7-gravity-galaxy', query: GALAXY, hold: { x: 640, y: 470 } },
   { name: '7-gravity-universe', query: UNIVERSE, hold: { x: 900, y: 420 } },
   { name: '7-controls-phone', query: 'shot=galaxy&quality=medium&galaxy=0', storage: { 'void.constellations': KITE }, touch: true, ...PHONE },
+  // Phase 8: the secrets (spoilers in SECRETS.md).
+  { name: '8-signal', query: `${UNIVERSE}&signal` },
+  { name: '8-radio-whisper', query: 'shot=galaxy&quality=high&galaxy=41&spectrum=radio' },
+  { name: '8-pale-dot', query: `${ANCHOR}=pale-dot&view=day` },
+  { name: '8-beacon', query: `${ANCHOR}=beacon` },
+  { name: '8-keepers', query: `${ANCHOR}=keepers&view=night` },
+  { name: '8-companion', query: GALAXY, storage: { 'void.constellations': OLD_KITE } },
+  { name: '8-terminal', query: UNIVERSE, keys: 'listen\nls -a\ncat .keeper\nscan' },
+  { name: '8-terminal-phone', query: 'shot=universe&quality=medium', keys: 'listen\nhelp', ...PHONE },
+  { name: '8-interior', query: HOLE, act: 'hole' },
+  { name: '8-edge', query: UNIVERSE, act: 'edge' },
+  { name: '8-old-code', query: GALAXY, act: 'old-code' },
 ]
 
 interface Hooks {
@@ -241,6 +259,42 @@ for (const shot of SHOTS) {
       expect(spot).not.toBeNull()
       await page.mouse.move(spot!.x, spot!.y)
       await frames(page, 30)
+    }
+
+    if (shot.keys !== undefined) {
+      const [word, ...lines] = shot.keys.split('\n')
+      await page.keyboard.type(word!, { delay: 40 })
+      await frames(page, 20)
+      for (const line of lines) {
+        await page.keyboard.type(line, { delay: 10 })
+        await page.keyboard.press('Enter')
+        await frames(page, 4)
+      }
+      await frames(page, 30)
+    }
+
+    if (shot.act === 'hole' || shot.act === 'edge') {
+      if (shot.act === 'hole') await page.mouse.click(800, 450)
+      else {
+        await page.mouse.move(800, 450)
+        for (let i = 0; i < 70; i++) {
+          await page.mouse.wheel(0, 240)
+          await frames(page, 2)
+        }
+      }
+      // Until the words in the dark have fully come up.
+      await page.waitForFunction(() => Number(getComputedStyle(document.querySelector('.secret-words')!).opacity) > 0.97, null, {
+        timeout: 120_000,
+      })
+      await frames(page, 10)
+    }
+
+    if (shot.act === 'old-code') {
+      for (const key of ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'b', 'a']) {
+        await page.keyboard.press(key)
+        await frames(page, 2)
+      }
+      await frames(page, 40)
     }
 
     if (shot.hold) {

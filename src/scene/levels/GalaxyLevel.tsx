@@ -6,8 +6,11 @@ import { samePath, useVoid, type Transition } from '../../core/store.ts'
 import type { Path } from '../../core/universe.ts'
 import { galaxyLimits } from '../camera/views.ts'
 import { pixelRadius } from '../objects/body.ts'
+import { Companion } from '../objects/Companion.tsx'
 import { Constellations } from '../objects/Constellations.tsx'
 import { Galaxy } from '../objects/Galaxy.tsx'
+import { RadioRing } from '../objects/RadioRing.tsx'
+import { RADIO_GALAXY } from '../../secrets/secrets.ts'
 import { worldClock } from '../shared/clock.ts'
 import { levelRuntime, type Pick } from '../stage.ts'
 
@@ -82,6 +85,8 @@ export function GalaxyLevel({ path }: { path: Path }) {
     <group ref={root}>
       <Galaxy galaxy={galaxy} active={active} handed={handed} />
       <Constellations galaxy={galaxy} active={active} />
+      <Companion galaxy={galaxy} active={active} />
+      {galaxy.index === RADIO_GALAXY && <RadioRing look={galaxy} detail="galaxy" active={active} />}
     </group>
   )
 }

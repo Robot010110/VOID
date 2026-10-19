@@ -6,12 +6,14 @@
  * Each anchor names a place (galaxy, star, world) and overrides what that world would have been:
  * its kind, its moons, sometimes its name, and its civilisation. Everything else about the
  * system (its star, its other worlds, their orbits) stays as the seed made it. A fragment's
- * lines are broken by hand, the way they should be read.
+ * lines are broken by hand, the way they should be read. Three more worlds are made the same
+ * way and hidden (`HIDDEN`).
  */
 import type { CivilizationState, Structures } from '../core/civilization.ts'
 import type { PlanetKind } from '../core/planets.ts'
 
-export interface Anchor {
+/** A handcrafted world: one of the twelve anchors, or one of the hidden worlds. */
+export interface Handcrafted {
   /** A short handle, for `?anchor=` and for drift mode's tour. */
   readonly id: string
   readonly galaxy: number
@@ -23,7 +25,12 @@ export interface Anchor {
   readonly name?: string
   /** How many moons it has, when the story needs a certain number. */
   readonly moons?: number
-  readonly civilization: {
+  /** Its radius in system units, when the story needs it small or large. */
+  readonly size?: number
+  /** Every world of its system, innermost first, when the whole system is part of the story. */
+  readonly system?: readonly PlanetKind[]
+  /** Its people, if it has any: the only people of its system. */
+  readonly civilization?: {
     readonly people: string
     readonly state: CivilizationState
     /** Years they have lived there, or did. */
@@ -34,6 +41,11 @@ export interface Anchor {
   }
   /** One to three fragments, each a few hand-broken lines. */
   readonly fragments: ReadonlyArray<readonly string[]>
+}
+
+/** One of the twelve anchors: every one of them has a people. */
+export interface Anchor extends Handcrafted {
+  readonly civilization: NonNullable<Handcrafted['civilization']>
 }
 
 export const ANCHORS: readonly Anchor[] = [
@@ -256,26 +268,85 @@ export const ANCHORS: readonly Anchor[] = [
   },
 ]
 
-const byStar = new Map(ANCHORS.map((anchor) => [`${anchor.galaxy}:${anchor.star}`, anchor]))
-const byId = new Map(ANCHORS.map((anchor) => [anchor.id, anchor]))
+/**
+ * Worlds no one is shown the way to. They are made by hand like the anchors, but nothing points
+ * at them: the tour, the captions and the keyboard's stops leave them out, and their stars are
+ * as plain as their neighbours. Each is found by curiosity alone (see secrets/secrets.ts; the
+ * spoilers are in SECRETS.md).
+ */
+export const HIDDEN: readonly Handcrafted[] = [
+  {
+    // Where the light that counts in the far sky comes from: a red sun at the rim of a remote
+    // galaxy. Reached by following that light (the signal).
+    id: 'beacon',
+    galaxy: 34,
+    star: 2,
+    world: 0,
+    kind: 'terrestrial',
+    civilization: { people: 'Senael', state: 'thriving', age: 9_000, structures: { satellites: 24 } },
+    fragments: [
+      ['Every night someone climbs to the light', 'and counts with it: two, three, five.', 'Then they wait, and begin again.'],
+      ['The first thing a new keeper learns', 'is to skip four.'],
+      ['In nine thousand years', 'nobody has answered.', 'The light has not once gone out.'],
+    ],
+  },
+  {
+    // A small blue world, third from a yellow star with only a catalogue number, on the outer
+    // edge of the home galaxy, with one moon; its system is laid out like another one we know.
+    id: 'pale-dot',
+    galaxy: 0,
+    star: 250,
+    world: 2,
+    kind: 'terrestrial',
+    moons: 1,
+    size: 0.92,
+    system: ['barren', 'toxic', 'terrestrial', 'desert', 'gas', 'ringed', 'ice-giant', 'ice-giant'],
+    fragments: [['You are here.']],
+  },
+  {
+    // Home, for the keepers of the listening station in the terminal: its coordinates are in
+    // their note, 2f·a1·01 in the station's sixteens.
+    id: 'keepers',
+    galaxy: 47,
+    star: 161,
+    world: 1,
+    kind: 'terrestrial',
+    civilization: { people: 'Nuren', state: 'fading', age: 22_000, structures: { satellites: 40 } },
+    fragments: [
+      ['Their listening station went out', 'as far as it could go.', 'Every day since, it has sent home', 'one word: nothing.'],
+      ['They read the word out every morning,', 'the way you would a letter.'],
+      ['Today the word was different.'],
+    ],
+  },
+]
 
-/** The anchor whose world circles this star, if any. */
-export function anchorAt(galaxy: number, star: number): Anchor | undefined {
+const ALL: readonly Handcrafted[] = [...ANCHORS, ...HIDDEN]
+const byStar = new Map(ALL.map((world) => [`${world.galaxy}:${world.star}`, world]))
+const byId = new Map(ALL.map((world) => [world.id, world]))
+
+/** The handcrafted world circling this star, if any. */
+export function anchorAt(galaxy: number, star: number): Handcrafted | undefined {
   return byStar.get(`${galaxy}:${star}`)
 }
 
-/** The anchor at a place, if the place is an anchor's world. */
-export function anchorOf(path: readonly number[]): Anchor | undefined {
+/** The handcrafted world at a place, if the place is one. */
+export function anchorOf(path: readonly number[]): Handcrafted | undefined {
   if (path.length !== 3) return undefined
-  const anchor = anchorAt(path[0]!, path[1]!)
-  return anchor && anchor.world === path[2] ? anchor : undefined
+  const world = anchorAt(path[0]!, path[1]!)
+  return world && world.world === path[2] ? world : undefined
 }
 
-export function anchorById(id: string): Anchor | undefined {
+export function anchorById(id: string): Handcrafted | undefined {
   return byId.get(id)
 }
 
-/** The anchors in one galaxy. */
+/** The anchors in one galaxy (never the hidden worlds). */
 export function anchorsIn(galaxy: number): Anchor[] {
   return ANCHORS.filter((anchor) => anchor.galaxy === galaxy)
+}
+
+/** Whether a place is one of the hidden worlds. */
+export function isHidden(path: readonly number[]): boolean {
+  const world = anchorOf(path)
+  return world !== undefined && HIDDEN.includes(world)
 }

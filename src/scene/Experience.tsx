@@ -21,6 +21,9 @@ import { advanceWorldClock, worldClock } from './shared/clock.ts'
 import { stepSpectrum } from './shared/spectrum.ts'
 import { stepWell } from './shared/well.ts'
 import { stepDrift } from './drift.ts'
+import { stepJourney } from './journey.ts'
+import { stepSecrets } from '../secrets/sequences.ts'
+import { universeLimits } from './camera/views.ts'
 import { runWork, workPending } from './shared/work.ts'
 import { levelRuntime, marker, pointer } from './stage.ts'
 import { installTestHooks } from './testHooks.ts'
@@ -83,6 +86,8 @@ function WorldClock() {
     stepSpectrum(Math.min(delta, 0.1), SHOT !== null)
     stepWell(Math.min(delta, 0.1))
     stepDrift(Math.min(delta, 0.1))
+    stepJourney()
+    stepSecrets(worldClock.step, universeLimits().max)
   }, -100)
   return null
 }
@@ -115,7 +120,7 @@ function HoverDriver() {
   useFrame(() => {
     const store = useVoid.getState()
     const runtime = levelRuntime(store.path)
-    const idle = store.transition.phase === 'idle' && store.intro === 'done'
+    const idle = store.transition.phase === 'idle' && store.intro === 'done' && store.secretScene === null
     if (idle && pointer.hovering && runtime.pick) {
       const hit = runtime.pick(pointer.x, pointer.y)
       const index = hit ? hit.index : null

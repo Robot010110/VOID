@@ -449,3 +449,103 @@ Desktop, at a planet                          Phone, at a planet
 
 - **On the UHD 620 at 1600x900, Low, production build:** a galaxy and the universe hold 60 fps in visible light, in infrared and in radio, and with a well held. The spectrum lens costs nothing extra (it joins the grading pass); the well adds a few instructions per particle.
 - **Known risk:** world time is sent to shaders as a 32-bit float. After a long stay at 10,000x it grows large enough that slow shader animations (cloud flow, granulation) step in visible jumps. Positions are worked out in double precision on the CPU and are not affected.
+
+## Phase 8: Secrets
+
+All nine secrets are described, with where they are, in SECRETS.md (spoilers). These are the decisions behind them.
+
+### Finding
+
+- **Found once, remembered between visits** (`void.secrets` in localStorage, read back defensively like the constellations). A find rings a soft chime of two high bell notes, outside the gain the black hole closes, and shows "4 of 9 found" for four seconds just above the breadcrumb, in the prose tier. There is no list, no hint, and no other interface.
+- **The logic is in `src/secrets/`**, as the brief asks:
+  - `secrets.ts` holds the definitions and the pure detection: the signal's pattern, the key sequences, the day a constellation was drawn, and the edge's fade.
+  - `sequences.ts` holds the scenes that play out on screen.
+  - `terminal.ts` is the station, and `console.ts` the riddle.
+  - Their words are in `content/`, like every fragment.
+- **A secret that takes the camera** (the fall into the black hole, following the signal) sets `secretScene` in the store. Steering, hover and drift wait for it to end. The caption and a world's fragments wait too, and the interface steps aside. Escape hurries the black hole along to its way back out.
+- **The veil and the words are page elements**, written each frame by the scene like the hover ring. A scene's dark is a real black over everything, not the scene drawn dark, so nothing can show through at its edges.
+
+### The hidden worlds
+
+- **Three worlds are made by hand like the anchors but hidden** (`HIDDEN` in `content/anchors.ts`): the beacon the signal leads to, the pale dot, and the keepers' home that the terminal's `goto` reaches.
+  - They are left out of the tour, the galaxies' captions and the keyboard's notable stars.
+  - Their stars are as plain as their neighbours. Two of them are only catalogue numbers.
+- **A handcrafted world can now lay out its whole system and set its own size**, and may have no people. The pale dot's system is ours: rock, cloud, the blue world, a red one, a belt, a banded giant, a ringed giant, two ice giants.
+  - A system laid out by hand always gets its belt, like the featured home system.
+  - No ruins are generated beside a handcrafted world.
+- **The new peoples' names were taken from their galaxies' own languages** and checked against the real-word lists.
+
+### The signal
+
+- **It is drawn as a direction, as far away as the stars, in the universe's frame**, above the web and right of centre in the resting view. It sits high rather than wide, so a tall screen also has it in view.
+  - Between flashes it is a faint star like any other.
+  - It flashes in cool white, a little bluer than any star, two, three, five, a second apart.
+  - A click counts during a flash and for a third of a second after it.
+- **Following it turns the camera where it stands**, rather than flying somewhere: the light is too far away to fly to.
+  1. The light swells over the screen, holds, then dims to dark.
+  2. Behind the dark the beacon's world is built with the opening's curtain closed: compiled, baked, and then drawn for a few frames unseen.
+  3. The world comes up out of the dark.
+
+  A first version stayed on the pale light until the world was ready. On a slow GPU that is several seconds of a white screen, so the light now gives way to dark while it waits.
+
+### The radio whisper
+
+- **A ring of 64 lights on a faint thread, at 1.28 times its galaxy's radius**, in the plane of the disc.
+  - A slow wave of brightness runs round it every fifteen seconds.
+  - It is drawn by radio only, as strong as the view has turned to radio.
+  - It is a made thing, not a natural radio lobe: the secret is that someone hung it there.
+- **It is drawn at both scales.** From among the galaxies it is a clue for a visitor orbiting the universe by radio; the resting view sees it edge-on, hidden in its galaxy's light.
+
+### The edge
+
+- **The universe's farthest view (5,200 units) stays its limit until the visitor keeps pulling**, with the same intent that rises out of any other level. Then the limit gives way, out to 26,000.
+  - Everything fades by distance: a black veil from 6,200, total by 21,000.
+  - In the dark, after a moment, the fragment comes up.
+  - Zooming back in under the old limit restores it.
+  - The universe's caption and controls step aside once the fade is under way.
+
+### The black hole's interior
+
+- **The fall needs no new level.** From the black hole's own level, a click on the shadow, or zooming in at the closest the camera goes with the pointer over the shadow, starts a scripted fall onto the hole's centre to 2.3 of its radii.
+  - Real geometry does most of the work: from there the shadow fills the view.
+  - The veil only closes what is left.
+  - The sound sweeps down, then drops away entirely through a gain on everything but the chime.
+  - After nearly three seconds of dark and silence the line comes up, holds, and goes. The visitor is set back outside, further out than the resting view, and drifts in as the dark lifts and the sound returns.
+
+### The developer's door and the terminal
+
+- **The riddle is one styled `console.log`** (not a warning or an error, so the console stays clean): dark blocks in VOID's palette, legible in a light console or a dark one.
+  - The word is **listen**, which is "silent" rearranged and what the station does.
+  - Typed anywhere outside a text field, it opens the station.
+  - S and T also change the spectrum and time. Once two letters of the word are typed, the rest do nothing else, so the view does not flicker as the word is typed.
+- **Listening Station 9 is a small dark panel, top left, in the system's own monospace font.** It is a third typeface, kept to this one machine voice, so nothing extra is downloaded.
+  - Its prompt is in Tide.
+  - The scene stays in view around it, and the caption and the controls keep their corners. On a narrow screen it takes the top and the controls step aside.
+  - It is a real `<input>`: arrow keys go back through history, Tab finishes a command, Escape closes it.
+  - Its output is a polite live region.
+- **The trail is short:**
+  1. The readme's hint leads to `ls -a`.
+  2. The keepers' note gives coordinates in hex ("in sixteens").
+  3. `goto` flies there level by level at the usual pace.
+
+  `goto` takes any coordinates and `scan` prints the current ones, so the station is also a way to go anywhere by keyboard. The logs leave clues to three of the other secrets.
+
+### The old code and the persistence
+
+- **The Konami code sings every star in view:**
+  - Each pitch is taken once from the stars in view (their temperature, as when touched), thinned evenly to seven voices, with an open D Lydian chord where there are too few.
+  - It is played on a soft choir of sines, rolled upwards, under a light strike of the star bell.
+  - Everything that shines brightens with it for about four seconds.
+- **The companion comes on a later calendar day** (local midnight, measured from when the visit began), beside the first star of the oldest constellation drawn before today.
+  - It is drawn fainter than its neighbour, breathing a little.
+  - It rides the same orbit, a few units out.
+  - Its words sit beside it in Fraunces, and are hidden from screen readers until shown so they never give it away.
+
+### Review and performance
+
+- **Every secret was played through in Playwright**, in the development build and in production with real clicks, keys and wheel. The consoles stayed clean, apart from the riddle itself.
+- **11 new screenshots** (`8-*`). The `7-` constellation shots now store a constellation drawn today, so the companion does not appear in them.
+- **On the UHD 620 at Low, production build:**
+  - the universe, the universe by radio, Bonyr Wake by radio and the home galaxy with a companion all hold 60 fps;
+  - the worst frame is 16.8 ms;
+  - the fall into the black hole stays between 40 and 59 fps.

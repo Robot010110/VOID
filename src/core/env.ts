@@ -47,6 +47,9 @@ export const INTRO = params.get('intro')
 export const SPECTRUM = params.get('spectrum')
 export const TIME = params.get('time')
 
+/** `?signal`: in a screenshot run, the signal is shown at the height of a flash. */
+export const SIGNAL = params.has('signal')
+
 const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
 
 export function prefersReducedMotion(): boolean {

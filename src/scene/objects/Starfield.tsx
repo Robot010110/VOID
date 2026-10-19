@@ -33,6 +33,7 @@ import starsFrag from '../../shaders/starfield/stars.frag'
 import starsVert from '../../shaders/starfield/stars.vert'
 import { bakeProgramReady, bakeTexture } from '../shared/gpu.ts'
 import { lens } from '../shared/spectrum.ts'
+import { sung } from '../shared/chorus.ts'
 import { curtain, sky as skyTurn } from '../stage.ts'
 
 const SKY_SEED = hashSeed(UNIVERSE_SEED, 0x5c1e)
@@ -330,7 +331,7 @@ export function Starfield({ brightness = 1, band = 1 }: StarfieldProps) {
     level.current.brightness += (wantBrightness - level.current.brightness) * ease
     level.current.band += (wantBand - level.current.band) * ease
     // By heat the stars dim and the band's dust glows; by radio both all but go.
-    shared.uBrightness!.value = tuned.current.brightness * level.current.brightness * lens(0.45, 0.12)
+    shared.uBrightness!.value = tuned.current.brightness * level.current.brightness * lens(0.45, 0.12) * sung(1.8)
     glow.material.uniforms.uIntensity!.value = tuned.current.band * level.current.band * lens(1.9, 0.5)
 
     const density = shared.uDensity!.value as number

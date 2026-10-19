@@ -52,6 +52,9 @@ export function nextSpectrum(spectrum: Spectrum): Spectrum {
   return SPECTRA[(SPECTRA.indexOf(spectrum) + 1) % SPECTRA.length]!
 }
 
+/** The secrets that take the camera for a while. */
+export type SecretScene = 'interior' | 'signal'
+
 /** A constellation being drawn: the stars joined so far, in one galaxy. */
 export interface Sketch {
   readonly galaxy: number
@@ -82,6 +85,15 @@ export interface VoidState {
   sketch: Sketch | null
   /** The constellation whose name is being written, if any. */
   naming: string | null
+  /** The secrets found so far, by id (kept between visits; see secrets/secrets.ts). */
+  foundSecrets: readonly string[]
+  /** The listening station's terminal is open. */
+  terminalOpen: boolean
+  /**
+   * A secret playing out on its own (the fall into the black hole, following the signal): the
+   * camera is not the visitor's, and the interface stays away until it ends.
+   */
+  secretScene: SecretScene | null
   setQuality: (quality: QualityTier) => void
   lockQuality: () => void
   setPlanet: (planet: PlanetKind) => void
@@ -98,10 +110,25 @@ export interface VoidState {
   renameConstellation: (id: string, name: string) => void
   forgetConstellation: (id: string) => void
   setNaming: (id: string | null) => void
+  markFound: (id: string) => void
+  setTerminalOpen: (open: boolean) => void
+  setSecretScene: (scene: SecretScene | null) => void
 }
 
 function keep(constellations: readonly Constellation[]) {
   writeText('constellations', serializeConstellations(constellations))
+}
+
+/** Found secrets as stored: a short list of short ids, anything else dropped. */
+export function parseFound(text: string | null): string[] {
+  try {
+    const value: unknown = JSON.parse(text ?? '[]')
+    if (!Array.isArray(value)) return []
+    const ids = value.filter((id): id is string => typeof id === 'string' && /^[a-z-]{1,24}$/.test(id))
+    return [...new Set(ids)].slice(0, 32)
+  } catch {
+    return []
+  }
 }
 
 export const IDLE: Transition = { phase: 'idle', direction: 'down', from: HOME, to: HOME }
@@ -123,6 +150,9 @@ export const useVoid = create<VoidState>()(
     constellations: parseConstellations(readText('constellations')),
     sketch: null,
     naming: null,
+    foundSecrets: parseFound(readText('secrets')),
+    terminalOpen: false,
+    secretScene: null,
     setQuality: (quality) => set({ quality }),
     lockQuality: () => set({ qualityLocked: true }),
     setPlanet: (planet) => set({ planet }),
@@ -157,6 +187,15 @@ export const useVoid = create<VoidState>()(
         return { constellations, naming: state.naming === id ? null : state.naming }
       }),
     setNaming: (naming) => set({ naming }),
+    markFound: (id) =>
+      set((state) => {
+        if (state.foundSecrets.includes(id)) return {}
+        const foundSecrets = [...state.foundSecrets, id]
+        writeText('secrets', JSON.stringify(foundSecrets))
+        return { foundSecrets }
+      }),
+    setTerminalOpen: (terminalOpen) => set({ terminalOpen }),
+    setSecretScene: (secretScene) => set({ secretScene }),
   })),
 )
 

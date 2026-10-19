@@ -124,6 +124,11 @@ export const constellationLabels = {
   elements: new Map<string, HTMLElement>(),
 }
 
+/** The words beside a returning visitor's new star, placed by the scene every frame. */
+export const companion = {
+  element: null as HTMLElement | null,
+}
+
 /** The interface's hover ring, positioned by the scene every frame (no React state). */
 export const marker = {
   element: null as HTMLElement | null,

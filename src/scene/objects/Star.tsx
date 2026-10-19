@@ -25,6 +25,7 @@ import { useShared, type Disposable } from '../shared/cache.ts'
 import { worldClock } from '../shared/clock.ts'
 import { createCubeTarget, icosphere, sphereDetail } from '../shared/gpu.ts'
 import { lens } from '../shared/spectrum.ts'
+import { sung } from '../shared/chorus.ts'
 import { useLevel } from '../levels/context.ts'
 import { pixelRadius, seedOffset, toObjectSpace, worldRadius } from './body.ts'
 
@@ -186,7 +187,7 @@ export function Star({ star, anchor = false }: StarProps) {
     c.uLimb!.value = 1 / Math.sqrt(1 - 1 / (distance * distance))
     c.uTime!.value = time
     c.uFade!.value = fade
-    c.uIntensity!.value = CORONA_INTENSITY * lens(0.7, 0.45)
+    c.uIntensity!.value = CORONA_INTENSITY * lens(0.7, 0.45) * sung(0.6)
 
     const height = state.size.height * state.viewport.dpr
     const detail = sphereDetail(pixelRadius(radius, distance * radius, camera.fov, height))

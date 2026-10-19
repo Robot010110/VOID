@@ -24,8 +24,8 @@ export const drift = {
 }
 
 export function beginDrift() {
-  const { path, transition, setDriftMode } = useVoid.getState()
-  if (transition.phase !== 'idle') return
+  const { path, transition, secretScene, terminalOpen, setDriftMode } = useVoid.getState()
+  if (transition.phase !== 'idle' || secretScene !== null || terminalOpen) return
   drift.stops = planTour(path)
   drift.next = 0
   drift.waited = 0

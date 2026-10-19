@@ -28,6 +28,7 @@ import {
   Oscillator,
   PolySynth,
   Reverb,
+  Synth,
   Volume,
 } from 'tone/build/esm/classes.js'
 import { getContext, setContext } from 'tone/build/esm/core/Global.js'
@@ -52,6 +53,8 @@ type LayerName = 'universe' | 'galaxy' | 'system' | 'planet'
 class Engine implements AudioEngine {
   private readonly context = getContext()
   private readonly fader = new Gain(0)
+  /** Everything but the chime passes through this, which a fall into the black hole closes. */
+  private readonly depth = new Gain(1)
   private readonly bus = new Gain(1)
   private readonly reverb = new Reverb({ decay: 10, preDelay: 0.08, wet: 1 })
   private readonly layers: Record<LayerName, Gain> = {
@@ -75,6 +78,8 @@ class Engine implements AudioEngine {
   private readonly fallFilter = new Filter({ type: 'bandpass', frequency: 400, Q: 1.1 })
   private readonly fallGain = new Gain(0)
   private bells: Record<NoteKind, PolySynth<FMSynth>> | null = null
+  private chimes: PolySynth<FMSynth> | null = null
+  private choir: PolySynth<Synth> | null = null
   /** Dark noise, shared by the drone's floor and a world's wind. */
   private pink: Noise | null = null
   /** Taps the output, so loudness can be checked without ears (screenshot runs). */
@@ -98,8 +103,9 @@ class Engine implements AudioEngine {
     const limiter = new Limiter(-1).connect(volume)
     const compressor = new Compressor({ threshold: -24, ratio: 3, attack: 0.08, release: 0.5, knee: 12 }).connect(limiter)
     this.fader.connect(compressor)
-    this.bus.connect(this.fader)
-    this.reverb.connect(this.fader)
+    this.depth.connect(this.fader)
+    this.bus.connect(this.depth)
+    this.reverb.connect(this.depth)
 
     this.route(this.droneTone, db(-6), db(-10))
     this.route(this.layers.universe, db(-4), db(-14))
@@ -123,6 +129,7 @@ class Engine implements AudioEngine {
       () => this.universeVoices(),
       () => this.planetVoices(),
       () => this.buildBells(),
+      () => this.buildSecrets(),
     ]
     const next = () => {
       stages.shift()?.()
@@ -233,10 +240,28 @@ class Engine implements AudioEngine {
     }
   }
 
+  /**
+   * The chime for a secret found: its own bell, high and glassy, outside the depth gain so it is
+   * heard even as the rest of the sound comes back. And the choir the old code wakes: soft sine
+   * voices that swell and die away together.
+   */
+  private buildSecrets() {
+    this.chimes = this.bell({ harmonicity: 4, modulationIndex: 2.2, decay: 2.4, release: 3.6, level: -19 }, db(-9), db(-4), this.fader)
+    const choir = new PolySynth(Synth, {
+      oscillator: { type: 'fatsine', count: 2, spread: 14 },
+      envelope: { attack: 0.35, decay: 1.4, sustain: 0.55, release: 3.8 },
+      volume: -27,
+    })
+    choir.maxPolyphony = 8
+    this.route(choir, db(-8), db(0))
+    this.choir = choir
+  }
+
   private bell(
     shape: { harmonicity: number; modulationIndex: number; decay: number; release: number; level: number },
     dry: number,
     wet: number,
+    output?: Gain,
   ): PolySynth<FMSynth> {
     const synth = new PolySynth(FMSynth, {
       harmonicity: shape.harmonicity,
@@ -248,7 +273,10 @@ class Engine implements AudioEngine {
       volume: shape.level,
     })
     synth.maxPolyphony = 8
-    this.route(synth, dry, wet)
+    if (output) {
+      synth.connect(new Gain(dry).connect(output))
+      synth.connect(new Gain(wet).connect(this.reverb))
+    } else this.route(synth, dry, wet)
     return synth
   }
 
@@ -306,6 +334,32 @@ class Engine implements AudioEngine {
     this.notes++
     const velocity = 0.5 * Math.min(1, Math.max(0.35, gap / 0.6))
     bell.triggerAttackRelease(frequency(midi), 0.05, now, velocity)
+  }
+
+  chime() {
+    if (!this.audible || !this.chimes) return
+    const now = this.context.currentTime
+    this.chimes.triggerAttackRelease(frequency(scaleNote(18)), 0.05, now, 0.45)
+    this.chimes.triggerAttackRelease(frequency(scaleNote(22)), 0.05, now + 0.17, 0.32)
+  }
+
+  chord(midis: readonly number[]) {
+    if (!this.audible || !this.choir) return
+    const now = this.context.currentTime
+    // Rolled upwards a little, as hands would play it, and held while the stars brighten.
+    midis.forEach((midi, i) => {
+      const at = now + i * 0.035
+      this.choir?.triggerAttackRelease(frequency(midi), 2.2, at, 0.42)
+      this.bells?.star.triggerAttackRelease(frequency(midi), 0.05, at, 0.18)
+    })
+  }
+
+  hush(hushed: boolean, seconds: number) {
+    const now = this.context.currentTime
+    const gain = this.depth.gain
+    gain.cancelScheduledValues(now)
+    gain.setValueAtTime(gain.value, now)
+    gain.linearRampToValueAtTime(hushed ? 0 : 1, now + seconds)
   }
 
   sweep(direction: 'down' | 'up', seconds: number, strength = 1) {

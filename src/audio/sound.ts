@@ -36,6 +36,12 @@ export interface AudioEngine {
   note(kind: NoteKind, midi: number): void
   /** Noise swept through a filter: down for a fall, up for a rise. */
   sweep(direction: 'down' | 'up', seconds: number, strength?: number): void
+  /** A soft chime: a secret has been found. */
+  chime(): void
+  /** Every note at once, swelling and dying away together (MIDI numbers). */
+  chord(midis: readonly number[]): void
+  /** Let all sound drop away (`true`), or come back, over `seconds`. */
+  hush(hushed: boolean, seconds: number): void
   /** Fade everything in or out; while out, the audio context sleeps. */
   setAudible(audible: boolean): void
   /** For the screenshot script and debugging. */

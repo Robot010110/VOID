@@ -47,6 +47,7 @@ import { useShared, type Disposable } from '../shared/cache.ts'
 import { worldClock } from '../shared/clock.ts'
 import { SoftBuffer } from '../shared/softBuffer.ts'
 import { lens, spectrum } from '../shared/spectrum.ts'
+import { sung } from '../shared/chorus.ts'
 import { aimWell, wellUniforms } from '../shared/well.ts'
 import { cancelWork, enqueueWork, type Work } from '../shared/work.ts'
 import { BlackHole } from './BlackHole.tsx'
@@ -573,8 +574,8 @@ export function Cosmos({ universe }: { universe: Universe }) {
     // all but vanish, galaxies' hearts stay bright, and the gas of the cosmic web comes out.
     const t = tuned.current
     parts.exposure.value = t.exposure * lens(0.6, 0.3)
-    parts.sparkle.uniforms.uExposure!.value = t.sparkle * lens(0.4, 0.06)
-    parts.cores.uniforms.uIntensity!.value = t.core * lens(0.8, 1.6)
+    parts.sparkle.uniforms.uExposure!.value = t.sparkle * lens(0.4, 0.06) * sung(1.4)
+    parts.cores.uniforms.uIntensity!.value = t.core * lens(0.8, 1.6) * sung(0.5)
     parts.gas.uniforms.uExposure!.value = t.gas * lens(1.3, 4.5)
     parts.field.uniforms.uExposure!.value = t.field * lens(0.7, 0.45)
     parts.nebulae.material.uniforms.uGlow!.value = t.nebulae * lens(2, 0.45)
