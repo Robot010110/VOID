@@ -669,3 +669,71 @@ About 50 seconds, sentence case throughout:
 - **A stretch can be shot again (`FRAMES`), and spliced in only at a cut.** Some of the sky (its brightness, its parallax) eases by frame time, so no two renders are quite the same mid-shot. The fragment's line ran off a wide screen; frames 0–935 were shot again, up to the flash at 31.2 s.
 - **Converted to BT.709 and tagged so.** JPEG frames are BT.601. Left that way, the social players, which assume BT.709 for HD, shift the warm colours.
 - **The sky twinkles, and the well gathers, on world time in a screenshot run,** so a frame-stepped render moves at the film's own pace.
+
+## After the build: the cost of the sound
+
+The trailer's score, made of Tone.js pieces, cost more than real time to compute. The site's own sound engine is made of the same pieces, and more of them.
+
+### Measuring it
+
+- **Offline: each level's sound rendered inside Tone's `Offline()`, and timed against the music it makes.** The whole graph is built and held at one level for 30 s (at a world, with its wind and a warm hum), with two quick runs of ten hover notes. Near 1x, the audio thread has no room left once WebGL and the page want the CPU. `npm run audio:cost` (`tools/audio`) does this for the current engine.
+- **Live: the production build in headless Chrome at every level, the pointer sweeping over stars, reading how far the AudioContext's clock moves against the wall clock.** A graph cheap enough keeps real time there, so a slow clock means the graph costs too much: on speakers, that is sound breaking up.
+- **On the UHD 620 laptop (i5-8265U), the old engine cost 0.79 to 1.13 times real time at every level offline. Live, beside the universe, its clock ran at 0.30 to 0.55 of real time.** Every quick run over the stars also logged "Max polyphony exceeded" warnings.
+- **Absolute numbers move with the machine:** the same renders ran 1.5 to 2 times slower on the laptop when it was busy or throttled (1.5 GHz). Old and new are compared in interleaved rounds in one session, and the ratio between them held.
+
+### Where it went
+
+- **Each Tone piece, measured alone, cost several times the browser's own node:** an oscillator 4 to 6 times, a filter 3 to 8, an LFO 4 to 8.
+  - Tone feeds every frequency, detune and level through a constant-source signal that runs at audio rate. One oscillator is about five nodes, and one LFO about a dozen.
+  - A parameter fed at audio rate is computed sample by sample: a biquad's coefficients, an oscillator's detune.
+  - The engine ran 14 LFOs (two in the chorus), 27 oscillators and 7 filters at every level, heard or not.
+- **The reverb (decay 10) cost about twice real time on its own** offline, where Chrome convolves everything on the render thread. Live, it hands the long tail to a background thread, which still needs a core.
+- **A PolySynth keeps its voices running after they fall silent.** It disposes of one a second at most, and only while it holds more than it has lately needed. After a quick run over the stars, eight voices kept running for most of a minute, and two (with the template voice every PolySynth makes) for good. There were five PolySynths: the three bells, the chime and the choir.
+
+### Lighter, and the same sound
+
+- **`audio/voices.ts` makes the same pieces from the browser's own nodes, through Tone's context:**
+  - oscillators, with Tone's phase-turned periodic waves, and fat oscillators;
+  - LFOs (the target rests at the middle and the sine adds the swing, the same sum as Tone's);
+  - filter cascades, the chorus and the reverb;
+  - a fresh voice for every bell and choir note, whose nodes end when it does.
+
+  Tone still provides the context, the routing gains, the noise and the dynamics.
+- **Proven by subtraction, not by ear.** Each piece was rendered offline beside the Tone class it replaces, from the same input, and subtracted.
+  - The residual is rounding: 96 dB below the signal for a bell, 82 for the LFOs, 83 for the chorus, 108 to 124 for oscillators, filters and the choir.
+  - The whole engine was made deterministic (noise from one seed, one reverb response for both) and subtracted from the old one at every level: 76 to 85 dB below.
+- **Offline, Tone schedules a little differently from live, so the comparisons were run as a live context runs.**
+  - Its offline now() leaves out the look-ahead that its parameter writes add.
+  - It starts a note due a moment ahead on its next clock tick.
+  - What is left, run that way: Tone builds a choir voice, and sets the spread of its two sines, as the note is handed over, a tick or so late. That moves where their beating starts by a few milliseconds, differently from play to play in Tone.
+- **Tone's quirks are kept, since they are part of the sound:**
+  - A bell (no sustain) stops when its decay ends. Its release asks for a later stop, which comes too late to count, so the release is cut there, 56 dB down on a star bell; the modulator stops sooner still.
+  - Eight voices an instrument: a note that finds all eight sounding is dropped, now without a console warning.
+  - The chorus keeps its feedback loop at a gain of 0, so its delays stay in a cycle (the specification has a delay in a cycle hold at least a render quantum).
+  - A fat oscillator's spread is set as Tone sets it, as it starts: Chrome takes it a moment late, and that places the beating.
+- **The reverb ends where Chrome already ended it.** Tone draws the response's fall with setTargetAtTime, τ = ln 11 / ln 200 = 0.45 s, and Chrome ends a setTarget after ten time constants: 87 dB down, 4.5 s in. The other 5.5 s of the 10 s response were silence, convolved all the same. The new response has the same fall and stops there, 4.61 s in all.
+  - The convolver scales a response by its average power over its whole length, so the input is raised by √(10.08 / 4.61).
+  - An impulse through the old reverb and the new one carries the same energy: 0.000 dB apart overall, and within 0.15 dB in every half second.
+  - Chrome prepares a convolver as its response is set, which holds the page for about 80 ms (a 10 s response held it for about 200 ms). That now has a frame of its own in the opening's stages, while the camera holds still. Drawing the response takes 5 to 20 ms.
+- **What is silent rests.** Only one level's layer is heard at a time. Each layer, a world's wind and its hums, and the fall's noise sit behind a gate: once faded out it is disconnected, and Chrome stops computing whatever only feeds it. It is joined up again before it rises.
+  - The gate waits on the audio clock, so a page muted or hidden mid-fade, its context asleep, finishes the fade before anything rests.
+  - A slow LFO behind a closed gate picks up where it stopped, not where it would have been, which no one can hear.
+  - The bus is kept stereo, as it was with the galaxy's chorus in it, so the compressor never sees its channels change.
+
+### Before and after
+
+Offline, 30 s a level with two quick runs of notes; the median of three interleaved rounds on a quiet laptop (cost against real time):
+
+| Level | Before | After |
+|---|---|---|
+| Universe | 0.88 | 0.19 |
+| Galaxy | 0.85 | 0.19 |
+| System | 0.90 | 0.21 |
+| World | 0.93 | 0.22 |
+| Black hole | 0.91 | 0.20 |
+
+- **About 4.5 times cheaper at every level.** Throttled (1.5 GHz), the galaxy and the black hole cost 1.54 and 1.45 before, and 0.35 and 0.34 after.
+- **Live, production build, two interleaved rounds:** the audio clock ran at 0.30 to 0.55 of real time before, and at 0.99 to 1.00 after, at every level and through runs of notes. The frame rate stayed at 58 to 60 fps on Low, and the console is clean.
+- **Loudness is unchanged:** each level's loudness offline sits within the spread between runs of the same engine (a fresh random reverb response each time), and live between about -20 and -27 dBFS RMS as before.
+- **The sound's chunk grew by 2 kB gzipped.** Tone's own chunk is unchanged (63 kB).
+- **Checked in production:** the opening, mute and a hidden tab; keys and drift; the riddle, the station and the old code's chord with sound on; the fall into the black hole; the edge; a lost context; a phone. Also new: loudness through each fall, and a mute in the middle of a crossfade (the layers hold, then finish). How it sounds still wants ears, but subtraction says nothing has changed.

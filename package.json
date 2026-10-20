@@ -17,7 +17,8 @@
     "test": "vitest run",
     "shots": "playwright test -c playwright.config.ts",
     "shots:soft": "playwright test -c playwright.soft.config.ts",
-    "film:render": "playwright test -c tools/film/playwright.config.ts"
+    "film:render": "playwright test -c tools/film/playwright.config.ts",
+    "audio:cost": "playwright test -c tools/audio/playwright.config.ts"
   },
   "dependencies": {
     "@fontsource-variable/fraunces": "^5.3.0",

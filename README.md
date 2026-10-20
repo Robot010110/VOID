@@ -76,6 +76,7 @@ npm run dev
 | `npm run lint` | ESLint |
 | `npm test` | Unit tests (Vitest) |
 | `npm run shots` | Screenshots of every level, in headless Chromium, into `screenshots/`; any console warning fails the run |
+| `npm run audio:cost` | What the sound costs to compute at each level, rendered offline, against real time; run it on a quiet machine |
 
 **Development URL parameters:**
 - `?debug` shows the tuning panel and a frame-rate readout.
@@ -98,7 +99,7 @@ It is a static site: `npm run build` writes everything to `dist/`.
 
 - React 19 and React Three Fiber 9 over three.js r182, with shaders in GLSL files.
 - Post-processing for the tone mapping, the bloom and the film grade, and for the black hole's lensing.
-- Sound from Tone.js, all of it made in the browser.
+- Sound made in the browser, from the Web Audio API's own nodes, through Tone.js.
 - Every galaxy, star and world is generated from one seed, a level at a time. A few worlds and their words are made by hand (`src/content/`).
 - The decisions behind it all, with their reasons, are in [DECISIONS.md](DECISIONS.md).
 
