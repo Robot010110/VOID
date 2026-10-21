@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Burst } from '../intro/particles.ts'
 import { createGather } from './gather.ts'
-import { END, FILM_LENGTH, siteAddress, TITLES } from './script.ts'
+import { COMPANY, END, FILM_LENGTH, TITLES } from './script.ts'
 
 describe('the trailer script', () => {
   it('keeps every title inside the film, in order, each on screen for a while', () => {
@@ -34,9 +34,9 @@ describe('the trailer script', () => {
     expect(previous + 1.5).toBeLessThan(FILM_LENGTH)
   })
 
-  it('writes the address without its scheme', () => {
-    expect(siteAddress()).not.toMatch(/^https?:/)
-    expect(siteAddress()).not.toMatch(/\/$/)
+  it('ends on the company, and where to find it, written without a scheme', () => {
+    expect(END.lines.at(-1)!.text).toBe(COMPANY.address)
+    expect(COMPANY.address).not.toMatch(/^https?:|\/$/)
   })
 })
 

@@ -4,7 +4,7 @@ import { useVoid } from '../core/store.ts'
 import { placeName } from '../secrets/terminal.ts'
 import { film, filmReady, startFilm } from '../film/director.ts'
 import { loadScore, scoreLoaded, startScore } from '../film/sound.ts'
-import { CRUMBS, END, siteAddress, TITLES, type Title } from '../film/script.ts'
+import { COMPANY, CRUMBS, END, TITLES, type Title } from '../film/script.ts'
 import { createGather, drawGather, type Gather } from '../film/gather.ts'
 import { createBurst } from '../intro/particles.ts'
 import { well } from '../scene/shared/well.ts'
@@ -166,7 +166,7 @@ function TitleView({ title, register }: { title: Title; register: (painted: Pain
 /**
  * The trailer's own layer, over the universe (`?film`): the dark it opens in and cuts through,
  * its words, the breadcrumb of the fall, and the end card, where stars stream together into the
- * wordmark. Painted every frame from the film's clock alone. Live, a quiet gate waits for the
+ * company's name. Painted every frame from the film's clock alone. Live, a quiet gate waits for the
  * universe to be built, then for a press of Play (the music needs one).
  */
 export function FilmOverlay() {
@@ -310,14 +310,14 @@ export function FilmOverlay() {
       <canvas ref={dust} className="film-dust" />
       <div className="film-end">
         <p ref={mark} className="film-wordmark">
-          {['V', 'O', 'I', 'D'].map((letter) => (
-            <span key={letter}>{letter}</span>
+          {[...COMPANY.name].map((letter, i) => (
+            <span key={i}>{letter}</span>
           ))}
         </p>
         <div ref={endLines} className="film-end-lines">
           {END.lines.map((line) => (
             <p key={line.tone} className={`film-end-${line.tone}`}>
-              {line.tone === 'url' ? siteAddress() : line.text}
+              {line.text}
             </p>
           ))}
         </div>
