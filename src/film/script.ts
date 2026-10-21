@@ -4,9 +4,10 @@
  * is said over it, and when. Sentence case throughout, as everywhere in VOID; the copy follows
  * content/voice.md where it can, and is a little louder where an advertisement must be.
  *
- * The shape of it: a point of light; the opening's pull-back from one world out to the whole
- * universe, counted; a fall straight down into a world where people live, and one of their
- * fragments; what else can be done there, cut on the beat; the black hole; the name.
+ * It is ENVOR's advertisement, made of VOID: what was built, shown and said. The shape of it: a
+ * point of light; the opening's pull-back from one world out to the whole universe, counted; a
+ * fall straight down into a world where people live, and one of their fragments; what else can
+ * be done there, cut on the beat; the black hole; the company's name.
  */
 
 /** How long the film runs, seconds. */
@@ -41,6 +42,15 @@ export const TITLES: readonly Title[] = [
   { id: 'every-light', kind: 'statement', from: 14.9, to: 17.25, lines: ['Every point of light', 'is a place you can go.'], lineGap: 0.75 },
   { id: 'fall', kind: 'statement', from: 17.45, to: 19.7, lines: ['Fall into anything.'] },
   {
+    id: 'browser',
+    kind: 'statement',
+    from: 20.5,
+    to: 25.5,
+    lines: ['No download. No plug-in.', 'A whole universe, in a browser tab.'],
+    lineGap: 1.4,
+    low: true,
+  },
+  {
     id: 'fragment',
     kind: 'fragment',
     from: 26.3,
@@ -54,11 +64,14 @@ export const TITLES: readonly Title[] = [
   { id: 'bend', kind: 'feature', from: 33.75, to: 35.3, lines: ['Bend the stars.'] },
   { id: 'time', kind: 'feature', from: 35.45, to: 37.0, lines: ['Speed up time.'] },
   { id: 'draw', kind: 'feature', from: 37.15, to: 39.05, lines: ['Draw your own constellations.'] },
-  { id: 'hidden', kind: 'statement', from: 39.55, to: 41.45, lines: ['Some things are hidden.'], low: true },
-  { id: 'closer', kind: 'statement', from: 41.6, to: 42.85, lines: ['Look closer.'] },
+  { id: 'computed', kind: 'statement', from: 39.55, to: 41.45, lines: ['Every orbit computed.', 'Every word written.'], lineGap: 0.6, low: true },
+  { id: 'nothing', kind: 'statement', from: 41.6, to: 42.85, lines: ['All of it built from nothing.'] },
 ]
 
-/** The end card: the wordmark gathers out of stars, then three lines under it. */
+/** Who made it, for the end card. */
+export const COMPANY = { name: 'ENVOR', address: 'envor.com' } as const
+
+/** The end card: the company's name gathers out of stars, then three lines under it. */
 export const END = {
   /** The screen goes dark and silent. */
   dark: 43.0,
@@ -66,17 +79,12 @@ export const END = {
   gather: 43.7,
   gathered: 46.0,
   lines: [
-    { at: 46.2, text: 'An interactive universe.', tone: 'name' },
-    { at: 47.0, text: '', tone: 'url' },
-    { at: 47.8, text: 'Sound on. Take your time.', tone: 'quiet' },
+    { at: 46.2, text: 'We built this.', tone: 'name' },
+    { at: 47.0, text: 'We can build anything.', tone: 'claim' },
+    { at: 47.8, text: COMPANY.address, tone: 'url' },
   ],
 } as const
 
 /** The breadcrumb that builds as the camera falls, shown over this stretch. */
 export const CRUMBS = { from: 17.6, to: 30.7 }
 
-/** Where VOID lives, for the end card: the site's address without its scheme. */
-export function siteAddress(): string {
-  const url = String(import.meta.env.VITE_SITE_URL ?? 'https://void-universe.onrender.com')
-  return url.replace(/^https?:\/\//, '').replace(/\/$/, '')
-}
