@@ -46,8 +46,8 @@ export const TITLES: readonly Title[] = [
     kind: 'statement',
     from: 20.5,
     to: 25.5,
-    lines: ['No download. No plug-in.', 'A whole universe, in a browser tab.'],
-    lineGap: 1.4,
+    lines: ['No download. No plug-in.', 'A whole universe,', 'in a browser tab.'],
+    lineGap: 1.0,
     low: true,
   },
   {
@@ -65,7 +65,7 @@ export const TITLES: readonly Title[] = [
   { id: 'time', kind: 'feature', from: 35.45, to: 37.0, lines: ['Speed up time.'] },
   { id: 'draw', kind: 'feature', from: 37.15, to: 39.05, lines: ['Draw your own constellations.'] },
   { id: 'computed', kind: 'statement', from: 39.55, to: 41.45, lines: ['Every orbit computed.', 'Every word written.'], lineGap: 0.6, low: true },
-  { id: 'nothing', kind: 'statement', from: 41.6, to: 42.85, lines: ['All of it built from nothing.'] },
+  { id: 'nothing', kind: 'statement', from: 41.6, to: 42.85, lines: ['All of it', 'built from nothing.'], lineGap: 0.3 },
 ]
 
 /** Who made it, for the end card. */
