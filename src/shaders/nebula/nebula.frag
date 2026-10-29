@@ -4,6 +4,8 @@
 uniform sampler2D uAtlas;
 uniform float uTime;
 uniform float uGlow;
+// Above 1, the cloud's density is sharpened: thin parts thin away, dense parts keep their edge.
+uniform float uContrast;
 
 varying vec2 vPlace;
 varying vec2 vUv;
@@ -28,7 +30,7 @@ void main() {
   float shell = smoothstep(0.35, 0.72, r) * (1.0 - smoothstep(0.72, 1.0, r));
   float shape = mix(cloud * cloud, shell, vLook.w);
   // The noise sits around a half: its upper third becomes the cloud's body.
-  float density = smoothstep(vLook.z, vLook.z + 0.32, noise) * shape;
+  float density = pow(smoothstep(vLook.z, vLook.z + 0.32, noise) * shape, uContrast);
 
   vec3 colour = mix(vColourA, vColourB, smoothstep(0.3, 0.75, n.a));
   vec3 light = colour * density * vLook.x * uGlow;

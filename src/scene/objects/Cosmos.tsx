@@ -55,7 +55,7 @@ import { ATLAS_POLICY, createUniverseNebulae, NebulaAtlas } from './Nebula.ts'
 
 const TWEAKS: TweakSchema = {
   exposure: { value: 0.14, min: 0, max: 1, step: 0.001 },
-  sparkle: { value: 0.03, min: 0, max: 0.3, step: 0.001 },
+  sparkle: { value: 0.05, min: 0, max: 0.3, step: 0.001 },
   coreLight: { value: 2.4, min: 0, max: 6, step: 0.01 },
   gas: { value: 0.011, min: 0, max: 0.1, step: 0.0001 },
   field: { value: 1.35, min: 0, max: 4, step: 0.01 },
