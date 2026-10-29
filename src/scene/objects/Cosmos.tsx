@@ -29,7 +29,7 @@ import { blackbody } from '../../core/blackbody.ts'
 import { deepField, webGas, type Universe } from '../../core/cosmos.ts'
 import { CORE_LIGHT, crestPhase, getGalaxyLook, type GalaxyLook } from '../../core/galaxy.ts'
 import { GalaxyParticleJob, LAYER_SHARE, particleCounts, type ParticleSet } from '../../core/galaxyParticles.ts'
-import { QUALITY } from '../../core/quality.ts'
+import { QUALITY, textureSize } from '../../core/quality.ts'
 import { useVoid } from '../../core/store.ts'
 import { num, useTweaks, type TweakSchema, type TweakValue } from '../../core/tweaks.ts'
 import dustFrag from '../../shaders/galaxy/dust.frag'
@@ -307,7 +307,7 @@ export function Cosmos({ universe }: { universe: Universe }) {
   const gl = useThree((s) => s.gl)
   const [tier] = useState(() => QUALITY[useVoid.getState().quality])
   const galaxies = useShared(`universe:${tier.universeParticles}`, () => new UniverseGalaxies(universe, tier.universeParticles), POLICY)
-  const [atlasSize] = useState(() => (useVoid.getState().quality === 'low' ? 512 : 1024))
+  const [atlasSize] = useState(() => textureSize(useVoid.getState().quality))
   const atlas = useShared(`nebula-atlas:${atlasSize}`, () => new NebulaAtlas(atlasSize), ATLAS_POLICY)
   const root = useRef<Group>(null)
   const warmed = useRef(false)

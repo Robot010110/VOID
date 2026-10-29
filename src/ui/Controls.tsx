@@ -2,10 +2,14 @@ import { useEffect, useRef, useState } from 'react'
 import { nextSpectrum, nextTimeStep, useVoid, type Spectrum, type TimeStep } from '../core/store.ts'
 import { stepLabel } from '../core/time.ts'
 import { ascend } from '../scene/camera/transitions.ts'
+import { toggleHd } from './hd.ts'
 
 /** A gentle wave while sound is on; the same line lying flat when it is off. */
 const WAVE = 'M3 12 C 5.2 6.5, 8.3 6.5, 10.5 12 S 15.8 17.5, 18 12 S 20.4 9.4, 21 10'
 const FLAT = 'M3 12 C 5.2 12, 8.3 12, 10.5 12 S 15.8 12, 18 12 S 20.4 12, 21 12'
+
+/** Full quality: the letters HD, drawn in the same line. */
+const HD = 'M3.5 7.5 V16.5 M3.5 12 H9.5 M9.5 7.5 V16.5 M13 7.5 V16.5 H15.5 A 4.5 4.5 0 0 0 15.5 7.5 Z'
 
 /**
  * Time is a world on its orbit: still when paused, trailing an arc as long as its pace. The
@@ -37,13 +41,15 @@ function useAnnouncement(): [string, (words: string) => void] {
 
 /**
  * Top right: the few controls VOID has, drawn as single lines (time, what the eye sees by,
- * sound). On a touch screen, top left, a way up a level. Their keys work anywhere: T, S, M.
+ * sound, full quality). On a touch screen, top left, a way up a level. Their keys work
+ * anywhere: T, S, M, H.
  */
 export function Controls() {
   const enabled = useVoid((s) => s.audioEnabled)
   const timeStep = useVoid((s) => s.timeStep)
   const spectrum = useVoid((s) => s.spectrum)
   const canRise = useVoid((s) => s.path.length > 0 && s.transition.phase === 'idle')
+  const hd = useVoid((s) => s.quality === 'ultra')
   const [words, say] = useAnnouncement()
   const seen = useRef({ timeStep, spectrum })
 
@@ -104,6 +110,11 @@ export function Controls() {
         >
           <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
             <path className="control-line" d={enabled ? WAVE : FLAT} />
+          </svg>
+        </button>
+        <button type="button" className="control" aria-label="Full quality" aria-pressed={hd} aria-keyshortcuts="H" onClick={toggleHd}>
+          <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+            <path className="control-line" d={HD} />
           </svg>
         </button>
       </div>

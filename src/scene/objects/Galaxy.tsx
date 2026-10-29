@@ -34,7 +34,7 @@ import {
   type ParticleCounts,
 } from '../../core/galaxyParticles.ts'
 import { isLit } from '../../core/civilization.ts'
-import { QUALITY } from '../../core/quality.ts'
+import { QUALITY, textureSize } from '../../core/quality.ts'
 import { getSystem } from '../../core/universe.ts'
 import { useVoid } from '../../core/store.ts'
 import { num, useTweaks, type TweakSchema, type TweakValue } from '../../core/tweaks.ts'
@@ -254,7 +254,7 @@ export function Galaxy({ galaxy, active, handed }: GalaxyProps) {
   const quality = useVoid((s) => s.quality)
   const [total] = useState(() => QUALITY[useVoid.getState().quality].galaxyParticles)
   const buffers = useShared(`galaxy:${galaxy.index}:${total}`, () => new GalaxyBuffers(galaxy, total), POLICY)
-  const [atlasSize] = useState(() => (useVoid.getState().quality === 'low' ? 512 : 1024))
+  const [atlasSize] = useState(() => textureSize(useVoid.getState().quality))
   const atlas = useShared(`nebula-atlas:${atlasSize}`, () => new NebulaAtlas(atlasSize), ATLAS_POLICY)
   const root = useRef<Group>(null)
   const warmed = useRef(false)

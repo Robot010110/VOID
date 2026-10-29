@@ -30,6 +30,7 @@ import { guessTier, probeGpu, readDeviceHints } from './core/quality.ts'
 import { SPECTRA, TIME_STEPS, useVoid, type Spectrum, type TimeStep } from './core/store.ts'
 import { getSystem, HOME, levelOf, type Path } from './core/universe.ts'
 import { planOpening, type OpeningMode } from './intro/opening.ts'
+import { readFlag } from './core/persist.ts'
 import { greetConsole } from './secrets/console.ts'
 import { prepareFilm } from './film/director.ts'
 import { Fallback } from './ui/Fallback.tsx'
@@ -79,10 +80,13 @@ const linkedPath = openingPath()
 const mode = openingMode(linkedPath.length > 0)
 const path = planOpening(mode, linkedPath)
 
+// HD, once asked for, is kept: Ultra, and the governor never steps it down.
+const hd = PINNED_QUALITY === null && readFlag('hd', false)
+
 useVoid.setState({
-  quality: PINNED_QUALITY ?? guessTier(gpu, readDeviceHints()),
+  quality: PINNED_QUALITY ?? (hd ? 'ultra' : guessTier(gpu, readDeviceHints())),
   // The trailer never changes tier while it plays: every place in it is built once, up front.
-  qualityLocked: PINNED_QUALITY !== null || FILM,
+  qualityLocked: PINNED_QUALITY !== null || FILM || hd,
   planet: isPlanetKind(PLANET) ? PLANET : 'terrestrial',
   path,
   level: levelOf(path),

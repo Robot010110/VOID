@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { guessTier, parseTier, QUALITY, stepTier, STAR_CATALOGUE_SIZE } from './quality.ts'
+import { guessTier, parseTier, QUALITY, renderDpr, stepTier, STAR_CATALOGUE_SIZE, textureSize } from './quality.ts'
 
 const desktop = { touch: false, memory: 8, cores: 8 }
 const gpu = (renderer: string) => ({ webgl2: true, renderer })
@@ -50,12 +50,37 @@ describe('stepTier', () => {
     expect(stepTier('low', 1)).toBe('medium')
     expect(stepTier('high', 1)).toBe('high')
   })
+
+  it('never climbs to ultra, and never leaves it', () => {
+    expect(stepTier('high', 1)).not.toBe('ultra')
+    expect(stepTier('ultra', -1)).toBe('ultra')
+    expect(stepTier('ultra', 1)).toBe('ultra')
+  })
+})
+
+describe('renderDpr', () => {
+  it('supersamples ordinary screens on ultra, up to twice', () => {
+    expect(renderDpr('ultra', 1)).toBe(1.5)
+    expect(renderDpr('ultra', 1.25)).toBe(1.5)
+    expect(renderDpr('ultra', 2)).toBe(2)
+    expect(renderDpr('ultra', 3)).toBe(2)
+  })
+
+  it('clamps the device into the tier on the others', () => {
+    expect(renderDpr('high', 3)).toEqual([1, 2])
+    expect(renderDpr('low', 2)).toEqual([1, 1])
+  })
+
+  it('gives ultra the largest textures', () => {
+    expect([textureSize('ultra'), textureSize('high'), textureSize('low')]).toEqual([2048, 1024, 512])
+  })
 })
 
 describe('parseTier', () => {
   it('accepts only known tiers', () => {
     expect(parseTier('high')).toBe('high')
-    expect(parseTier('ultra')).toBeNull()
+    expect(parseTier('ultra')).toBe('ultra')
+    expect(parseTier('max')).toBeNull()
     expect(parseTier(null)).toBeNull()
   })
 })
@@ -66,6 +91,13 @@ describe('QUALITY', () => {
     expect(STAR_CATALOGUE_SIZE * QUALITY.medium.starFraction).toBe(15000)
     expect(STAR_CATALOGUE_SIZE * QUALITY.low.starFraction).toBe(6000)
     expect([QUALITY.high.maxDpr, QUALITY.medium.maxDpr, QUALITY.low.maxDpr]).toEqual([2, 1.5, 1])
+  })
+
+  it('puts ultra above high everywhere it matters', () => {
+    expect(QUALITY.ultra.galaxyParticles).toBeGreaterThan(QUALITY.high.galaxyParticles)
+    expect(QUALITY.ultra.universeParticles).toBeGreaterThan(QUALITY.high.universeParticles)
+    expect(QUALITY.ultra.planetFace).toBeGreaterThan(QUALITY.high.planetFace)
+    expect(QUALITY.ultra.maxDpr).toBe(2)
   })
 
   it('drops film grain on low', () => {

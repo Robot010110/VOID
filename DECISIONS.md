@@ -46,6 +46,10 @@ Non-obvious calls, one or two lines each, with the reason. Newest phase last.
 - **Tiers draw a brightness-ranked prefix of one 30k catalogue** (30k / 15k / 6k) and fade the rest in the vertex shader, instead of regenerating. Tier changes are smooth, and Low keeps the brightest stars.
 - **The initial tier is a guess from the GPU string, memory, cores and pointer type.** Intel HD/UHD start on Low: a UHD 620 measured about 27 fps at DPR 1.5 and a steady 60 at DPR 1. Iris Xe, Apple silicon and discrete GPUs start on High.
 - **The governor** (drei's PerformanceMonitor) has separate decline and incline bounds, a longer cool-down before stepping up than down, and a lock after three flip-flops, so it never oscillates.
+- **HD (the Ultra tier) is only ever chosen,** by the HD button or H, or `?quality=ultra`. It is remembered between visits and is never guessed or stepped up to: it costs far more than High, and a visitor who asks for it has asked for the look over the frame rate. While it is on, the governor is off and the soft-light buffer never shrinks.
+  - **It supersamples:** at least 1.5 pixels for every screen pixel, at most 2. A 1080p laptop at DPR 1 drew its stars as hard single pixels and its glow at 0.6 of the screen, which read as low resolution; at 1.5x, with SMAA at any density, stars are round and edges smooth. It stops at 2, not 4K.
+  - **It doubles what a galaxy is made of** (800k particles, 10k a galaxy in the universe), draws the glow at full CSS resolution, and bakes 2048 atlases, band and planet faces.
+  - **The switch reloads the page,** because particles and textures are built once at load.
 - **The GPU probe reads `RENDERER` first** and only asks for `WEBGL_debug_renderer_info` when that is masked, because Firefox warns when the extension is touched. It never calls `loseContext()`, because Chrome logs that as a warning.
 
 ## Phase 1: One perfect planet

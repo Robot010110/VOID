@@ -4,7 +4,7 @@ import type { WebGLRendererParameters } from 'three'
 import { galaxySite, type GalaxyKind } from '../core/cosmos.ts'
 import { DEBUG, LEVEL, PLANET, SHOT } from '../core/env.ts'
 import { isPlanetKind } from '../core/planets.ts'
-import { QUALITY } from '../core/quality.ts'
+import { QUALITY, renderDpr } from '../core/quality.ts'
 import { useVoid } from '../core/store.ts'
 import { effectiveScale } from '../core/time.ts'
 import { HOME, levelOf } from '../core/universe.ts'
@@ -197,7 +197,7 @@ export function Experience() {
   return (
     <Canvas
       className="void-canvas"
-      dpr={atHole && holeDpr < maxDpr ? holeDpr : [1, maxDpr]}
+      dpr={atHole && holeDpr < maxDpr ? holeDpr : renderDpr(quality, window.devicePixelRatio || 1)}
       gl={GL}
       camera={CAMERA}
       onCreated={onCreated}
