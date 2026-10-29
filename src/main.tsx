@@ -26,7 +26,7 @@ import {
 } from './core/env.ts'
 import { getGalaxy } from './core/galaxy.ts'
 import { isPlanetKind } from './core/planets.ts'
-import { guessTier, probeGpu, readDeviceHints } from './core/quality.ts'
+import { defaultsToHd, guessTier, probeGpu, readDeviceHints } from './core/quality.ts'
 import { SPECTRA, TIME_STEPS, useVoid, type Spectrum, type TimeStep } from './core/store.ts'
 import { getSystem, HOME, levelOf, type Path } from './core/universe.ts'
 import { planOpening, type OpeningMode } from './intro/opening.ts'
@@ -80,11 +80,15 @@ const linkedPath = openingPath()
 const mode = openingMode(linkedPath.length > 0)
 const path = planOpening(mode, linkedPath)
 
-// HD, once asked for, is kept: Ultra, and the governor never steps it down.
-const hd = PINNED_QUALITY === null && readFlag('hd', false)
+// HD is the look VOID is meant to be seen in: on by default on a computer, off by default on a
+// phone or with no real GPU, and whatever the visitor last chose with the HD button after that.
+// While it is on the governor never steps it down.
+const hints = readDeviceHints()
+const guess = guessTier(gpu, hints)
+const hd = PINNED_QUALITY === null && readFlag('hd', defaultsToHd(gpu, hints))
 
 useVoid.setState({
-  quality: PINNED_QUALITY ?? (hd ? 'ultra' : guessTier(gpu, readDeviceHints())),
+  quality: PINNED_QUALITY ?? (hd ? 'ultra' : guess),
   // The trailer never changes tier while it plays: every place in it is built once, up front.
   qualityLocked: PINNED_QUALITY !== null || FILM || hd,
   planet: isPlanetKind(PLANET) ? PLANET : 'terrestrial',

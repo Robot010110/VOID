@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { guessTier, parseTier, QUALITY, renderDpr, stepTier, STAR_CATALOGUE_SIZE, textureSize } from './quality.ts'
+import { defaultsToHd, guessTier, parseTier, QUALITY, renderDpr, stepTier, STAR_CATALOGUE_SIZE, textureSize } from './quality.ts'
 
 const desktop = { touch: false, memory: 8, cores: 8 }
 const gpu = (renderer: string) => ({ webgl2: true, renderer })
@@ -103,5 +103,14 @@ describe('QUALITY', () => {
   it('drops film grain on low', () => {
     expect(QUALITY.low.grain).toBe(0)
     expect(QUALITY.high.grain).toBeGreaterThan(0)
+  })
+})
+
+describe('defaultsToHd', () => {
+  it('opens computers in HD, and phones and software rendering in the guessed tier', () => {
+    expect(defaultsToHd(gpu('ANGLE (Intel, Intel(R) UHD Graphics 620 Direct3D11)'), desktop)).toBe(true)
+    expect(defaultsToHd(gpu('NVIDIA GeForce RTX 3060'), desktop)).toBe(true)
+    expect(defaultsToHd(gpu('Apple GPU'), { touch: true })).toBe(false)
+    expect(defaultsToHd(gpu('ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero)))'), desktop)).toBe(false)
   })
 })

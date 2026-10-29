@@ -1,8 +1,9 @@
 /**
  * Quality tiers. A first guess comes from the device (GPU string, memory, cores, touch);
  * the frame-rate governor then steps down when frames drop and back up when there is
- * headroom, with hysteresis so it never oscillates. Ultra is above them all and only ever
- * chosen: by the HD button, or `?quality=ultra` for shots. The governor never reaches it.
+ * headroom, with hysteresis so it never oscillates. Ultra (HD) is above them all: the default
+ * on a computer, and otherwise chosen with the HD button or `?quality=ultra`. The governor
+ * never reaches it or leaves it.
  */
 export type QualityTier = 'low' | 'medium' | 'high' | 'ultra'
 
@@ -95,10 +96,19 @@ export function textureSize(tier: QualityTier): number {
   return tier === 'ultra' ? 2048 : tier === 'low' ? 512 : 1024
 }
 
+/** Whether HD is on before the visitor has chosen: on a computer with a real GPU, yes. */
+export function defaultsToHd(gpu: GpuInfo, hints: DeviceHints): boolean {
+  return !hints.touch && !isSoftware(gpu)
+}
+
+function isSoftware(gpu: GpuInfo): boolean {
+  return /swiftshader|llvmpipe|softpipe|software|basic render/.test(gpu.renderer.toLowerCase())
+}
+
 /** Best first guess before any frame has been measured. */
 export function guessTier(gpu: GpuInfo, hints: DeviceHints): QualityTier {
   const renderer = gpu.renderer.toLowerCase()
-  if (/swiftshader|llvmpipe|softpipe|software|basic render/.test(renderer)) return 'low'
+  if (isSoftware(gpu)) return 'low'
 
   let tier: QualityTier = 'high'
   if (hints.touch) {

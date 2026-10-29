@@ -2,7 +2,8 @@ import { writeFlag } from '../core/persist.ts'
 import { useVoid } from '../core/store.ts'
 
 /**
- * HD: the Ultra tier, asked for by the visitor and remembered (see main.tsx). A galaxy's
+ * HD: the Ultra tier, on by default on a computer; the visitor's choice is remembered (see
+ * main.tsx). A galaxy's
  * particles, the textures and the sky's band are built once at load, so the switch reloads the
  * page; a pinned `?quality` is dropped, or it would win over the choice just made.
  */
