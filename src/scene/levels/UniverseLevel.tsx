@@ -1,7 +1,7 @@
 import { useThree } from '@react-three/fiber'
 import { useEffect, useRef } from 'react'
 import { Vector3, type Group, type PerspectiveCamera } from 'three'
-import { getUniverse } from '../../core/cosmos.ts'
+import { displaySize, getUniverse } from '../../core/cosmos.ts'
 import { getGalaxyLook } from '../../core/galaxy.ts'
 import { useVoid } from '../../core/store.ts'
 import type { Path } from '../../core/universe.ts'
@@ -46,7 +46,7 @@ export function UniverseLevel({ path }: { path: Path }) {
       if (x < 0 || y < 0 || x > size.width || y > size.height) return null
       const scale = group.matrixWorld.getMaxScaleOnAxis()
       // A galaxy's ring goes round its light; the hole's round its disc.
-      const extent = 'size' in site ? site.size * 0.8 : hole.radius * DISC_OUTER
+      const extent = 'size' in site ? displaySize(site) * 0.8 : hole.radius * DISC_OUTER
       const radius = pixelRadius(extent * scale, cam.position.distanceTo(world), cam.fov, size.height)
       return { index, x, y, radius: Math.max(radius, 3) }
     }

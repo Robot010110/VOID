@@ -25,6 +25,8 @@ uniform float uResolve;
 uniform vec3 uCamera;
 // Which light this pass draws: 0 beyond each galaxy's dust, 1 in front of it, -1 all of it.
 uniform float uSide;
+// How far each colour is pushed from its own grey (1 leaves it as it is).
+uniform float uChroma;
 
 varying vec3 vColour;
 varying float vPeak;
@@ -77,7 +79,8 @@ void main() {
   float peak = uExposure * aShape.y / share / (size * size) * (sigmaFar * sigmaFar) / (sigma * sigma);
   peak = min(peak * gate, uPeakMax) * thin * kept * uFade;
 
-  vColour = aColour.rgb;
+  float grey = dot(aColour.rgb, vec3(0.2126, 0.7152, 0.0722));
+  vColour = max(mix(vec3(grey), aColour.rgb, uChroma), 0.0);
   vPeak = peak;
   vSigma = sigma;
   vHalf = sigma * 2.0 + 0.5;

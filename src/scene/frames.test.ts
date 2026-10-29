@@ -1,6 +1,6 @@
 import { Matrix4, Quaternion, Vector3 } from 'three'
 import { describe, expect, it } from 'vitest'
-import { getUniverse } from '../core/cosmos.ts'
+import { displaySize, getUniverse } from '../core/cosmos.ts'
 import { getGalaxyLook } from '../core/galaxy.ts'
 import { HOME_BAND } from '../core/sky.ts'
 import { anchorOf, frameTransform } from './frames.ts'
@@ -57,10 +57,10 @@ describe('frameTransform', () => {
     }
   })
 
-  it('scales a galaxy down into the universe to its size there', () => {
+  it('scales a galaxy down into the universe to its size as drawn there', () => {
     const site = getUniverse().galaxies[1]!
     const scale = anchorOf([1], 0, new Vector3(), new Quaternion())
-    expect(scale * getGalaxyLook(1).shape.radius).toBeCloseTo(site.size, 9)
+    expect(scale * getGalaxyLook(1).shape.radius).toBeCloseTo(displaySize(site), 9)
   })
 
   it("keeps the universe's own units at the black hole, turned to its disc", () => {

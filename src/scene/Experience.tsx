@@ -179,10 +179,11 @@ function Sky() {
   const band = BAND[galaxySite(galaxy).kind]
   if (LEVEL === 'sky') return <Starfield />
   if (SHOWROOM || level === 'planet') return <Starfield brightness={0.75} band={0.4 * band} />
-  // Outside a galaxy its band is gone: what is left are a few stars between the galaxies,
-  // fewer still out among the clusters.
+  // Outside a galaxy its band is gone. Among the galaxies the sky is kept rich enough to give
+  // the web depth; at the black hole it is held back, behind the light the hole bends.
   if (level === 'galaxy') return <Starfield brightness={0.45} band={0} />
-  if (level === 'universe' || level === 'hole') return <Starfield brightness={0.3} band={0} />
+  if (level === 'universe') return <Starfield brightness={0.55} band={0} />
+  if (level === 'hole') return <Starfield brightness={0.3} band={0} />
   return <Starfield brightness={0.9} band={0.55 * band} />
 }
 

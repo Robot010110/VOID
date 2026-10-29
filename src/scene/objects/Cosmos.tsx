@@ -26,7 +26,7 @@ import {
   type PerspectiveCamera,
 } from 'three'
 import { blackbody } from '../../core/blackbody.ts'
-import { deepField, webGas, type Universe } from '../../core/cosmos.ts'
+import { deepField, displaySize, webGas, type Universe } from '../../core/cosmos.ts'
 import { CORE_LIGHT, crestPhase, getGalaxyLook, type GalaxyLook } from '../../core/galaxy.ts'
 import { GalaxyParticleJob, LAYER_SHARE, particleCounts, type ParticleSet } from '../../core/galaxyParticles.ts'
 import { QUALITY, textureSize } from '../../core/quality.ts'
@@ -56,9 +56,10 @@ import { ATLAS_POLICY, createUniverseNebulae, NebulaAtlas } from './Nebula.ts'
 const TWEAKS: TweakSchema = {
   exposure: { value: 0.14, min: 0, max: 1, step: 0.001 },
   sparkle: { value: 0.03, min: 0, max: 0.3, step: 0.001 },
-  coreLight: { value: 1.6, min: 0, max: 6, step: 0.01 },
-  gas: { value: 0.0045, min: 0, max: 0.1, step: 0.0001 },
-  field: { value: 0.9, min: 0, max: 4, step: 0.01 },
+  coreLight: { value: 2.4, min: 0, max: 6, step: 0.01 },
+  gas: { value: 0.011, min: 0, max: 0.1, step: 0.0001 },
+  field: { value: 1.35, min: 0, max: 4, step: 0.01 },
+  chroma: { value: 1.55, min: 0, max: 3, step: 0.01 },
   nebulae: { value: 0.11, min: 0, max: 3, step: 0.01 },
 }
 
@@ -128,7 +129,7 @@ function galaxyTexture(universe: Universe, looks: readonly GalaxyLook[]): DataTe
       w[0], w[1], w[2], w[3],
       w[4], w[5], shape.bar, shape.barAngle,
       shape.barEccentricity, motion.speed, motion.core, motion.pattern,
-      site.position[0], site.position[1], site.position[2], site.size / shape.radius,
+      site.position[0], site.position[1], site.position[2], displaySize(site) / shape.radius,
       ...site.orientation,
     ], row * GALAXY_TEXELS * 4)
   })
@@ -240,6 +241,12 @@ class UniverseGalaxies implements Disposable, Work {
   }
 }
 
+/** A colour pushed away from its own grey by `amount` (1 leaves it), never below black. */
+function saturate([r, g, b]: readonly number[], amount: number): [number, number, number] {
+  const grey = 0.2126 * r! + 0.7152 * g! + 0.0722 * b!
+  return [r!, g!, b!].map((c) => Math.max(0, grey + (c - grey) * amount)) as [number, number, number]
+}
+
 /** Each galaxy's unresolved heart, one camera-facing card per galaxy (none for irregulars). */
 function createCores(universe: Universe): InstancedBufferGeometry {
   const count = universe.galaxies.length
@@ -248,10 +255,10 @@ function createCores(universe: Universe): InstancedBufferGeometry {
   const colour = new Float32Array(count * 3)
   universe.galaxies.forEach((site, i) => {
     const look = getGalaxyLook(site.index)
-    const scale = site.size / look.shape.radius
+    const scale = displaySize(site) / look.shape.radius
     centre.set(site.position, i * 3)
-    core.set([look.shape.bulge * 0.55 * scale, look.shape.bulge * 2.4 * scale, CORE_LIGHT[look.kind]], i * 3)
-    colour.set(blackbody(look.light.core), i * 3)
+    core.set([look.shape.bulge * 0.9 * scale, look.shape.bulge * 2.4 * scale, CORE_LIGHT[look.kind]], i * 3)
+    colour.set(saturate(blackbody(look.light.core), num(TWEAKS, 'chroma')), i * 3)
   })
   const quad = new PlaneGeometry(2, 2)
   const geometry = new InstancedBufferGeometry()
@@ -349,6 +356,9 @@ export function Cosmos({ universe }: { universe: Universe }) {
     const screenPixels: IUniform = { value: 1000 }
     const maxPointSize: IUniform = { value: 256 }
     const exposure: IUniform = { value: num(TWEAKS, 'exposure') }
+    // Seen from across the universe, a galaxy's colours are pushed further apart than up close:
+    // blue arms, golden hearts, pink knots, as in a long exposure.
+    const chroma: IUniform = { value: num(TWEAKS, 'chroma') }
     // Gravity touch among the galaxies reaches across a cluster and the threads beside it.
     const well = wellUniforms(480)
     const lightUniforms = (side: number): Record<string, IUniform> => ({
@@ -367,6 +377,7 @@ export function Cosmos({ universe }: { universe: Universe }) {
       uPeakMax: { value: 6 },
       uYoungShift: { value: 0.25 },
       uResolve: { value: 0 },
+      uChroma: chroma,
     })
     const light = (name: string, side: number) =>
       new ShaderMaterial({
@@ -409,7 +420,7 @@ export function Cosmos({ universe }: { universe: Universe }) {
       name: 'universe-cores',
       vertexShader: coreVert,
       fragmentShader: coreFrag,
-      uniforms: { uFade: fade, uPixelsPerUnit: softPixels, uMinRadius: { value: 0.9 }, uIntensity: { value: num(TWEAKS, 'coreLight') / 2 } },
+      uniforms: { uFade: fade, uPixelsPerUnit: softPixels, uMinRadius: { value: 1.6 }, uIntensity: { value: num(TWEAKS, 'coreLight') / 2 } },
       ...ADD_KEEPING_ALPHA,
       transparent: true,
       depthTest: false,
@@ -502,6 +513,7 @@ export function Cosmos({ universe }: { universe: Universe }) {
       screenPixels,
       maxPointSize,
       exposure,
+      chroma,
       well,
       dust,
       materials: [far, near, dust, cores, gas, sparkle, field],
@@ -548,8 +560,9 @@ export function Cosmos({ universe }: { universe: Universe }) {
       if (key === 'gas') tuned.current.gas = value
       if (key === 'field') tuned.current.field = value
       if (key === 'nebulae') tuned.current.nebulae = value
+      if (key === 'chroma') parts.chroma.value = value
     },
-    [],
+    [parts],
   )
   useTweaks('Universe', TWEAKS, apply)
 
@@ -576,7 +589,7 @@ export function Cosmos({ universe }: { universe: Universe }) {
     parts.exposure.value = t.exposure * lens(0.6, 0.3)
     parts.sparkle.uniforms.uExposure!.value = t.sparkle * lens(0.4, 0.06) * sung(1.4)
     parts.cores.uniforms.uIntensity!.value = t.core * lens(0.8, 1.6) * sung(0.5)
-    parts.gas.uniforms.uExposure!.value = t.gas * lens(1.3, 4.5)
+    parts.gas.uniforms.uExposure!.value = t.gas * lens(1.3, 2.4)
     parts.field.uniforms.uExposure!.value = t.field * lens(0.7, 0.45)
     parts.nebulae.material.uniforms.uGlow!.value = t.nebulae * lens(2, 0.45)
     parts.dust.uniforms.uDustScale!.value = lens(0.75, 0.08)
@@ -591,7 +604,7 @@ export function Cosmos({ universe }: { universe: Universe }) {
     const scale = group.matrixWorld.getMaxScaleOnAxis()
     universe.galaxies.forEach((site, i) => {
       centre.set(site.position[0], site.position[1], site.position[2]).applyMatrix4(group.matrixWorld)
-      const radius = (site.size * scale * pixels) / Math.max(cam.position.distanceTo(centre), 1e-6)
+      const radius = (displaySize(site) * scale * pixels) / Math.max(cam.position.distanceTo(centre), 1e-6)
       shares[i * 4] = Math.min(1, Math.max(DETAIL_MIN, DETAIL_DENSITY * radius * radius) / galaxies.lights[i]!)
     })
     galaxies.detail.needsUpdate = true
