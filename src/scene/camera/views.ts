@@ -1,4 +1,4 @@
-import { HOLE_POLAR, type HoleSite, type Universe } from '../../core/cosmos.ts'
+import { displaySize, HOLE_POLAR, type HoleSite, type Universe } from '../../core/cosmos.ts'
 import { nebulaPosition, type GalaxyLook } from '../../core/galaxy.ts'
 import type { PlanetPreset } from '../../core/planets.ts'
 import type { Vec3 } from '../../core/sky.ts'
@@ -37,7 +37,7 @@ export function isPortrait(): boolean {
  * with room around it. A tall screen stands further back.
  */
 export function universeView(portrait = false): RestView {
-  return { azimuth: 0.62, polar: 1.12, distance: portrait ? 2700 : 1850 }
+  return { azimuth: 0.62, polar: 1.12, distance: portrait ? 2700 : 1300 }
 }
 
 /** Named framings of the universe for `?view=`. */
@@ -52,7 +52,7 @@ export function universeViews(universe: Universe, portrait = false): Record<stri
     edge: { azimuth: home.azimuth, polar: 1.5, distance: home.distance },
     wide: { azimuth: home.azimuth, polar: 1.05, distance: home.distance * 1.7 },
     cluster: { azimuth: 0.9, polar: 1.12, distance: cluster.radius * 5, center: cluster.position },
-    local: { azimuth: 0.5, polar: 1.0, distance: local.size * 16, center: local.position },
+    local: { azimuth: 0.5, polar: 1.0, distance: displaySize(local) * 16, center: local.position },
     nebula: { azimuth: 0.3, polar: 1.2, distance: nebula.size * 3.4, center: nebula.position },
     hole: { azimuth: 0.7, polar: 1.25, distance: 160, center: universe.hole.position },
   }

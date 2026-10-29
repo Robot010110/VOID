@@ -492,7 +492,20 @@ export function deepField(universe: Universe, count: number): DeepField {
   return { count, place, look, colour }
 }
 
-/** The faint gas of the cosmic web: soft clouds along the filaments, haloes on the nodes. */
+/**
+ * How much larger a galaxy is drawn than the room it was placed with. Placement keeps its
+ * sizes (and so every galaxy keeps its place); drawn at this scale, from the universe's resting
+ * view a spiral is large enough to show its arms. Galaxies are placed at least 2.1 sizes apart,
+ * so drawn this large they still never touch.
+ */
+export const GALAXY_DISPLAY_SCALE = 1.35
+
+/** A galaxy's radius as drawn in the universe. */
+export function displaySize(site: { readonly size: number }): number {
+  return site.size * GALAXY_DISPLAY_SCALE
+}
+
+/** The gas of the cosmic web: soft clouds along the filaments, haloes on the nodes. */
 export interface WebGas {
   readonly count: number
   /** Per cloud: position, gaussian radius. */
@@ -501,8 +514,8 @@ export interface WebGas {
   readonly look: Float32Array
 }
 
-const THREAD = hexToLinear('#5a63c8')
-const THREAD_TIDE = hexToLinear('#4aa6b8')
+const THREAD = hexToLinear('#4f5fe0')
+const THREAD_TIDE = hexToLinear('#3fb8d0')
 const HALO = hexToLinear('#c9a9d6')
 
 export function webGas(universe: Universe, count: number): WebGas {

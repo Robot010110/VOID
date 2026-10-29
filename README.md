@@ -80,7 +80,7 @@ npm run dev
 
 **Development URL parameters:**
 - `?debug` shows the tuning panel and a frame-rate readout.
-- `?quality=low|medium|high` pins the quality tier.
+- `?quality=low|medium|high|ultra` pins the quality tier. Ultra is the HD button's tier (H), for shots and strong machines.
 - `?galaxy=`, `?system=` and `?world=` open somewhere other than the universe; so do `?hole` and `?anchor=`, with the ids in `src/content/anchors.ts`.
 - `?view=` picks one of a level's named framings.
 - `?intro=skip` skips the opening.

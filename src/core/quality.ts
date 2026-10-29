@@ -1,10 +1,13 @@
 /**
  * Quality tiers. A first guess comes from the device (GPU string, memory, cores, touch);
  * the frame-rate governor then steps down when frames drop and back up when there is
- * headroom, with hysteresis so it never oscillates.
+ * headroom, with hysteresis so it never oscillates. Ultra (HD) is above them all: the default
+ * on a computer, and otherwise chosen with the HD button or `?quality=ultra`. The governor
+ * never reaches it or leaves it.
  */
-export type QualityTier = 'low' | 'medium' | 'high'
+export type QualityTier = 'low' | 'medium' | 'high' | 'ultra'
 
+/** The governor's ladder. Ultra is not on it. */
 export const TIERS: readonly QualityTier[] = ['low', 'medium', 'high']
 
 export interface QualitySettings {
@@ -47,6 +50,7 @@ export const STAR_CATALOGUE_SIZE = 30000
 
 // prettier-ignore
 export const QUALITY: Record<QualityTier, QualitySettings> = {
+  ultra: { maxDpr: 2, holeDpr: 2, starFraction: 1, grain: 1, bandWidth: 4096, planetFace: 2048, moonFace: 512, atmosphereSteps: 18, detailOctaves: 4, galaxyParticles: 800000, universeParticles: 16000, deepField: 14000, webGas: 12000, swarmCollectors: 8000 },
   high: { maxDpr: 2, holeDpr: 2, starFraction: 1, grain: 1, bandWidth: 2048, planetFace: 1024, moonFace: 384, atmosphereSteps: 14, detailOctaves: 3, galaxyParticles: 400000, universeParticles: 6000, deepField: 6000, webGas: 9000, swarmCollectors: 6000 },
   medium: { maxDpr: 1.5, holeDpr: 1.5, starFraction: 0.5, grain: 1, bandWidth: 2048, planetFace: 768, moonFace: 256, atmosphereSteps: 10, detailOctaves: 2, galaxyParticles: 200000, universeParticles: 3600, deepField: 4000, webGas: 6000, swarmCollectors: 4000 },
   low: { maxDpr: 1, holeDpr: 0.85, starFraction: 0.2, grain: 0, bandWidth: 1024, planetFace: 512, moonFace: 192, atmosphereSteps: 5, detailOctaves: 1, galaxyParticles: 80000, universeParticles: 2200, deepField: 2500, webGas: 3500, swarmCollectors: 2500 },
@@ -67,18 +71,44 @@ export interface DeviceHints {
 }
 
 export function parseTier(value: string | null | undefined): QualityTier | null {
-  return value === 'low' || value === 'medium' || value === 'high' ? value : null
+  return value === 'low' || value === 'medium' || value === 'high' || value === 'ultra' ? value : null
 }
 
+/** One step along the governor's ladder. Ultra was chosen, so it stays. */
 export function stepTier(tier: QualityTier, direction: -1 | 1): QualityTier {
+  if (tier === 'ultra') return tier
   const index = TIERS.indexOf(tier) + direction
   return TIERS[Math.min(Math.max(index, 0), TIERS.length - 1)]!
+}
+
+/**
+ * The canvas's pixel ratio, or the range R3F clamps the device's into. Ultra draws at least
+ * one and a half pixels for every screen pixel, at most two: on a 1080p laptop that
+ * supersamples, so stars are round and edges smooth; on a retina screen it is the screen.
+ */
+export function renderDpr(tier: QualityTier, deviceDpr: number): number | [number, number] {
+  if (tier === 'ultra') return Math.min(2, Math.max(1.5, deviceDpr))
+  return [1, QUALITY[tier].maxDpr]
+}
+
+/** Atlas and noise textures: 2048 on Ultra, 512 on Low, 1024 otherwise. */
+export function textureSize(tier: QualityTier): number {
+  return tier === 'ultra' ? 2048 : tier === 'low' ? 512 : 1024
+}
+
+/** Whether HD is on before the visitor has chosen: on a computer with a real GPU, yes. */
+export function defaultsToHd(gpu: GpuInfo, hints: DeviceHints): boolean {
+  return !hints.touch && !isSoftware(gpu)
+}
+
+function isSoftware(gpu: GpuInfo): boolean {
+  return /swiftshader|llvmpipe|softpipe|software|basic render/.test(gpu.renderer.toLowerCase())
 }
 
 /** Best first guess before any frame has been measured. */
 export function guessTier(gpu: GpuInfo, hints: DeviceHints): QualityTier {
   const renderer = gpu.renderer.toLowerCase()
-  if (/swiftshader|llvmpipe|softpipe|software|basic render/.test(renderer)) return 'low'
+  if (isSoftware(gpu)) return 'low'
 
   let tier: QualityTier = 'high'
   if (hints.touch) {

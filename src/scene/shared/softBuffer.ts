@@ -33,7 +33,7 @@ import compositeVert from '../../shaders/galaxy/composite.vert'
 import { FULLSCREEN_TRIANGLE } from './gpu.ts'
 
 /** The buffer's share of the screen's size in CSS pixels, by tier. */
-const BUFFER_SCALE: Record<QualityTier, number> = { high: 0.6, medium: 0.48, low: 0.34 }
+const BUFFER_SCALE: Record<QualityTier, number> = { ultra: 1, high: 0.6, medium: 0.48, low: 0.34 }
 
 const ADAPT_STEP = 0.1
 const ADAPT_MIN = 0.5
@@ -87,9 +87,11 @@ export class SoftBuffer {
    */
   resize(width: number, height: number, dpr: number, delta: number, quality: QualityTier) {
     const a = this.adapt
+    // Ultra was asked for: its glow stays sharp whatever the frame rate.
+    if (quality === 'ultra') a.share = 1
     a.frame += (Math.min(delta, 0.1) - a.frame) * 0.08
     a.hold = Math.max(0, a.hold - delta)
-    if (a.hold === 0 && a.frame > ADAPT_SLOW && a.share > ADAPT_MIN) {
+    if (quality !== 'ultra' && a.hold === 0 && a.frame > ADAPT_SLOW && a.share > ADAPT_MIN) {
       a.share = Math.max(ADAPT_MIN, a.share - ADAPT_STEP)
       a.hold = ADAPT_HOLD
     } else if (a.hold === 0 && a.frame < ADAPT_FAST && a.share < 1) {

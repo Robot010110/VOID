@@ -11,7 +11,7 @@
  * units, centred on the hole and turned so its disc is the frame's plane.
  */
 import { Matrix4, Quaternion, Vector3 } from 'three'
-import { getUniverse, isHole } from '../core/cosmos.ts'
+import { displaySize, getUniverse, isHole } from '../core/cosmos.ts'
 import { galacticPosition, getGalaxy, getGalaxyLook, SYSTEM_SCALE, systemOrientation } from '../core/galaxy.ts'
 import { getSystem, orbitPosition, type Path } from '../core/universe.ts'
 
@@ -47,7 +47,7 @@ export function anchorOf(path: Path, time: number, out: Vector3, rotation: Quate
     const site = isHole(path[0]!) ? universe.hole : universe.galaxies[path[0]!]!
     out.set(site.position[0], site.position[1], site.position[2])
     rotation.set(site.orientation[0], site.orientation[1], site.orientation[2], site.orientation[3])
-    return 'size' in site ? site.size / getGalaxyLook(path[0]!).shape.radius : 1
+    return 'size' in site ? displaySize(site) / getGalaxyLook(path[0]!).shape.radius : 1
   }
   out.set(0, 0, 0)
   rotation.identity()

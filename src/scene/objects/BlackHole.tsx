@@ -23,7 +23,7 @@ import {
   type PerspectiveCamera,
 } from 'three'
 import type { HoleSite } from '../../core/cosmos.ts'
-import type { QualityTier } from '../../core/quality.ts'
+import { textureSize, type QualityTier } from '../../core/quality.ts'
 import { useVoid } from '../../core/store.ts'
 import { num, useTweaks, type TweakSchema, type TweakValue } from '../../core/tweaks.ts'
 import noiseFrag from '../../shaders/blackhole/noise.frag'
@@ -43,8 +43,8 @@ export const DISC_OUTER = 13
 const BOUND = DISC_OUTER * 1.12
 
 /** The trace's share of the screen's size, and its most steps along a ray, by tier. */
-const TRACE_SCALE: Record<QualityTier, number> = { high: 0.85, medium: 0.7, low: 0.55 }
-const STEPS: Record<QualityTier, number> = { high: 88, medium: 76, low: 64 }
+const TRACE_SCALE: Record<QualityTier, number> = { ultra: 1, high: 0.85, medium: 0.7, low: 0.55 }
+const STEPS: Record<QualityTier, number> = { ultra: 110, high: 88, medium: 76, low: 64 }
 
 /** Below this many pixels of bending anywhere on screen, the lensing pass is skipped. */
 const VISIBLE_BEND = 0.75
@@ -123,7 +123,7 @@ export function BlackHole({ hole }: { hole: HoleSite }) {
   const level = useLevel()
   const gl = useThree((s) => s.gl)
   const [quality] = useState(() => useVoid.getState().quality)
-  const noise = useShared(`hole-noise:${quality === 'low' ? 512 : 1024}`, () => new DiscNoise(quality === 'low' ? 512 : 1024), NOISE_POLICY)
+  const noise = useShared(`hole-noise:${textureSize(quality)}`, () => new DiscNoise(textureSize(quality)), NOISE_POLICY)
   const root = useRef<Group>(null)
 
   useLayoutEffect(() => {

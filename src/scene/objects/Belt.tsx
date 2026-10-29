@@ -19,7 +19,7 @@ import { useLevel } from '../levels/context.ts'
 import { SOLID } from './body.ts'
 
 /** Rocks per tier: a prefix of one seeded list, so the tiers agree on where rocks are. */
-const ROCKS = { high: 3200, medium: 2000, low: 1000 } as const
+const ROCKS = { ultra: 4400, high: 3200, medium: 2000, low: 1000 } as const
 
 /** One lumpy rock: an icosphere pushed in and out by noise. */
 function createRock(seed: number): IcosahedronGeometry {

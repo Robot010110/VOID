@@ -186,17 +186,18 @@ function universeLayersOf(nebula: UniverseNebula): Layer[] {
   // Billows of the main colour, wisps drawn out by a flow, bright filaments, dark dust, a heart.
   const [billowA, billowB, wispA, wispB, threadA, threadB, dustB, heartA, heartB] =
     nebula.kind === 'aurora'
-      ? [violet, rose, rose, violet, pale, rose, dusk, teal, pale]
+      ? [violet, rose, rose, violet, rose, violet, dusk, teal, pale]
       : nebula.kind === 'tide'
-        ? [ocean, tide, teal, sky, pale, teal, ocean, pale, violet]
-        : [rust, ember, ember, gold, gold, pale, dusk, teal, pale]
-  // Seen from far across the universe, a cloud is mostly soft billows; wisps and threads are
-  // only the faint grain on them, so it never looks combed.
-  add(6, { size: [0.5, 0.78], channel: 0, a: billowA, b: billowB, glow: 1.1, dust: 0, threshold: 0.3, shell: 0, spread: 0.13 })
-  add(4, { size: [0.45, 0.75], channel: 2, a: wispA, b: wispB, glow: 0.32, dust: 0, threshold: 0.46, shell: 0, spread: 0.1 })
-  add(2, { size: [0.4, 0.6], channel: 1, a: threadA, b: threadB, glow: 0.2, dust: 0, threshold: 0.46, shell: 0, spread: 0.1 })
-  add(3, { size: [0.45, 0.7], channel: 0, a: deep, b: dustB, glow: 0.12, dust: 0.2, threshold: 0.38, shell: 0, spread: 0.11 })
-  add(1, { size: [0.22, 0.32], channel: 0, a: heartA, b: heartB, glow: 1.5, dust: 0, threshold: 0.28, shell: 0, spread: 0.1, placeSpread: 0.06 })
+        ? [ocean, tide, teal, sky, teal, sky, ocean, pale, violet]
+        : [rust, ember, ember, gold, gold, ember, dusk, teal, pale]
+  // Soft billows are the body; over them, as in a long exposure, bright filaments and flowing
+  // wisps, cut by thin dark lanes of dust, around a heart that blooms.
+  add(6, { size: [0.5, 0.78], channel: 0, a: billowA, b: billowB, glow: 1.15, dust: 0, threshold: 0.3, shell: 0, spread: 0.13 })
+  add(4, { size: [0.45, 0.75], channel: 2, a: wispA, b: wispB, glow: 0.5, dust: 0, threshold: 0.46, shell: 0, spread: 0.1 })
+  add(3, { size: [0.4, 0.6], channel: 1, a: threadA, b: threadB, glow: 0.5, dust: 0, threshold: 0.44, shell: 0, spread: 0.1 })
+  add(1, { size: [0.45, 0.7], channel: 0, a: deep, b: dustB, glow: 0.08, dust: 0.3, threshold: 0.38, shell: 0, spread: 0.11 })
+  add(2, { size: [0.45, 0.7], channel: 1, a: deep, b: dustB, glow: 0.08, dust: 0.3, threshold: 0.38, shell: 0, spread: 0.11 })
+  add(1, { size: [0.22, 0.32], channel: 0, a: heartA, b: heartB, glow: 2.2, dust: 0, threshold: 0.28, shell: 0, spread: 0.1, placeSpread: 0.06 })
   return layers
 }
 
@@ -286,7 +287,7 @@ export function createNebulae(galaxy: GalaxyLook, orbit: Record<string, IUniform
     const at = [nebula.radius, phase, nebula.height, nebula.size] as const
     return layersOf(nebula).map((layer) => ({ nebula: at, layer }))
   })
-  return nebulaMesh(all, nebulaVert, { ...orbit, uFade: fade, uAtlas: { value: atlas.target.texture }, uGlow: { value: 0.6 } })
+  return nebulaMesh(all, nebulaVert, { ...orbit, uFade: fade, uAtlas: { value: atlas.target.texture }, uGlow: { value: 0.6 }, uContrast: { value: 1 } })
 }
 
 /** The universe's nebulae as one instanced draw; `time` and `fade` are shared with the caller. */
@@ -295,5 +296,6 @@ export function createUniverseNebulae(nebulae: readonly UniverseNebula[], time: 
     const at = [...nebula.position, nebula.size] as const
     return universeLayersOf(nebula).map((layer) => ({ nebula: at, layer }))
   })
-  return nebulaMesh(all, universeNebulaVert, { uTime: time, uFade: fade, uAtlas: { value: atlas.target.texture }, uGlow: { value: 0.6 } })
+  // Universe clouds are sharpened (see nebula.frag): from afar, crisp structure, not fog.
+  return nebulaMesh(all, universeNebulaVert, { uTime: time, uFade: fade, uAtlas: { value: atlas.target.texture }, uGlow: { value: 0.6 }, uContrast: { value: 1.15 } })
 }

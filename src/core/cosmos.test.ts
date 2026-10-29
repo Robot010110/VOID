@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { bezier, deepField, galaxyCount, generateUniverse, getUniverse, HOLE_POLAR, isHole, rotate, webGas } from './cosmos.ts'
+import { bezier, deepField, displaySize, galaxyCount, generateUniverse, getUniverse, HOLE_POLAR, isHole, rotate, webGas } from './cosmos.ts'
 import { getGalaxyLook } from './galaxy.ts'
 import { HOME, levelOf } from './universe.ts'
 
@@ -144,5 +144,17 @@ describe('the deep field and the web', () => {
       if (Math.hypot(p[0]!, p[1]!, p[2]!) > 1800) lost++
     }
     expect(lost).toBe(0)
+  })
+})
+
+describe('galaxies as drawn', () => {
+  it('never touch, drawn larger than they were placed', () => {
+    const { galaxies } = getUniverse()
+    for (const a of galaxies)
+      for (const b of galaxies) {
+        if (a === b) continue
+        const gap = Math.hypot(a.position[0] - b.position[0], a.position[1] - b.position[1], a.position[2] - b.position[2])
+        expect(gap).toBeGreaterThan(displaySize(a) + displaySize(b))
+      }
   })
 })

@@ -5,6 +5,7 @@ import { beginDrift, endDrift } from '../scene/drift.ts'
 import { journey } from '../scene/journey.ts'
 import { findSecret, KeyTrail } from '../secrets/secrets.ts'
 import { edge, sing } from '../secrets/sequences.ts'
+import { toggleHd } from './hd.ts'
 
 /** Without input this long, VOID begins to drift on its own. */
 const IDLE_DRIFT_MS = 60_000
@@ -46,8 +47,8 @@ function openStation() {
 }
 
 /**
- * The keys (T for time, S for what the eye sees by, D to drift), and drift mode's coming and
- * going: it begins after a minute without input (not for a visitor who prefers reduced
+ * The keys (T for time, S for what the eye sees by, D to drift, H for full quality), and drift
+ * mode's coming and going: it begins after a minute without input (not for a visitor who prefers reduced
  * motion), and any input ends it. The input that ends it does nothing else. Two sequences of
  * keys are listened for as well (see secrets/secrets.ts); while the word is being typed, the
  * letters it shares with the keys above do only that.
@@ -93,6 +94,7 @@ export function Shortcuts() {
       if (key === 't') state.setTimeStep(nextTimeStep(state.timeStep))
       else if (key === 's') state.setSpectrum(nextSpectrum(state.spectrum))
       else if (key === 'd' && state.sketch === null) beginDrift()
+      else if (key === 'h') toggleHd()
     }
     const onPress = (event: Event) => {
       wake(event)

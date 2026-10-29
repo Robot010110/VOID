@@ -32,7 +32,7 @@ const TWEAKS: TweakSchema = {
  * extended light that can fill the screen, and blooms only at its core; stars and worlds are
  * small bright sources that bloom fully.
  */
-const LEVEL_BLOOM: Record<string, number> = { universe: 0.6, galaxy: 0.45, hole: 1, system: 1, planet: 1 }
+const LEVEL_BLOOM: Record<string, number> = { universe: 0.9, galaxy: 0.45, hole: 1, system: 1, planet: 1 }
 
 /**
  * At or above this pixel ratio, edges are fine enough that antialiasing costs more than it
@@ -51,7 +51,8 @@ const SMAA_MAX_DPR = 1.75
  */
 export function PostPipeline() {
   const quality = useVoid((s) => s.quality)
-  const antialias = useThree((s) => s.viewport.dpr) < SMAA_MAX_DPR
+  // Ultra antialiases at any density: it is for shots, where every edge shows.
+  const antialias = useThree((s) => s.viewport.dpr) < SMAA_MAX_DPR || quality === 'ultra'
   const camera = useThree((s) => s.camera)
   const lensing = useMemo(() => createLensingPass(camera), [camera])
   useEffect(() => () => lensing.dispose(), [lensing])
@@ -103,7 +104,7 @@ export function PostPipeline() {
   return (
     <EffectComposer enabled={drawing} multisampling={0} frameBufferType={HalfFloatType} enableNormalPass={false}>
       <primitive object={lensing} />
-      {antialias ? quality === 'high' ? <SMAA /> : <FXAA /> : <></>}
+      {antialias ? quality === 'high' || quality === 'ultra' ? <SMAA /> : <FXAA /> : <></>}
       <Bloom
         ref={bloom}
         mipmapBlur
