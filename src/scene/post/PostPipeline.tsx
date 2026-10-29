@@ -32,7 +32,7 @@ const TWEAKS: TweakSchema = {
  * extended light that can fill the screen, and blooms only at its core; stars and worlds are
  * small bright sources that bloom fully.
  */
-const LEVEL_BLOOM: Record<string, number> = { universe: 0.6, galaxy: 0.45, hole: 1, system: 1, planet: 1 }
+const LEVEL_BLOOM: Record<string, number> = { universe: 0.9, galaxy: 0.45, hole: 1, system: 1, planet: 1 }
 
 /**
  * At or above this pixel ratio, edges are fine enough that antialiasing costs more than it

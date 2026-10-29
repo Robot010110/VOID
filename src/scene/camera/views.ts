@@ -37,7 +37,7 @@ export function isPortrait(): boolean {
  * with room around it. A tall screen stands further back.
  */
 export function universeView(portrait = false): RestView {
-  return { azimuth: 0.62, polar: 1.12, distance: portrait ? 2700 : 1850 }
+  return { azimuth: 0.62, polar: 1.12, distance: portrait ? 2700 : 1300 }
 }
 
 /** Named framings of the universe for `?view=`. */

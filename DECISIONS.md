@@ -51,6 +51,7 @@ Non-obvious calls, one or two lines each, with the reason. Newest phase last.
   - **It supersamples:** at least 1.5 pixels for every screen pixel, at most 2. A 1080p laptop at DPR 1 drew its stars as hard single pixels and its glow at 0.6 of the screen, which read as low resolution; at 1.5x, with SMAA at any density, stars are round and edges smooth. It stops at 2, not 4K.
   - **It doubles what a galaxy is made of** (800k particles, 10k a galaxy in the universe), draws the glow at full CSS resolution, and bakes 2048 atlases, band and planet faces.
   - **The switch reloads the page,** because particles and textures are built once at load.
+- **The universe is seen from 1,300 units, not 1,850,** with its bloom at 0.9 of the tuned strength instead of 0.6, and 16,000 particles a galaxy in HD. From further back the web sat in the middle third of the screen and its galaxies were specks; closer, it fills the frame and the spirals show their arms. It is the first thing a visitor sees, so it is framed for that.
 - **The GPU probe reads `RENDERER` first** and only asks for `WEBGL_debug_renderer_info` when that is masked, because Firefox warns when the extension is touched. It never calls `loseContext()`, because Chrome logs that as a warning.
 
 ## Phase 1: One perfect planet

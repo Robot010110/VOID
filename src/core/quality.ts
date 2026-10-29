@@ -50,7 +50,7 @@ export const STAR_CATALOGUE_SIZE = 30000
 
 // prettier-ignore
 export const QUALITY: Record<QualityTier, QualitySettings> = {
-  ultra: { maxDpr: 2, holeDpr: 2, starFraction: 1, grain: 1, bandWidth: 4096, planetFace: 2048, moonFace: 512, atmosphereSteps: 18, detailOctaves: 4, galaxyParticles: 800000, universeParticles: 10000, deepField: 9000, webGas: 12000, swarmCollectors: 8000 },
+  ultra: { maxDpr: 2, holeDpr: 2, starFraction: 1, grain: 1, bandWidth: 4096, planetFace: 2048, moonFace: 512, atmosphereSteps: 18, detailOctaves: 4, galaxyParticles: 800000, universeParticles: 16000, deepField: 9000, webGas: 12000, swarmCollectors: 8000 },
   high: { maxDpr: 2, holeDpr: 2, starFraction: 1, grain: 1, bandWidth: 2048, planetFace: 1024, moonFace: 384, atmosphereSteps: 14, detailOctaves: 3, galaxyParticles: 400000, universeParticles: 6000, deepField: 6000, webGas: 9000, swarmCollectors: 6000 },
   medium: { maxDpr: 1.5, holeDpr: 1.5, starFraction: 0.5, grain: 1, bandWidth: 2048, planetFace: 768, moonFace: 256, atmosphereSteps: 10, detailOctaves: 2, galaxyParticles: 200000, universeParticles: 3600, deepField: 4000, webGas: 6000, swarmCollectors: 4000 },
   low: { maxDpr: 1, holeDpr: 0.85, starFraction: 0.2, grain: 0, bandWidth: 1024, planetFace: 512, moonFace: 192, atmosphereSteps: 5, detailOctaves: 1, galaxyParticles: 80000, universeParticles: 2200, deepField: 2500, webGas: 3500, swarmCollectors: 2500 },
