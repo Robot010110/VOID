@@ -640,13 +640,16 @@ A motion piece to advertise VOID, made out of VOID itself.
 
 ### The film
 
-About 50 seconds, sentence case throughout:
+About 50 seconds, sentence case throughout. **It is ENVOR's advertisement, not the site's:** VOID is the proof, so the words say what was built and the end card names who built it.
 1. **"Look up."** A point of light.
 2. **The pull-back, counted:** 8 worlds around one sun, 300 stars in one galaxy, 61 galaxies and one black hole. These are the real numbers of the real place.
-3. **"Fall into anything."** Straight down through Kistri into Driram's night side, its ring, its cities and one of its fragments.
+3. **"Fall into anything."** Straight down through Kistri into Driram's night side, its ring, its cities and one of its fragments. Low, under the fall: "No download. No plug-in. A whole universe, in a browser tab."
 4. **The features, cut on the beat:** visible, infrared, radio; then bending the stars, speeding up time, drawing a constellation.
-5. **The black hole:** "Some things are hidden.", "Look closer.", and in.
-6. **The name:** silence, then the wordmark gathering out of streaming stars, the address, and "Sound on. Take your time."
+5. **The black hole:** "Every orbit computed. Every word written.", "All of it built from nothing.", and in.
+6. **The name:** silence, then ENVOR gathering out of streaming stars, "We built this.", "We can build anything.", and envor.com.
+
+- **The copy changed and the timing did not,** so the cuts, the shots and the score are as they were. VOID's name and address are left off the end card: a credit line would have needed two more seconds of music.
+- **The five-letter name is set a little smaller and tighter than VOID's four,** so it fits a 540-wide phone layout.
 
 ### The look
 

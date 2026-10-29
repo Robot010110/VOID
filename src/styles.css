@@ -1351,10 +1351,10 @@ html[data-secret] .hud button {
 
 .film-wordmark {
   margin: 0;
-  padding-left: 0.3em;
-  font-size: clamp(3.5rem, 2rem + 9vw, 9.5rem);
+  padding-left: 0.24em;
+  font-size: clamp(3rem, 1.6rem + 8vw, 8.5rem);
   line-height: 1;
-  letter-spacing: 0.3em;
+  letter-spacing: 0.24em;
   font-variation-settings:
     'SOFT' 0,
     'WONK' 0;
@@ -1384,17 +1384,20 @@ html[data-secret] .hud button {
   color: var(--text-name);
 }
 
+.film-end-claim {
+  font-size: clamp(1.25rem, 1rem + 0.9vw, 1.9rem);
+  font-family: var(--font-literary);
+  font-weight: 300;
+  color: rgb(244 235 221 / 0.96);
+}
+
 .film-end-url {
+  margin-top: 0.5rem !important;
   font-size: clamp(1rem, 0.85rem + 0.55vw, 1.4rem);
   letter-spacing: 0.02em;
   color: var(--tide);
 }
 
-.film-end-quiet {
-  margin-top: 0.4rem !important;
-  font-size: clamp(0.85rem, 0.8rem + 0.3vw, 1.05rem);
-  color: var(--text-quiet);
-}
 
 .film-gate,
 .film-after {
